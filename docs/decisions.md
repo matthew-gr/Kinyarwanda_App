@@ -1,6 +1,6 @@
 # Decisions and open questions
 
-Choices made while building Prompt 1 (foundation and Learn) that the prompt or the product spec did not settle. Each takes the simplest reading. Questions for Matt are at the end.
+Choices made while building the app that the prompts or the product spec did not settle: Prompt 1 (foundation and Learn), then Prompt 2 (Review). Each takes the simplest reading. Questions for Matt are at the end.
 
 ## Learn engine
 
@@ -42,6 +42,25 @@ Choices made while building Prompt 1 (foundation and Learn) that the prompt or t
 27. **Learner name** is the placeholder "Learner" until accounts arrive.
 28. **Tokens.** `design-system/tokens.json` is a copy of the design system's file. `npm run tokens` regenerates `src/theme/tokens.css`, including one class per text style (`.h1-bold`, `.flash-word`, `.phonetic`, ...). CI fails if the generated file is out of date.
 
+## Review (Prompt 2)
+
+Prompt 2 was written from the product spec's Module 2 section; the build plan names it "Review engine with the recheck rule, the Review screen, due counts".
+
+29. **What a stage means.** An item at stage N waits stage N's interval before its next review. Learn graduates an item into stage 1 (due 5 minutes later); each correct answer moves it up one stage and schedules the new stage's interval, so the second review is 15 minutes after the first. This matches the spec's recheck example: a missed stage 10 item drops to stage 9 and, after two good rechecks, is due 2 months later.
+30. **Intervals start from the answer**, not from when the item was due, so reviewing late neither shortens nor stretches the next wait.
+31. **Calendar time.** Minutes and hours are exact; days and months follow the calendar in the device's time zone and keep the time of day. A month from Jan 31 is Feb 28 (or 29). Stage 11 repeats yearly.
+32. **Rechecks.** A miss drops one stage (never below 1) and sets a recheck 5 minutes later; a good first recheck sets the second 1 hour later; a good second recheck puts the item back on the schedule at its current stage. A miss at either recheck drops one more stage and restarts the rechecks.
+33. **The queue** is every item due now, ordered by due time, so overdue items come first, oldest first. The item just answered is skipped when anything else is due.
+34. **Overdue** means due before today began; **due now** means due earlier today. Home shows those two, later today, tomorrow, and the total in Review.
+35. **Words and phrases share one Review queue.** The card's WORD, VERB or PHRASE tag says which it is. Learn keeps them in separate decks as before.
+36. **Forms in Review** come from the forms engine as in Learn tests: within the learner's verb level, never an infinitive, and different from the form shown at the item's last review.
+37. **Reload lands on the same card.** The card on screen (its card view ID, item and form) is saved in a one-row `review_session` table. An answer, the new schedule and the cleared card are saved in one transaction; `card_view_id` stays unique, so a double tap counts once.
+38. **Due times live in storage only.** The Review and Home screens set a timer for the next due time just to wake themselves up, and Home recounts when the tab comes back into view.
+39. **Session header in Review**: "N due", then "Stage 3 of 11" or "Recheck 1 of 2"; the bar shows the stage out of 11. After each answer a note says what happens next ("Next review in 1 day.", "Down to stage 4. Recheck in 5 minutes.").
+40. **Home's Review row** is unlocked and says "N due now", "All caught up · next in 12 minutes", or "Opens when you learn your first word". The five counts sit in a small panel under the Practice rows once anything is in Review.
+41. **Database version 2** adds `recheck_step`, `updated_at` and `last_form_id` to `review_items` (existing rows are upgraded in place) and adds `review_session`.
+42. **End-to-end tests wait for each new card.** Learn and Review mark the card's container with `data-card`, which changes with every card. The first CI runs failed because the test clicked an old "Next" button while the app was still saving; the tests now wait for `data-card` to change after every step. The Review test uses Playwright's page clock to skip ahead to due times.
+
 ## Colour pairs below contrast guidelines (kept as designed)
 
 From the design system's Accessibility section. None were changed.
@@ -76,3 +95,5 @@ The prompt names the stack; these supporting packages come with it and were adde
 3. **Daily goal.** Does the goal count items learned (graduated) today, as built, or items introduced today?
 4. **Between tiers.** Should finishing a tier show a moment of celebration ("You've learned your first 100 words") before the next tier's first introductions? Today it moves straight on.
 5. **Seed content.** amazi, ibiryo and akazi have no plural in the seed; please confirm they should stay single-form nouns until AI content replaces the seed.
+6. **Review stages.** Is "an item at stage N waits stage N's interval" the reading you meant (decision 29)? The other reading would make the second review 5 minutes after the first instead of 15.
+7. **One Review queue or two.** Words and phrases are mixed in one Review queue. Should Review get the same Words | Phrases switch as Learn?
