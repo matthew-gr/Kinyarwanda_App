@@ -1,6 +1,7 @@
 // Repositories: the only code that reads and writes IndexedDB.
 
 import { createLearnState, learnConfigFor, type Deck } from '../engine/learn';
+import { dueCounts, type DueCounts } from '../engine/review';
 import type { Item, ItemForm } from '../engine/types';
 import {
   db,
@@ -9,6 +10,7 @@ import {
   type LearnStateRow,
   type Profile,
   type ReviewItem,
+  type ReviewSessionRow,
 } from './db';
 import { seedForms, seedItems } from './seed';
 
@@ -78,6 +80,7 @@ export interface HomeStats {
   phrases: { learned: number; total: number };
   learnedToday: number;
   dailyGoal: number;
+  review: DueCounts;
 }
 
 export async function loadHomeStats(now: number, d: KinyaDb = db): Promise<HomeStats> {
@@ -98,5 +101,59 @@ export async function loadHomeStats(now: number, d: KinyaDb = db): Promise<HomeS
     phrases: count('phrase'),
     learnedToday: reviews.filter((r) => Date.parse(r.created_at) >= startOfDay.getTime()).length,
     dailyGoal: profile.daily_goal,
+    review: dueCounts(
+      reviews.map((r) => ({ itemId: r.item_id, dueAt: Date.parse(r.due_at) })),
+      now,
+    ),
   };
+}
+
+export interface ReviewData {
+  reviews: ReviewItem[];
+  items: Item[];
+  forms: ItemForm[];
+  session: ReviewSessionRow;
+}
+
+/** Everything in Review, with the items and forms it needs. Words and phrases share one queue. */
+export async function loadReview(d: KinyaDb = db): Promise<ReviewData> {
+  const reviews = await d.review_items.toArray();
+  const ids = reviews.map((r) => r.item_id);
+  const [items, forms, session] = await Promise.all([
+    d.items.bulkGet(ids),
+    d.item_forms.where('item_id').anyOf(ids).toArray(),
+    d.review_session.get('current'),
+  ]);
+  return {
+    reviews,
+    items: items.filter((i): i is Item => i !== undefined),
+    forms,
+    session: session ?? { id: 'current', card: null, last_item_id: null },
+  };
+}
+
+/** Saves the card put on screen, and the form it shows, together. */
+export async function saveReviewCard(
+  session: ReviewSessionRow,
+  review: ReviewItem | null,
+  d: KinyaDb = db,
+): Promise<void> {
+  await d.transaction('rw', d.review_session, d.review_items, async () => {
+    await d.review_session.put(session);
+    if (review) await d.review_items.put(review);
+  });
+}
+
+/** Saves a review answer, the new schedule and the cleared card together, or none of them. */
+export async function recordReviewAnswer(
+  event: AnswerEvent,
+  review: ReviewItem,
+  session: ReviewSessionRow,
+  d: KinyaDb = db,
+): Promise<void> {
+  await d.transaction('rw', d.answer_events, d.review_items, d.review_session, async () => {
+    await d.answer_events.add(event);
+    await d.review_items.put(review);
+    await d.review_session.put(session);
+  });
 }

@@ -13,6 +13,7 @@ import {
   type LearnStep,
 } from '../engine/learn';
 import { createAppRng, type Rng } from '../engine/random';
+import { FIRST_STAGE } from '../engine/review';
 import type { Item, ItemForm } from '../engine/types';
 import { db, type KinyaDb, type LearnStateRow } from './db';
 import { getProfile, loadDeck, recordAnswer, saveLearnRow } from './repo';
@@ -138,9 +139,12 @@ export class LearnSession {
         g
           ? {
               item_id: g.itemId,
-              stage: 1,
+              stage: FIRST_STAGE,
+              recheck_step: 0,
               due_at: new Date(g.reviewDueAt).toISOString(),
               created_at: new Date(now).toISOString(),
+              updated_at: new Date(now).toISOString(),
+              last_form_id: null,
             }
           : null,
         this.d,

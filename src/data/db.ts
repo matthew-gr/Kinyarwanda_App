@@ -21,18 +21,33 @@ export interface AnswerEvent {
   id: string;
   item_id: string;
   form_id: string;
-  module: 'learn';
+  module: 'learn' | 'review';
   card_view_id: string;
   result: AnswerResult;
   answered_at: string;
 }
 
-/** Prompt 1 only creates these rows; the Review screen arrives in Prompt 2. */
+/** One row per learned item: where it sits on the Review schedule. */
 export interface ReviewItem {
   item_id: string;
-  stage: 1;
+  /** 1 to 11. */
+  stage: number;
+  /** 0 on the schedule; 1 or 2 while waiting for that recheck after a miss. */
+  recheck_step: 0 | 1 | 2;
   due_at: string;
+  /** When Learn graduated the item. */
   created_at: string;
+  updated_at: string;
+  /** The form shown at the last review, so the next one can pick a different one. */
+  last_form_id: string | null;
+}
+
+/** The Review card on screen, so a reload shows the same card and form. One row, id "current". */
+export interface ReviewSessionRow {
+  id: 'current';
+  card: { card_view_id: string; item_id: string; form_id: string } | null;
+  /** The item answered last, so the next card is a different one when there is a choice. */
+  last_item_id: string | null;
 }
 
 export interface Profile {
@@ -47,6 +62,7 @@ export class KinyaDb extends Dexie {
   learn_state!: EntityTable<LearnStateRow, 'deck'>;
   answer_events!: EntityTable<AnswerEvent, 'id'>;
   review_items!: EntityTable<ReviewItem, 'item_id'>;
+  review_session!: EntityTable<ReviewSessionRow, 'id'>;
   profile!: EntityTable<Profile, 'id'>;
 
   constructor(name = 'kinyarwanda') {
@@ -60,6 +76,19 @@ export class KinyaDb extends Dexie {
       review_items: 'item_id, due_at, created_at',
       profile: 'id',
     });
+    // Prompt 2: Review rows gain their recheck step and last form; the card on screen is saved.
+    this.version(2)
+      .stores({ review_session: 'id' })
+      .upgrade((tx) =>
+        tx
+          .table('review_items')
+          .toCollection()
+          .modify((r: Partial<ReviewItem>) => {
+            r.recheck_step ??= 0;
+            r.last_form_id ??= null;
+            r.updated_at ??= r.created_at;
+          }),
+      );
   }
 }
 
