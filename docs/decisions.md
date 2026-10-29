@@ -96,7 +96,7 @@ From the design system's Accessibility section. None were changed.
 
 ## Dependencies
 
-The prompt names the stack; these supporting packages come with it and were added without asking: `@vitejs/plugin-react`, `@types/react`, `@types/react-dom`, `@types/node`, `jsdom` and `@testing-library/dom` (for Testing Library under Vitest), `typescript-eslint`, `@eslint/js`, `eslint-plugin-react-hooks`, `eslint-plugin-react-refresh`, `eslint-config-prettier` and `globals`. `@supabase/supabase-js` was added in Prompt 3 with Matt's approval. No others. The Supabase CLI runs from its own folder (`%LOCALAPPDATA%supabase-cli`), not as a project dependency.
+The prompt names the stack; these supporting packages come with it and were added without asking: `@vitejs/plugin-react`, `@types/react`, `@types/react-dom`, `@types/node`, `jsdom` and `@testing-library/dom` (for Testing Library under Vitest), `typescript-eslint`, `@eslint/js`, `eslint-plugin-react-hooks`, `eslint-plugin-react-refresh`, `eslint-config-prettier` and `globals`. `@supabase/supabase-js` was added in Prompt 3 with Matt's approval. No others. The Supabase CLI runs from its own folder (`%LOCALAPPDATA%/supabase-cli`), not as a project dependency.
 
 - `react-router` v7 is used (the package formerly published as `react-router-dom`).
 - `scripts/build-tokens.ts` runs directly on Node 22.18+, which strips TypeScript types itself, so no `tsx` or `ts-node` is needed.
