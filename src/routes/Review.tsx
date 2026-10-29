@@ -8,6 +8,7 @@ import { ReviewSession, type ReviewCard, type ReviewView } from '../data/reviewS
 import type { AnswerResult } from '../engine/learn';
 import { TOP_STAGE, type ReviewSchedule } from '../engine/review';
 import { dictionaryLine, playAudio, tagFor, waitInWords } from './cardText';
+import { useProgressVersion } from './useProgressVersion';
 
 /** Longest the empty screen waits before checking again for newly due items. */
 const MAX_WAIT_MS = 60 * 60 * 1000;
@@ -26,6 +27,7 @@ export function Review() {
   const [note, setNote] = useState<{ text: string; good: boolean; id: number } | null>(null);
   const flipRef = useRef<HTMLButtonElement>(null);
   const gotRef = useRef<HTMLButtonElement>(null);
+  const version = useProgressVersion();
 
   useEffect(() => {
     let alive = true;
@@ -37,7 +39,7 @@ export function Review() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [version]);
 
   const card = view?.card ?? null;
   const flipped = card !== null && flippedId === card.cardViewId;

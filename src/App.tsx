@@ -10,6 +10,7 @@ import {
 } from 'react-router';
 import { BottomNav } from './components/BottomNav';
 import { ensureSeeded } from './data/repo';
+import { startSync } from './data/sync';
 import { History } from './routes/History';
 import { Home } from './routes/Home';
 import { Learn } from './routes/Learn';
@@ -39,7 +40,10 @@ export function App() {
 
   useEffect(() => {
     ensureSeeded().then(
-      () => setReady(true),
+      () => {
+        setReady(true);
+        startSync();
+      },
       (e: unknown) => setError(e instanceof Error ? e.message : String(e)),
     );
   }, []);

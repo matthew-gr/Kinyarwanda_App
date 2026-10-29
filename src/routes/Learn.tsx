@@ -7,6 +7,7 @@ import { SessionHeader } from '../components/SessionHeader';
 import { LearnSession, type CardView } from '../data/learnSession';
 import type { AnswerResult, Deck } from '../engine/learn';
 import { dictionaryLine, playAudio, tagFor } from './cardText';
+import { useProgressVersion } from './useProgressVersion';
 
 const DECK_NAMES: Record<Deck, string> = { words: 'Words', phrases: 'Phrases' };
 const GHOSTS: DeckTone[] = ['orange', 'blue', 'yellow'];
@@ -45,6 +46,7 @@ function LearnDeck({ deck }: { deck: Deck }) {
   const flipRef = useRef<HTMLButtonElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
   const gotRef = useRef<HTMLButtonElement>(null);
+  const version = useProgressVersion();
 
   useEffect(() => {
     let alive = true;
@@ -56,7 +58,7 @@ function LearnDeck({ deck }: { deck: Deck }) {
     return () => {
       alive = false;
     };
-  }, [deck]);
+  }, [deck, version]);
 
   const step = view?.step;
   const flipped = view !== null && flippedKey === view.key;

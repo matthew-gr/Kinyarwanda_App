@@ -8,6 +8,7 @@ import { SectionHeader } from '../components/SectionHeader';
 import { loadHomeStats, type HomeStats } from '../data/repo';
 import type { DueCounts } from '../engine/review';
 import { waitInWords } from './cardText';
+import { useProgressVersion } from './useProgressVersion';
 
 function reviewSubtitle(c: DueCounts, now: number): string {
   const due = c.overdue + c.dueNow;
@@ -45,6 +46,7 @@ export function Home() {
   const navigate = useNavigate();
   const [stats, setStats] = useState<HomeStats | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const version = useProgressVersion();
 
   useEffect(() => {
     let alive = true;
@@ -54,7 +56,7 @@ export function Home() {
     return () => {
       alive = false;
     };
-  }, [now]);
+  }, [now, version]);
 
   // Recount when items come due, and when the learner returns to the tab.
   const nextDueAt = stats?.review.nextDueAt ?? null;
