@@ -1,15 +1,121 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { AchievementCard } from '../components/AchievementCard';
 import { SectionHeader } from '../components/SectionHeader';
+import { StatRow } from '../components/StatRow';
+import { loadProgressStats, type ProgressStats } from '../data/progressStats';
+import { setDailyGoal } from '../data/repo';
 import {
   getSyncStatus,
   onSyncStatus,
   sendSignInLink,
   signInWithCode,
   signOut,
+  requestSync,
   syncNow,
   type SyncStatus,
 } from '../data/sync';
 import { waitInWords } from './cardText';
+import { useProgressVersion } from './useProgressVersion';
+
+const GOALS = [5, 10, 15, 20, 30];
+const TONES = ['orange', 'green', 'blue'] as const;
+const EARNED = new Intl.DateTimeFormat(undefined, {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+});
+const days = (n: number) => `${n} day${n === 1 ? '' : 's'}`;
+
+function Progress() {
+  const [stats, setStats] = useState<ProgressStats | null>(null);
+  const [reload, setReload] = useState(0);
+  const version = useProgressVersion();
+
+  useEffect(() => {
+    let alive = true;
+    void loadProgressStats(Date.now()).then((s) => {
+      if (alive) setStats(s);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [version, reload]);
+
+  if (!stats) return null;
+
+  const changeGoal = async (goal: number) => {
+    await setDailyGoal(goal);
+    requestSync();
+    setReload((r) => r + 1);
+  };
+
+  return (
+    <>
+      <StatRow
+        label="Day streak"
+        value={
+          stats.streak.practicedToday || stats.streak.current === 0
+            ? days(stats.streak.current)
+            : `${days(stats.streak.current)}, practise today to keep it`
+        }
+        icon="fire"
+        strong
+      />
+      <StatRow label="Words learned" value={stats.wordsLearned} strong />
+      <StatRow label="Phrases learned" value={stats.phrasesLearned} strong />
+      <StatRow label="Best streak" value={days(stats.streak.best)} strong />
+      <StatRow label="Level" value={`Verb level ${stats.verbLevel}`} badge />
+
+      <section className="badge-row" aria-label="Badges">
+        <SectionHeader title="Badges" subtitle="For words learned" />
+        <div className="kn-carousel" role="list">
+          {stats.badges.map((b, i) => (
+            <div key={b.words} role="listitem">
+              <AchievementCard
+                value={b.words.toLocaleString()}
+                title={`${b.words.toLocaleString()} words`}
+                lines={
+                  b.earnedAt === null
+                    ? [`${(b.words - stats.wordsLearned).toLocaleString()} to go`, 'Not earned yet']
+                    : ['Earned', EARNED.format(new Date(b.earnedAt))]
+                }
+                icon={b.earnedAt === null ? undefined : 'confetti'}
+                tone={TONES[i % TONES.length]}
+                muted={b.earnedAt === null}
+              />
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel" aria-labelledby="settings-title">
+        <h2 id="settings-title" className="h2-bold">
+          Settings
+        </h2>
+        <label className="field">
+          <span className="body-bold">Daily goal: new items to learn each day</span>
+          <select
+            className="field-input field-select body"
+            value={stats.dailyGoal}
+            onChange={(e) => void changeGoal(Number(e.target.value))}
+          >
+            {(GOALS.includes(stats.dailyGoal)
+              ? GOALS
+              : [...GOALS, stats.dailyGoal].sort((a, b) => a - b)
+            ).map((g) => (
+              <option key={g} value={g}>
+                {g} a day
+              </option>
+            ))}
+          </select>
+        </label>
+        <p className="body-small">
+          The goal is shown on Home. It never stops you learning more or reviewing.
+        </p>
+      </section>
+    </>
+  );
+}
 
 function useSyncStatus(): SyncStatus {
   const [status, setStatus] = useState(getSyncStatus);
@@ -46,7 +152,8 @@ export function Profile() {
 
   return (
     <div className="stack">
-      <SectionHeader as="h1" size="large" title="Profile" subtitle="Your account and progress" />
+      <SectionHeader as="h1" size="large" title="Profile" subtitle="Your progress and account" />
+      <Progress />
       {status.state === 'unavailable' ? (
         <section className="panel">
           <p className="body">

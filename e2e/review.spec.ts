@@ -1,7 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
 import { cardWord, learnUntilGraduation } from './helpers.ts';
 
-const reviewRow = (page: Page) => page.getByRole('button', { name: /^Review/ });
+/** The Review row under Practice on Home (the module carousel has a Review card too). */
+const reviewRow = (page: Page) => page.locator('button.kn-practice', { hasText: 'Review' });
 
 /** Flips the Review card and grades it, then waits for the screen to move on. */
 async function grade(page: Page, answer: 'got' | 'missed'): Promise<void> {

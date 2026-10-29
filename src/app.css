@@ -329,3 +329,143 @@ body {
   opacity: 0.6;
   cursor: default;
 }
+
+/* Home: Today banner lines and the module carousel */
+.hero-line {
+  display: block;
+}
+
+.module-carousel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-10);
+  /* Let the row run to the screen edges while the first card lines up with the content. */
+  margin: 0 calc(-1 * var(--space-20));
+}
+
+.module-carousel .kn-carousel {
+  padding: 0 var(--space-20) 4px;
+  scroll-padding: 0 var(--space-20);
+}
+
+/* History: day bars. Thin bars, 4px rounded tops on the baseline, 2px gaps, recessive axis. */
+.daybars {
+  margin: 0;
+  padding: var(--space-20);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+}
+
+.daybars-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-10);
+  color: var(--ink);
+}
+
+.daybars-total {
+  color: var(--text-secondary);
+}
+
+.daybars-plot {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(14, 1fr);
+  gap: 2px;
+  align-items: end;
+  height: 96px;
+  margin-top: var(--space-16);
+  padding-top: var(--space-16);
+  border-bottom: 1px solid var(--line-track);
+}
+
+.daybars-max {
+  position: absolute;
+  top: 0;
+  left: 0;
+  color: var(--text-secondary);
+}
+
+.daybars-col {
+  position: relative;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+
+.daybars-bar {
+  display: block;
+  width: 100%;
+  min-height: 0;
+  border-radius: 4px 4px 0 0;
+}
+
+.daybars-green {
+  background: var(--green-600);
+}
+
+.daybars-blue {
+  background: var(--blue-500);
+}
+
+.daybars-col:hover .daybars-bar {
+  filter: brightness(0.9);
+}
+
+.daybars-col:hover::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 8px;
+  border-radius: var(--radius-button);
+  background: var(--ink);
+  color: var(--surface);
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.daybars-col:first-child:hover::after {
+  left: 0;
+  transform: none;
+}
+
+.daybars-col:last-child:hover::after {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+
+.daybars-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--space-6);
+  color: var(--text-secondary);
+}
+
+/* Profile: badges row, settings */
+.badge-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-10);
+}
+
+.badge-row .kn-carousel {
+  padding: 4px var(--space-20) 12px;
+  margin: 0 calc(-1 * var(--space-20));
+  scroll-padding: 0 var(--space-20);
+}
+
+.field-select {
+  appearance: auto;
+}
+
+.history-note {
+  margin: 0;
+  color: var(--text-secondary);
+}
