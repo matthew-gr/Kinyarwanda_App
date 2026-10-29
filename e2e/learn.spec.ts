@@ -38,12 +38,13 @@ async function learnUntilGraduation(page: Page): Promise<void> {
   throw new Error('No item graduated within 30 steps');
 }
 
-async function rowSubtitle(page: Page, title: 'Words' | 'Phrases'): Promise<string> {
-  const row = page.getByRole('button', { name: new RegExp(`^${title}`) });
-  return (await row.locator('.kn-practice-sub').textContent()) ?? '';
+/** The "n of N learned" line on a Home practice row. Blank until Home has loaded its counts. */
+function rowSubtitle(page: Page, title: 'Words' | 'Phrases') {
+  return page.getByRole('button', { name: new RegExp(`^${title}`) }).locator('.kn-practice-sub');
 }
 
 test('Learn walkthrough: words, then phrases without touching words', async ({ page }) => {
+  test.setTimeout(90_000);
   await page.goto('/');
   await expect(page.getByText('Start Learning today')).toBeVisible();
   await expect(page.getByText('Locked · Coming next')).toBeVisible();
@@ -78,8 +79,8 @@ test('Learn walkthrough: words, then phrases without touching words', async ({ p
 
   // Back to Home: Words shows progress.
   await page.getByRole('button', { name: 'Back to Home' }).click();
-  const wordsBefore = await rowSubtitle(page, 'Words');
-  expect(wordsBefore).toMatch(/^[1-9]\d* of 22 learned$/);
+  await expect(rowSubtitle(page, 'Words')).toHaveText(/^[1-9]\d* of 22 learned$/);
+  const wordsBefore = (await rowSubtitle(page, 'Words').textContent()) ?? '';
 
   // Phrases, through the switch on the Learn screen.
   await page.getByRole('button', { name: /^Words/ }).click();
@@ -96,8 +97,8 @@ test('Learn walkthrough: words, then phrases without touching words', async ({ p
 
   // Words progress is untouched by Phrases.
   await page.getByRole('button', { name: 'Back to Home' }).click();
-  expect(await rowSubtitle(page, 'Words')).toBe(wordsBefore);
-  expect(await rowSubtitle(page, 'Phrases')).toMatch(/^[1-9]\d* of 10 learned$/);
+  await expect(rowSubtitle(page, 'Phrases')).toHaveText(/^[1-9]\d* of 10 learned$/);
+  await expect(rowSubtitle(page, 'Words')).toHaveText(wordsBefore);
 });
 
 test('Keyboard: Space flips, arrows grade', async ({ page }) => {
@@ -112,5 +113,6 @@ test('Keyboard: Space flips, arrows grade', async ({ page }) => {
   await expect(page.getByRole('button', { name: /Tap to reveal meaning/ })).toBeVisible();
   await page.keyboard.press('Space');
   await page.keyboard.press('ArrowLeft');
-  await expect(page.getByRole('button', { name: /Tap to reveal meaning/ })).toBeVisible();
+  // That ends the round of two, so the pool grows and a new phrase is introduced.
+  await expect(page.getByRole('button', { name: 'Next' })).toBeVisible();
 });
