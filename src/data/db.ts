@@ -66,6 +66,8 @@ export interface Profile {
   id: string;
   verb_level: number;
   daily_goal: number;
+  /** True after a change on this device that the server does not have yet. */
+  dirty?: boolean;
 }
 
 export class KinyaDb extends Dexie {

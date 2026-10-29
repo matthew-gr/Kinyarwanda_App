@@ -89,6 +89,16 @@ async function syncProfile(userId: string, d: KinyaDb): Promise<void> {
     .eq('id', userId)
     .maybeSingle();
   if (error) throw error;
+  if (data && local.dirty) {
+    // A change made on this device goes up; until then the server copy wins.
+    const { error: updateError } = await client
+      .from('profiles')
+      .update({ daily_goal: local.daily_goal, updated_at: new Date().toISOString() })
+      .eq('id', userId);
+    if (updateError) throw updateError;
+    await d.profile.put({ ...local, dirty: false });
+    return;
+  }
   if (data) {
     const { verb_level, daily_goal } = data as { verb_level: number; daily_goal: number };
     if (verb_level !== local.verb_level || daily_goal !== local.daily_goal) {
@@ -100,6 +110,7 @@ async function syncProfile(userId: string, d: KinyaDb): Promise<void> {
     .from('profiles')
     .insert({ id: userId, verb_level: local.verb_level, daily_goal: local.daily_goal });
   if (insertError) throw insertError;
+  if (local.dirty) await d.profile.put({ ...local, dirty: false });
 }
 
 async function push(userId: string, d: KinyaDb): Promise<void> {

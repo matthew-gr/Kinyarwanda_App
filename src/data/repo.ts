@@ -33,6 +33,12 @@ export async function getProfile(d: KinyaDb = db): Promise<Profile> {
   });
 }
 
+/** Saves a new daily goal on this device and marks it for the next sync. */
+export async function setDailyGoal(goal: number, d: KinyaDb = db): Promise<void> {
+  const profile = await getProfile(d);
+  await d.profile.put({ ...profile, daily_goal: goal, dirty: true });
+}
+
 export interface DeckData {
   items: Item[];
   forms: ItemForm[];
