@@ -1,0 +1,534 @@
+/* Ported from the design system's project/components/bundle.css. Values come from tokens.css;
+   raw pixels are the design file's own geometry. Changes from the source are marked "Changed:". */
+
+.kn-icon {
+  display: inline-block;
+  flex: none;
+  vertical-align: middle;
+}
+:where(.kn-reset-btn) {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.kn-reset-btn:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Avatar */
+.kn-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  object-fit: cover;
+  flex: none;
+}
+.kn-avatar-fallback {
+  background: var(--blue-tint);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-weight: 700;
+}
+
+/* AppBar. Changed: back column 44px (was 40px) so the back button meets the 44px touch target. */
+.kn-appbar {
+  display: grid;
+  grid-template-columns: 44px 1fr 44px;
+  align-items: center;
+  min-height: 48px;
+  padding: 2px 4px;
+  background: var(--surface);
+  border-radius: var(--radius-field);
+}
+.kn-appbar-back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  color: var(--ink);
+}
+.kn-appbar-title {
+  margin: 0;
+  text-align: center;
+  color: var(--ink);
+}
+.kn-appbar-trailing {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  color: var(--ink);
+}
+
+/* GreetingHeader. Changed: bell button 44px. */
+.kn-greeting {
+  display: flex;
+  align-items: center;
+  gap: 17px;
+}
+.kn-greeting-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.kn-greeting-hello {
+  color: var(--ink);
+}
+.kn-greeting-name {
+  color: var(--yellow-name);
+}
+.kn-greeting-bell {
+  color: var(--blue-500);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+}
+
+/* HeroBanner. Changed: no 56px headroom while the mascot image is missing. */
+.kn-hero {
+  position: relative;
+  padding-top: 56px;
+}
+.kn-hero.kn-hero-noimg {
+  padding-top: 0;
+}
+.kn-hero-band {
+  position: relative;
+  min-height: 145px;
+  padding: 33px var(--space-16) var(--space-16);
+  border-radius: var(--radius-panel);
+  color: var(--surface);
+  background: linear-gradient(
+    88.35deg,
+    var(--hero-start) 31%,
+    var(--hero-mid) 54.43%,
+    var(--hero-end) 78.77%
+  );
+  overflow: hidden;
+}
+.kn-hero-title {
+  margin: 0;
+  max-width: 220px;
+}
+.kn-hero-sub {
+  margin: 6px 0 0;
+  max-width: 180px;
+}
+.kn-hero-img {
+  position: absolute;
+  right: -3px;
+  bottom: 0;
+  height: 201px;
+  width: auto;
+  pointer-events: none;
+}
+
+/* SectionHeader */
+.kn-section {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-10);
+}
+.kn-section-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.kn-section-title {
+  margin: 0;
+  color: var(--ink);
+}
+.kn-section-highlight {
+  color: var(--yellow-name-bright);
+  font-weight: 400;
+}
+.kn-section-sub {
+  margin: 0;
+  color: var(--text-subtitle);
+}
+.kn-section-action {
+  color: var(--text-link);
+  padding-top: 6px;
+  min-height: 44px;
+}
+
+/* PracticeRow. Changed: added the locked state. */
+.kn-practice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-10);
+  height: 82px;
+  padding: 0 35px 0 17px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  color: var(--ink-strong);
+  width: 100%;
+  text-align: left;
+}
+.kn-practice-thumb {
+  width: 60px;
+  height: 60px;
+  flex: none;
+  border-radius: var(--radius-field);
+  overflow: hidden;
+}
+.kn-practice-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.kn-practice-green .kn-practice-thumb {
+  background: var(--green-tint);
+}
+.kn-practice-blue .kn-practice-thumb {
+  background: var(--blue-tint);
+}
+.kn-practice-yellow .kn-practice-thumb {
+  background: var(--yellow-tint);
+}
+.kn-practice-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.kn-practice-title {
+  margin: 0;
+  color: var(--ink-strong);
+}
+.kn-practice-sub {
+  margin: 0;
+  color: var(--text-muted);
+}
+.kn-practice-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 40px;
+}
+.kn-practice-pct {
+  color: var(--green-600);
+}
+.kn-practice.is-locked {
+  cursor: default;
+  border-style: dashed;
+}
+
+/* ProgressBar */
+.kn-progress {
+  position: relative;
+  overflow: hidden;
+  background: var(--line-track);
+}
+.kn-progress-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--green-500);
+  transition: width 0.3s;
+}
+.kn-progress-mini {
+  width: 40px;
+  height: 3px;
+  border-radius: var(--radius-bar);
+}
+.kn-progress-mini .kn-progress-fill {
+  border-radius: var(--radius-bar);
+}
+.kn-progress-session {
+  width: 100%;
+  height: 10px;
+  border-radius: var(--radius-track);
+}
+.kn-progress-session .kn-progress-fill {
+  border-radius: var(--radius-track) 0 0 var(--radius-track);
+}
+
+/* Badge */
+.kn-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+.kn-badge-level {
+  padding: 5px var(--space-10);
+  border-radius: var(--radius-field);
+  background: var(--yellow-pill);
+  color: var(--yellow-pill-text);
+}
+.kn-badge-phrase {
+  padding: 4px 12px;
+  border-radius: var(--radius-panel);
+  background: var(--blue-tag);
+  color: var(--blue-tag-text);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 9.66px;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+/* Flashcard. Changed: the whole front is the flip button; the back does not flip back;
+   width shrinks below 302px on narrow phones; speaker button 44px; added the intro layout. */
+.kn-flash {
+  width: min(302px, 100%);
+  height: 380px;
+  perspective: 1200px;
+  flex: none;
+}
+.kn-flash-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.5s;
+}
+.kn-flash.is-back .kn-flash-inner {
+  transform: rotateY(180deg);
+}
+.kn-flash-face {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-flashcard);
+  box-shadow: var(--shadow-flashcard);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.kn-flash-front {
+  border: 4.83px solid var(--surface);
+}
+.kn-flash-green .kn-flash-front {
+  background: var(--green-card);
+}
+.kn-flash-yellow .kn-flash-front {
+  background: var(--yellow-card);
+}
+.kn-flash-blue .kn-flash-front {
+  background: var(--blue-card);
+}
+.kn-flash-orange .kn-flash-front {
+  background: var(--orange-card);
+}
+.kn-flash-back {
+  background: var(--surface);
+  border: 0.8px solid var(--green-line);
+  transform: rotateY(180deg);
+}
+.kn-flash-flip {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border-radius: inherit;
+}
+.kn-flash-flip:focus-visible {
+  outline-offset: -6px;
+  border-radius: var(--radius-flashcard);
+}
+.kn-flash-speak {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  z-index: 1;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--green-word);
+  background: color-mix(in srgb, var(--green-word) 14%, transparent);
+}
+.kn-flash-center {
+  margin-top: 117px;
+  padding: 0 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.kn-flash-word {
+  margin: 0;
+  color: var(--green-word-alt);
+}
+.kn-flash-green .kn-flash-word {
+  color: var(--green-word);
+}
+.kn-flash-phonetic {
+  margin: 12px 0 0;
+  color: var(--green-phonetic);
+}
+.kn-flash-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 50px;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 4.8px;
+  height: 44px;
+  padding: 0 14.5px;
+  border-radius: var(--radius-panel);
+  background: var(--green-hint);
+  color: var(--ink);
+  font-size: 11.27px;
+  white-space: nowrap;
+}
+.kn-flash-tag {
+  position: absolute;
+  top: 34px;
+  right: 24px;
+}
+.kn-flash-tag-left {
+  right: auto;
+  left: 24px;
+}
+.kn-flash-back .kn-flash-center {
+  margin-top: 112px;
+}
+.kn-flash-backword {
+  margin: 0;
+  color: var(--text-card-back);
+}
+.kn-flash-rule {
+  display: block;
+  width: 65px;
+  height: 2.4px;
+  margin: 12px 0 15px;
+  border-radius: var(--radius-track);
+  background: var(--yellow-500);
+}
+.kn-flash-translation {
+  margin: 0;
+  color: var(--ink);
+}
+.kn-flash-detail {
+  margin: 14px 0 0;
+  color: var(--text-secondary);
+}
+.kn-flash-intro .kn-flash-center {
+  margin-top: 96px;
+}
+.kn-flash-intro .kn-flash-detail {
+  color: var(--ink);
+}
+
+/* FlashcardDeck. Changed: shrinks with the card on narrow phones. */
+.kn-deck {
+  position: relative;
+  width: min(302px, 100%);
+  padding-top: 51.5px;
+}
+.kn-deck-ghost {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 100%;
+  border-radius: var(--radius-flashcard);
+  border: 4px solid var(--surface);
+  box-shadow: var(--shadow-flashcard);
+}
+.kn-deck-ghost.kn-tone-orange {
+  background: var(--orange-card);
+}
+.kn-deck-ghost.kn-tone-blue {
+  background: var(--blue-card);
+}
+.kn-deck-ghost.kn-tone-yellow {
+  background: var(--yellow-card);
+}
+.kn-deck-ghost.kn-tone-green {
+  background: var(--green-card);
+}
+.kn-deck .kn-flash {
+  position: relative;
+}
+
+/* SessionHeader */
+.kn-session {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: 100%;
+  max-width: 348px;
+}
+.kn-session-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text-meta);
+}
+.kn-session-row > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.kn-session .kn-progress {
+  margin-left: 6px;
+  width: calc(100% - 6px);
+}
+
+/* BottomNav. Changed: no drawn home indicator (the phone draws its own), safe-area padding,
+   44px items, and a bar under the current tab so it does not rely on colour. */
+.kn-nav {
+  position: relative;
+  width: 100%;
+  max-width: 441px;
+  padding: 10px 24px calc(10px + env(safe-area-inset-bottom));
+  background: var(--surface);
+  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+}
+.kn-nav-list {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+}
+.kn-nav-item {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  color: var(--ink);
+}
+.kn-nav-item[aria-current='page']::after {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  width: 20px;
+  height: 3px;
+  margin-left: -10px;
+  border-radius: var(--radius-bar);
+  background: var(--ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kn-flash-inner,
+  .kn-progress-fill {
+    transition: none;
+  }
+}
