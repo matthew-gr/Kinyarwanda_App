@@ -4,6 +4,7 @@ import {
   getSyncStatus,
   onSyncStatus,
   sendSignInLink,
+  signInWithCode,
   signOut,
   syncNow,
   type SyncStatus,
@@ -66,6 +67,21 @@ function SignIn({ pending }: { pending: number }) {
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [code, setCode] = useState('');
+
+  const submitCode = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!sentTo || !code.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await signInWithCode(sentTo, code.trim());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -91,9 +107,40 @@ function SignIn({ pending }: { pending: number }) {
         </h2>
         <p className="body" role="status">
           We sent a sign-in link to <strong>{sentTo}</strong>. Open it in this browser to finish
-          signing in.
+          signing in, or type the code from the email here.
         </p>
-        <button type="button" className="btn btn-missed" onClick={() => setSentTo(null)}>
+        <form className="form" onSubmit={(e) => void submitCode(e)}>
+          <label className="field">
+            <span className="body-bold">Code from the email</span>
+            <input
+              className="field-input body"
+              name="code"
+              autoComplete="one-time-code"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              required
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+            />
+          </label>
+          {error ? (
+            <p className="form-error body-small" role="alert">
+              {error}
+            </p>
+          ) : null}
+          <button type="submit" className="btn btn-primary" disabled={busy}>
+            {busy ? 'Signing in…' : 'Sign in with code'}
+          </button>
+        </form>
+        <button
+          type="button"
+          className="btn btn-missed"
+          onClick={() => {
+            setSentTo(null);
+            setCode('');
+            setError(null);
+          }}
+        >
           Use a different email
         </button>
       </section>

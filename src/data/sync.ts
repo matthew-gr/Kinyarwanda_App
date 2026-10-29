@@ -299,6 +299,13 @@ export async function sendSignInLink(email: string): Promise<void> {
   if (error) throw error;
 }
 
+/** Signs in with the code from the sign-in email, for when the link opens somewhere else. */
+export async function signInWithCode(email: string, code: string): Promise<void> {
+  if (!supabase) throw new Error('Accounts are not set up in this build.');
+  const { error } = await supabase.auth.verifyOtp({ email, token: code, type: 'email' });
+  if (error) throw error;
+}
+
 /**
  * Signs out after a last sync. Returns the number of answers that could not be uploaded;
  * when that is above zero, nothing happens unless `force` is set, since signing out removes
