@@ -1,6 +1,6 @@
 # Decisions and open questions
 
-Choices made while building the app that the prompts or the product spec did not settle: Prompt 1 (foundation and Learn), then Prompt 2 (Review), then Prompt 3 (accounts and sync). Each takes the simplest reading. Questions for Matt are at the end.
+Choices made while building the app that the prompts or the product spec did not settle: Prompt 1 (foundation and Learn), then Prompt 2 (Review), then Prompt 3 (accounts and sync), then Prompt 4 (Home, Profile, History, daily goal, streaks). Each takes the simplest reading. Questions for Matt are at the end.
 
 ## Learn engine
 
@@ -77,18 +77,32 @@ Prompt 2 was written from the product spec's Module 2 section; the build plan na
 54. **The two Supabase settings live in a committed `.env`** (the URL and the publishable key). Both are public by design; row level security is what protects the data. Vercel refused a `VITE_`-prefixed variable that looked like a key, so the build reads them from `.env` instead and Vercel needs no Supabase variables. A build without them runs with accounts switched off, and Profile says so.
 55. **`.npmrc` sets `include=dev`**, because this machine's global `NODE_ENV=production` made `npm install <package>` remove the dev tools.
 
+## Home, Profile and History (Prompt 4)
+
+56. **Everything here is worked out from the answer log** (`src/engine/stats.ts`), so it matches on every device after a sync. Days follow the device's time zone.
+57. **Day streak** (Matt's call): any answer in Learn or Review keeps the day. Today counts once practised; until then the streak runs to yesterday, so it does not break before the day is over. Best streak is the longest run.
+58. **Daily goal** (Matt's call): counts items learned (graduated) today, words and phrases together. Settings offer 5, 10, 15, 20 or 30 a day. A change saves on the device and goes to the server on the next sync; until a change is made, the server copy wins.
+59. **Badges** mark 10, 100, 500, 1,000, 2,000 and 5,000 **words** learned (phrases do not count), dated by the word that earned each. They are worked out from the log, so the spec's `achievements` table is not created yet.
+60. **The Today banner** keeps the design's title, "Start Learning today", and shows reviews due now and today's goal progress beneath it.
+61. **The module carousel** (Matt's call) shows all eight modules as the design's course cards. Learn and Review open; the other six say "Coming soon" in words, have dashed borders, and are not buttons. Page dots under the row follow the scroll. Learn opens the Words deck.
+62. **History** shows the day streak, two 14-day bar charts (answers per day, items learned per day; one measure each, own scale, a value on hover, and a table for screen readers) and Review accuracy over 7 and 30 days.
+63. **Profile** shows the day streak, words learned, phrases learned, best streak, the verb level (always 1 until the Verb Builder), the six badges in a carousel, the daily goal setting, then the account section.
+64. **New design system ports**: CourseCard (with a locked state), PageDots, StatRow and AchievementCard, plus the confetti, hands-clapping, settings, time-fill and global-learning icons, copied from the design system bundle.
+
 ## Colour pairs below contrast guidelines (kept as designed)
 
 From the design system's Accessibility section. None were changed.
 
 | Token | Where it appears in this build | Ratio |
 | --- | --- | --- |
-| `text-muted` | Practice row subtitles ("3 of 22 learned") | about 3.7:1 |
+| `text-muted` | Practice row subtitles ("3 of 22 learned"), stat labels, badge detail lines | about 3.7:1 |
 | `text-subtitle` | "Start where you left off" under Practice | about 3.1:1 |
 | `text-link` | Not used yet ("See All") | about 3.1:1 |
 | `green-600` | Practice row percentages | 3.1:1 |
 | `blue-tag-text` | WORD, VERB and PHRASE tags on cards | 3.9:1 |
-| `yellow-pill-text`, `yellow-stat`, `orange-tile-text` | Not used yet (Profile) | 2.3 to 2.9:1 |
+| `yellow-stat` | Stat values and the streak flame on Profile and History | 2.3:1 |
+| `yellow-pill-text` | The verb level pill on Profile | about 2.9:1 |
+| `orange-tile-text` | Number on the orange badge tiles on Profile | 2.4:1 |
 | White on `hero-start`, `hero-mid`, `hero-end` | "Start Learning today" banner | 3.5, 2.6 and 2.1:1 |
 | `text-card-back` | The quiet Kinyarwanda word above the meaning on a card back | 2.3:1 |
 | `green-phonetic` | Phonetic spelling (no phonetic data yet) | 3.5:1 |
