@@ -532,3 +532,234 @@
     transition: none;
   }
 }
+
+/* CourseCard. Changed: added the locked state (dashed border, like PracticeRow), a focus ring,
+   and scroll snapping on the carousel. */
+.kn-course {
+  width: 220px;
+  height: 245px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  color: var(--ink);
+  text-align: left;
+  scroll-snap-align: start;
+}
+
+.kn-course.is-locked {
+  cursor: default;
+  border-style: dashed;
+}
+
+.kn-course:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.kn-course-panel {
+  position: relative;
+  width: 187px;
+  height: 118px;
+  margin: 11px auto 0;
+  border-radius: var(--radius-panel);
+}
+
+.kn-course-yellow .kn-course-panel {
+  background: var(--yellow-panel);
+}
+
+.kn-course-blue .kn-course-panel {
+  background: var(--blue-panel);
+}
+
+.kn-course-green .kn-course-panel {
+  background: var(--green-panel);
+}
+
+.kn-course-panel img {
+  position: absolute;
+  left: 50%;
+  top: 7px;
+  width: 111px;
+  height: 111px;
+  transform: translateX(-50%);
+  object-fit: cover;
+}
+
+.kn-course-text {
+  margin: 11px 25px 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.kn-course-title {
+  margin: 0;
+  color: var(--ink);
+}
+
+.kn-course-desc {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.kn-course-meta {
+  margin-top: auto;
+  padding: 0 19px 18px 25px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--ink);
+}
+
+.kn-course-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-9);
+}
+
+.kn-course-tile {
+  width: 12px;
+  height: 12px;
+  border-radius: 1px;
+  background: var(--blue-400);
+  color: var(--surface);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.kn-course-clock {
+  color: var(--blue-400);
+}
+
+.kn-carousel {
+  display: flex;
+  gap: var(--space-9);
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+/* PageDots */
+.kn-dots {
+  display: flex;
+  gap: var(--space-5);
+  justify-content: center;
+}
+
+.kn-dot {
+  width: 14px;
+  height: 3px;
+  border-radius: var(--radius-bar);
+  background: var(--line-track);
+}
+
+.kn-dot.is-active {
+  background: var(--ink-active);
+}
+
+/* StatRow */
+.kn-stat {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 82px;
+  padding: 0 29px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  width: 100%;
+}
+
+.kn-stat-label {
+  color: var(--text-muted);
+}
+
+.kn-stat-value {
+  display: inline-flex;
+  align-items: center;
+  color: var(--yellow-stat);
+}
+
+/* AchievementCard. Changed: snaps in a carousel. */
+.kn-ach {
+  position: relative;
+  width: 191px;
+  height: 186px;
+  flex: none;
+  padding: 22px 15px 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-lift);
+  scroll-snap-align: start;
+}
+
+.kn-ach-tile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 47px;
+  border-radius: var(--radius-field);
+}
+
+.kn-ach-icon {
+  position: absolute;
+  top: 30px;
+  right: 13px;
+}
+
+.kn-ach-orange .kn-ach-tile {
+  background: var(--orange-tint);
+  color: var(--orange-tile-text);
+}
+
+.kn-ach-orange .kn-ach-icon {
+  color: var(--orange-tile-text);
+}
+
+.kn-ach-green .kn-ach-tile {
+  background: var(--green-tint);
+  color: var(--green-tile-text);
+}
+
+.kn-ach-green .kn-ach-icon {
+  color: var(--green-tile-text);
+}
+
+.kn-ach-blue .kn-ach-tile {
+  background: var(--blue-tile);
+  color: var(--blue-tile-text);
+}
+
+.kn-ach-blue .kn-ach-icon {
+  color: var(--blue-tile-text);
+}
+
+.kn-ach-text {
+  margin-top: 33px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.kn-ach-title {
+  margin: 0 0 4px;
+  color: var(--ink);
+}
+
+.kn-ach.is-muted .kn-ach-title {
+  color: var(--text-muted);
+}
+
+.kn-ach-line {
+  margin: 0;
+  color: var(--text-muted);
+}
