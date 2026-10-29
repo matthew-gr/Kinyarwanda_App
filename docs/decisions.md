@@ -74,7 +74,7 @@ Prompt 2 was written from the product spec's Module 2 section; the build plan na
 51. **The server profile wins** once it exists; the first sign-in creates it from this device's profile (verb level 1, daily goal 10).
 52. **Privacy rules**, checked against the live database with two throwaway accounts in a rolled-back transaction: a learner sees and adds only their own answers and profile; answers cannot be updated or deleted; `seq` and `received_at` are set by the server only; a second answer for the same card view is rejected; signed-out requests see nothing.
 53. **Response time** (in the spec's `answer_events`) is not recorded yet; nothing uses it.
-54. **Builds without Supabase settings** (CI, local runs without `.env.local`) run with accounts switched off; Profile says so. The two settings are public: the URL and the publishable key.
+54. **The two Supabase settings live in a committed `.env`** (the URL and the publishable key). Both are public by design; row level security is what protects the data. Vercel refused a `VITE_`-prefixed variable that looked like a key, so the build reads them from `.env` instead and Vercel needs no Supabase variables. A build without them runs with accounts switched off, and Profile says so.
 55. **`.npmrc` sets `include=dev`**, because this machine's global `NODE_ENV=production` made `npm install <package>` remove the dev tools.
 
 ## Colour pairs below contrast guidelines (kept as designed)

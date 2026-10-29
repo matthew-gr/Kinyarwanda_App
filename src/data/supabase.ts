@@ -1,5 +1,5 @@
-// The Supabase client, or null when this build has no Supabase settings (tests, local runs
-// without .env.local). The app works fully without it; accounts and sync switch off.
+// The Supabase client, or null when a build has no Supabase settings (.env holds them; delete
+// them to build without accounts). The app works fully without it; sync switches off.
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
