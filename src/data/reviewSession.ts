@@ -15,6 +15,7 @@ import {
 import type { Item, ItemForm } from '../engine/types';
 import { db, type KinyaDb, type ReviewItem, type ReviewSessionRow } from './db';
 import { getProfile, loadReview, recordReviewAnswer, saveReviewCard } from './repo';
+import { answerSaved } from './signals';
 
 export interface ReviewCard {
   cardViewId: string;
@@ -155,6 +156,7 @@ export class ReviewSession {
           card_view_id: cardViewId,
           result,
           answered_at: iso,
+          synced: 0,
         },
         updated,
         session,
@@ -162,6 +164,7 @@ export class ReviewSession {
       );
       this.reviews.set(updated.item_id, updated);
       this.session = session;
+      answerSaved.emit();
       await this.advance();
       return { counted: true, schedule };
     } finally {

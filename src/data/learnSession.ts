@@ -17,6 +17,7 @@ import { FIRST_STAGE } from '../engine/review';
 import type { Item, ItemForm } from '../engine/types';
 import { db, type KinyaDb, type LearnStateRow } from './db';
 import { getProfile, loadDeck, recordAnswer, saveLearnRow } from './repo';
+import { answerSaved } from './signals';
 
 export interface CardView {
   step: LearnStep;
@@ -135,6 +136,7 @@ export class LearnSession {
           card_view_id: cardViewId,
           result,
           answered_at: new Date(now).toISOString(),
+          synced: 0,
         },
         g
           ? {
@@ -150,6 +152,7 @@ export class LearnSession {
         this.d,
       );
       this.row = row;
+      answerSaved.emit();
       await this.advance();
       return { counted: true, graduated: g ?? null };
     } finally {

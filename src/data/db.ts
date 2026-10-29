@@ -25,6 +25,8 @@ export interface AnswerEvent {
   card_view_id: string;
   result: AnswerResult;
   answered_at: string;
+  /** 1 once the server has it. A number, not a boolean, so IndexedDB can index it. */
+  synced: 0 | 1;
 }
 
 /** One row per learned item: where it sits on the Review schedule. */
@@ -50,6 +52,16 @@ export interface ReviewSessionRow {
   last_item_id: string | null;
 }
 
+/** Where sync has got to. One row, id "main". */
+export interface SyncStateRow {
+  id: 'main';
+  /** The account this device's progress belongs to, once someone has signed in. */
+  user_id: string | null;
+  /** The last server `seq` downloaded. */
+  cursor: number;
+  last_synced_at: string | null;
+}
+
 export interface Profile {
   id: string;
   verb_level: number;
@@ -63,6 +75,7 @@ export class KinyaDb extends Dexie {
   answer_events!: EntityTable<AnswerEvent, 'id'>;
   review_items!: EntityTable<ReviewItem, 'item_id'>;
   review_session!: EntityTable<ReviewSessionRow, 'id'>;
+  sync_state!: EntityTable<SyncStateRow, 'id'>;
   profile!: EntityTable<Profile, 'id'>;
 
   constructor(name = 'kinyarwanda') {
@@ -87,6 +100,20 @@ export class KinyaDb extends Dexie {
             r.recheck_step ??= 0;
             r.last_form_id ??= null;
             r.updated_at ??= r.created_at;
+          }),
+      );
+    // Prompt 3: answers remember whether they have been uploaded; sync keeps its place.
+    this.version(3)
+      .stores({
+        answer_events: 'id, &card_view_id, item_id, answered_at, synced',
+        sync_state: 'id',
+      })
+      .upgrade((tx) =>
+        tx
+          .table('answer_events')
+          .toCollection()
+          .modify((e: Partial<AnswerEvent>) => {
+            e.synced ??= 0;
           }),
       );
   }
