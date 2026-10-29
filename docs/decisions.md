@@ -1,6 +1,6 @@
 # Decisions and open questions
 
-Choices made while building the app that the prompts or the product spec did not settle: Prompt 1 (foundation and Learn), then Prompt 2 (Review). Each takes the simplest reading. Questions for Matt are at the end.
+Choices made while building the app that the prompts or the product spec did not settle: Prompt 1 (foundation and Learn), then Prompt 2 (Review), then Prompt 3 (accounts and sync). Each takes the simplest reading. Questions for Matt are at the end.
 
 ## Learn engine
 
@@ -61,6 +61,22 @@ Prompt 2 was written from the product spec's Module 2 section; the build plan na
 41. **Database version 2** adds `recheck_step`, `updated_at` and `last_form_id` to `review_items` (existing rows are upgraded in place) and adds `review_session`.
 42. **End-to-end tests wait for each new card.** Learn and Review mark the card's container with `data-card`, which changes with every card. The first CI runs failed because the test clicked an old "Next" button while the app was still saving; the tests now wait for `data-card` to change after every step. The Review test uses Playwright's page clock to skip ahead to due times.
 
+## Accounts and sync (Prompt 3)
+
+43. **One Supabase project**, `ujrfelmkvqckurpkqyre`, for now (Matt's call), not separate development and production projects.
+44. **Email sign-in only** for now: an emailed link (Supabase's magic link, PKCE flow). Google comes later. The link has to be opened in the same browser that asked for it. Supabase sends the email itself (Matt's call, overriding the SendGrid default for this project); its built-in sender only reaches members of the Supabase organisation and a few emails an hour, so testers need a custom sender before the beta.
+45. **The answer log is the only thing that syncs.** Each device uploads answers the server lacks and downloads answers it has not seen, in server order (`seq`). Uploads are keyed by the answer's own UUID with "insert, or do nothing if it exists", so a retried sync never adds a row.
+46. **Progress is rebuilt from the log on each device** (`src/engine/progress.ts`): replaying every answer in time order (device clock, then event ID) gives the same Learn streaks, graduations and Review schedule on every device. The spec's `user_items` table is not created yet; it can be added as a server-side cache when a server feature needs progress (Stories, Prompt 10).
+47. **Learn decks merge, they do not reset.** Each device keeps its own Learn round order. Items introduced on another device join this device's pool (without a second introduction), items graduated anywhere leave it, and streaks come from the log. Introductions themselves are not logged, so an item introduced but never answered on one device is not known to the other.
+48. **When answers arrive from another device**, Learn, Review and Home reload their data. Only then is local progress rewritten, so a Learn round in progress on this device is not disturbed by its own sync.
+49. **Sync runs** on sign-in, 1.5 seconds after each answer, when the device comes back online, when the tab becomes visible, and every minute while it is visible. Nothing in the app waits for it: answers save on the device first.
+50. **Answers made before signing in** belong to the first account that signs in on that device and upload then. Signing out removes this device's progress (it is on the server); if any answers have not uploaded, Profile warns first. If a different account signs in, the previous account's local progress is cleared before syncing.
+51. **The server profile wins** once it exists; the first sign-in creates it from this device's profile (verb level 1, daily goal 10).
+52. **Privacy rules**, checked against the live database with two throwaway accounts in a rolled-back transaction: a learner sees and adds only their own answers and profile; answers cannot be updated or deleted; `seq` and `received_at` are set by the server only; a second answer for the same card view is rejected; signed-out requests see nothing.
+53. **Response time** (in the spec's `answer_events`) is not recorded yet; nothing uses it.
+54. **Builds without Supabase settings** (CI, local runs without `.env.local`) run with accounts switched off; Profile says so. The two settings are public: the URL and the publishable key.
+55. **`.npmrc` sets `include=dev`**, because this machine's global `NODE_ENV=production` made `npm install <package>` remove the dev tools.
+
 ## Colour pairs below contrast guidelines (kept as designed)
 
 From the design system's Accessibility section. None were changed.
@@ -80,7 +96,7 @@ From the design system's Accessibility section. None were changed.
 
 ## Dependencies
 
-The prompt names the stack; these supporting packages come with it and were added without asking: `@vitejs/plugin-react`, `@types/react`, `@types/react-dom`, `@types/node`, `jsdom` and `@testing-library/dom` (for Testing Library under Vitest), `typescript-eslint`, `@eslint/js`, `eslint-plugin-react-hooks`, `eslint-plugin-react-refresh`, `eslint-config-prettier` and `globals`. No others.
+The prompt names the stack; these supporting packages come with it and were added without asking: `@vitejs/plugin-react`, `@types/react`, `@types/react-dom`, `@types/node`, `jsdom` and `@testing-library/dom` (for Testing Library under Vitest), `typescript-eslint`, `@eslint/js`, `eslint-plugin-react-hooks`, `eslint-plugin-react-refresh`, `eslint-config-prettier` and `globals`. `@supabase/supabase-js` was added in Prompt 3 with Matt's approval. No others. The Supabase CLI runs from its own folder (`%LOCALAPPDATA%supabase-cli`), not as a project dependency.
 
 - `react-router` v7 is used (the package formerly published as `react-router-dom`).
 - `scripts/build-tokens.ts` runs directly on Node 22.18+, which strips TypeScript types itself, so no `tsx` or `ts-node` is needed.
@@ -97,3 +113,4 @@ The prompt names the stack; these supporting packages come with it and were adde
 5. **Seed content.** amazi, ibiryo and akazi have no plural in the seed; please confirm they should stay single-form nouns until AI content replaces the seed.
 6. **Review stages.** Is "an item at stage N waits stage N's interval" the reading you meant (decision 29)? The other reading would make the second review 5 minutes after the first instead of 15.
 7. **One Review queue or two.** Words and phrases are mixed in one Review queue. Should Review get the same Words | Phrases switch as Learn?
+8. **Custom email sender before the beta.** Supabase's built-in email only reaches your Supabase organisation's members. Shall I connect SendGrid (as SMTP in Supabase) when testers join?

@@ -8,3 +8,4 @@ blob-report
 playwright/.cache
 .DS_Store
 *.local
+supabase/.temp
