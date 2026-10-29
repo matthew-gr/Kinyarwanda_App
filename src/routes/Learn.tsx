@@ -6,7 +6,7 @@ import { FlashcardDeck } from '../components/FlashcardDeck';
 import { SessionHeader } from '../components/SessionHeader';
 import { LearnSession, type CardView } from '../data/learnSession';
 import type { AnswerResult, Deck } from '../engine/learn';
-import type { Item, ItemForm } from '../engine/types';
+import { dictionaryLine, playAudio, tagFor } from './cardText';
 
 const DECK_NAMES: Record<Deck, string> = { words: 'Words', phrases: 'Phrases' };
 const GHOSTS: DeckTone[] = ['orange', 'blue', 'yellow'];
@@ -34,24 +34,6 @@ function DeckSwitch({ deck }: { deck: Deck }) {
       ))}
     </nav>
   );
-}
-
-function tagFor(item: Item): string {
-  if (item.kind === 'phrase') return 'PHRASE';
-  return item.word_type === 'verb' ? 'VERB' : 'WORD';
-}
-
-/** The dictionary form, shown under a verb or noun when the card shows another form. */
-function dictionaryLine(item: Item, form: ItemForm): string | undefined {
-  if (item.word_type !== 'verb' && item.word_type !== 'noun') return undefined;
-  if (form.text === item.base) return undefined;
-  return `Dictionary form: ${item.base} (${item.en})`;
-}
-
-function playAudio(path: string): void {
-  void new Audio(path).play().catch(() => {
-    // Autoplay can be blocked until the learner taps; the play button still works.
-  });
 }
 
 function LearnDeck({ deck }: { deck: Deck }) {
@@ -221,7 +203,7 @@ function CardArea({
         progressLabel="Streak"
       />
 
-      <div className="learn-deck">
+      <div className="learn-deck" data-card={view.key}>
         <FlashcardDeck behind={GHOSTS.slice(GHOSTS.length - ghosts)}>
           <Flashcard
             key={view.key}

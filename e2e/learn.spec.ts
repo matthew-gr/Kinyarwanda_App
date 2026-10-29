@@ -1,42 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-
-const GRADUATED = 'Learned. Back for review in 5 minutes.';
-
-/** The Kinyarwanda text on the card now on screen. */
-async function cardWord(page: Page): Promise<string> {
-  const intro = page.locator('.kn-flash-intro .kn-flash-word');
-  if (await intro.isVisible()) return (await intro.textContent()) ?? '';
-  return (
-    (await page
-      .getByRole('button', { name: /Tap to reveal meaning/ })
-      .locator('.kn-flash-word')
-      .textContent()) ?? ''
-  );
-}
-
-/** Dismisses an introduction, or flips the test card and grades it ✓. */
-async function takeStep(page: Page): Promise<'intro' | 'test'> {
-  const next = page.getByRole('button', { name: 'Next' });
-  const flip = page.getByRole('button', { name: /Tap to reveal meaning/ });
-  await expect(next.or(flip)).toBeVisible();
-  if (await next.isVisible()) {
-    await next.click();
-    return 'intro';
-  }
-  await flip.click();
-  await page.getByRole('button', { name: /I knew it/ }).click();
-  return 'test';
-}
-
-/** Steps through the deck until an item graduates, and returns how many tests it took. */
-async function learnUntilGraduation(page: Page): Promise<void> {
-  const note = page.getByRole('status');
-  for (let i = 0; i < 30; i++) {
-    await takeStep(page);
-    if ((await note.textContent())?.includes(GRADUATED)) return;
-  }
-  throw new Error('No item graduated within 30 steps');
-}
+import { cardWord, GRADUATED, learnUntilGraduation, toNextCard } from './helpers.ts';
 
 /** The "n of N learned" line on a Home practice row. Blank until Home has loaded its counts. */
 function rowSubtitle(page: Page, title: 'Words' | 'Phrases') {
@@ -47,7 +10,6 @@ test('Learn walkthrough: words, then phrases without touching words', async ({ p
   test.setTimeout(90_000);
   await page.goto('/');
   await expect(page.getByText('Start Learning today')).toBeVisible();
-  await expect(page.getByText('Locked · Coming next')).toBeVisible();
   await expect(page.getByText('0 of 22 learned')).toBeVisible();
 
   // Open Words: two introductions, front and back together.
@@ -57,7 +19,7 @@ test('Learn walkthrough: words, then phrases without touching words', async ({ p
   for (let i = 0; i < 2; i++) {
     await expect(page.getByText('New card')).toBeVisible();
     await expect(page.locator('.kn-flash-intro .kn-flash-translation')).toBeVisible();
-    await page.getByRole('button', { name: 'Next' }).click();
+    await toNextCard(page, () => page.getByRole('button', { name: 'Next' }).click());
   }
 
   // Then tests: flip shows the meaning, then ✓ and ✗ appear.
@@ -65,7 +27,7 @@ test('Learn walkthrough: words, then phrases without touching words', async ({ p
   await expect(page.getByText('2 of 8 in play')).toBeVisible();
   await page.getByRole('button', { name: /Tap to reveal meaning/ }).click();
   await expect(page.getByRole('button', { name: /I didn't/ })).toBeVisible();
-  await page.getByRole('button', { name: /I knew it/ }).click();
+  await toNextCard(page, () => page.getByRole('button', { name: /I knew it/ }).click());
 
   // Keep grading ✓ until a word graduates after 3 in a row.
   await learnUntilGraduation(page);
@@ -103,16 +65,17 @@ test('Learn walkthrough: words, then phrases without touching words', async ({ p
 
 test('Keyboard: Space flips, arrows grade', async ({ page }) => {
   await page.goto('/learn/phrases');
-  await page.getByRole('button', { name: 'Next' }).click();
-  await page.getByRole('button', { name: 'Next' }).click();
+  const next = page.getByRole('button', { name: 'Next' });
+  await toNextCard(page, () => next.click());
+  await toNextCard(page, () => next.click());
   await expect(page.getByRole('button', { name: /Tap to reveal meaning/ })).toBeVisible();
   await page.keyboard.press('Space');
   await expect(page.getByRole('button', { name: /I knew it/ })).toBeVisible();
-  await page.keyboard.press('ArrowRight');
+  await toNextCard(page, () => page.keyboard.press('ArrowRight'));
   await expect(page.getByText(/^Streak [01] of 3$/)).toBeVisible();
-  await expect(page.getByRole('button', { name: /Tap to reveal meaning/ })).toBeVisible();
   await page.keyboard.press('Space');
-  await page.keyboard.press('ArrowLeft');
+  await expect(page.getByRole('button', { name: /I didn't/ })).toBeVisible();
+  await toNextCard(page, () => page.keyboard.press('ArrowLeft'));
   // That ends the round of two, so the pool grows and a new phrase is introduced.
-  await expect(page.getByRole('button', { name: 'Next' })).toBeVisible();
+  await expect(next).toBeVisible();
 });

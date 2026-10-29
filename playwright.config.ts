@@ -19,9 +19,7 @@ export default defineConfig({
       use: {
         ...devices['Desktop Chrome'],
         viewport: { width: 390, height: 844 },
-        // 1x, not a phone's 3x: CI runners draw in software, and at 3x the walkthrough's
-        // buttons never settled long enough to click.
-        deviceScaleFactor: 1,
+        deviceScaleFactor: 3,
         isMobile: true,
         hasTouch: true,
       },
