@@ -242,3 +242,33 @@ body {
     animation: none;
   }
 }
+
+/* Home: Review due counts */
+.due-summary {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--space-6);
+  margin: 0;
+  padding: var(--space-16) var(--space-10);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+}
+
+.due-cell {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: var(--space-2);
+  text-align: center;
+}
+
+.due-cell dt {
+  color: var(--text-secondary);
+  line-height: 1.2;
+}
+
+.due-cell dd {
+  margin: 0;
+  color: var(--ink);
+}

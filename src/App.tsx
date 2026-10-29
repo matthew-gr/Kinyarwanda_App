@@ -14,6 +14,7 @@ import { History } from './routes/History';
 import { Home } from './routes/Home';
 import { Learn } from './routes/Learn';
 import { Profile } from './routes/Profile';
+import { Review } from './routes/Review';
 import { Search } from './routes/Search';
 
 function TabsLayout() {
@@ -62,6 +63,7 @@ export function App() {
           <Route path="profile" element={<Profile />} />
         </Route>
         <Route path="learn/:deck" element={<Learn />} />
+        <Route path="review" element={<Review />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
