@@ -14,6 +14,7 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { syllables } from '../src/engine/pronunciation.ts';
 
+const VERB_TABLE = new URL('../src/data/seed/verbs.json', import.meta.url);
 const OUT = new URL('../src/data/seed/content.json', import.meta.url);
 const SOURCE = 'ai:claude-opus-5-5';
 const STAMP = '2026-10-30T00:00:00.000Z';
@@ -744,6 +745,36 @@ const formId = (item: string, text: string) =>
   known.flatMap((s) => s.item_forms).find((f) => f.item_id === item && f.text === text)?.id ??
   randomUUID();
 
+// Verb Builder levels 2 and 3 for course verbs that are also starter verbs, copied from the verb
+// table (scripts/draft-verbs.ts) so Learn and Review can show them once a learner unlocks them.
+// "It" forms stay in the Verb Builder. Object forms are skipped when the course meaning differs:
+// the course teaches gusoma as "to read", and its object forms mean "to kiss".
+interface VerbTable {
+  verbs: { id: string; infinitive: string }[];
+  verb_forms: {
+    verb_id: string;
+    who: string;
+    when: string;
+    whom: string | null;
+    word: string;
+    en: string;
+    level: number;
+  }[];
+}
+const verbTable = JSON.parse(readFileSync(VERB_TABLE, 'utf8')) as VerbTable;
+const OBJECTS_DIFFER = new Set(['gusoma']);
+function laterVerbForms(infinitive: string) {
+  const verb = verbTable.verbs.find((v) => v.infinitive === infinitive);
+  if (!verb) return [];
+  return verbTable.verb_forms.filter(
+    (f) =>
+      f.verb_id === verb.id &&
+      f.level > 1 &&
+      !f.who.startsWith('it') &&
+      !(f.whom && OBJECTS_DIFFER.has(infinitive)),
+  );
+}
+
 const PERSONS = ['1sg', '2sg', '3sg', '1pl', '2pl', '3pl'] as const;
 const SUBJECTS = ['I', 'you', 'he or she', 'we', 'you all', 'they'];
 
@@ -823,6 +854,15 @@ WORD_ORDER.forEach((base, i) => {
         verb_level: 1,
       });
     });
+    for (const f of laterVerbForms(base)) {
+      addForm(id, {
+        text: f.word,
+        en: f.en,
+        person: f.who,
+        tense: f.when === 'now' ? 'present' : f.when,
+        verb_level: f.level,
+      });
+    }
   } else {
     throw new Error(`No draft for ${base}`);
   }

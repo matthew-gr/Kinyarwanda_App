@@ -21,7 +21,7 @@ describe('the drafted course', () => {
 
   it('gives verbs a level 1 present form for every person, and nouns their plurals', () => {
     const verb = items.find((i) => i.base === 'kwiruka')!;
-    const own = forms.filter((f) => f.item_id === verb.id);
+    const own = forms.filter((f) => f.item_id === verb.id && f.verb_level === 1);
     expect(own.map((f) => f.text)).toEqual([
       'ndiruka',
       'uriruka',
@@ -36,5 +36,18 @@ describe('the drafted course', () => {
       'umwana',
       'abana',
     ]);
+  });
+
+  it('gives starter verbs their Verb Builder level 2 and 3 forms, without "it" forms', () => {
+    const play = items.find((i) => i.base === 'gukina')!;
+    const later = forms.filter((f) => f.item_id === play.id && (f.verb_level ?? 0) > 1);
+    expect(later.map((f) => f.text)).toContain('bazakina');
+    expect(later.find((f) => f.text === 'agakina')?.tense).toBe('narrative');
+    expect(later.every((f) => f.person !== null && !f.person.startsWith('it'))).toBe(true);
+    const laugh = items.find((i) => i.base === 'guseka')!;
+    expect(forms.some((f) => f.item_id === laugh.id && f.verb_level === 3)).toBe(true);
+    // The course teaches gusoma as "to read"; its object forms mean "to kiss".
+    const read = items.find((i) => i.base === 'gusoma')!;
+    expect(forms.some((f) => f.item_id === read.id && f.verb_level === 3)).toBe(false);
   });
 });
