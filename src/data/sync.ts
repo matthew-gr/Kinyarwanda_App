@@ -1,11 +1,13 @@
-// Sync between this device and Supabase. The answer log is the only thing that moves:
+// Sync between this device and Supabase. The answer log is the main thing that moves:
 // unsent answers go up, answers from other devices come down, and progress is rebuilt from
 // the whole log. Uploads are keyed by the answer's own ID, so a retry never adds a row.
+// Finished drill sessions move the same way, so personal bests follow the learner.
 
 import { applyProgress } from './applyProgress';
 import { pullContent } from './content';
 import { sendReports } from './reports';
-import { db, type AnswerEvent, type KinyaDb, type SyncStateRow } from './db';
+import type { DrillScore } from '../engine/drill';
+import { db, type AnswerEvent, type DrillScoreRow, type KinyaDb, type SyncStateRow } from './db';
 import { getProfile } from './repo';
 import { answerSaved, progressChanged } from './signals';
 import { supabase } from './supabase';
@@ -68,9 +70,18 @@ const countPending = (d: KinyaDb) => d.answer_events.where('synced').equals(0).c
 async function clearProgress(d: KinyaDb): Promise<void> {
   await d.transaction(
     'rw',
-    [d.answer_events, d.learn_state, d.review_items, d.review_session, d.sync_state, d.verb_state],
+    [
+      d.answer_events,
+      d.learn_state,
+      d.review_items,
+      d.review_session,
+      d.sync_state,
+      d.verb_state,
+      d.drill_scores,
+    ],
     async () => {
       await Promise.all([
+        d.drill_scores.clear(),
         d.verb_state.clear(),
         d.answer_events.clear(),
         d.learn_state.clear(),
@@ -142,6 +153,59 @@ async function push(userId: string, d: KinyaDb): Promise<void> {
       .anyOf(batch.map((e) => e.id))
       .modify({ synced: 1 });
   }
+}
+
+async function pushScores(userId: string, d: KinyaDb): Promise<void> {
+  const client = supabase!;
+  for (;;) {
+    const batch = await d.drill_scores.where('synced').equals(0).limit(PUSH_BATCH).toArray();
+    if (batch.length === 0) return;
+    const { error } = await client.from('drill_scores').upsert(
+      batch.map(({ synced, ...s }) => {
+        void synced;
+        return { ...s, user_id: userId };
+      }),
+      { onConflict: 'id', ignoreDuplicates: true },
+    );
+    if (error) throw error;
+    await d.drill_scores
+      .where('id')
+      .anyOf(batch.map((s) => s.id))
+      .modify({ synced: 1 });
+  }
+}
+
+/** Downloads drill sessions played on other devices. Returns how many were new here. */
+async function pullScores(userId: string, d: KinyaDb): Promise<number> {
+  const client = supabase!;
+  let added = 0;
+  for (;;) {
+    const state = await getSyncState(d);
+    const { data, error } = await client
+      .from('drill_scores')
+      .select('id, drill, level, played_at, answers, correct, median_ms, best_countdown_ms, seq')
+      .eq('user_id', userId)
+      .gt('seq', state.drill_cursor ?? 0)
+      .order('seq')
+      .limit(PULL_BATCH);
+    if (error) throw error;
+    const rows = (data ?? []) as (DrillScore & { seq: number })[];
+    if (rows.length === 0) break;
+    await d.transaction('rw', d.drill_scores, d.sync_state, async () => {
+      const known = await d.drill_scores.bulkGet(rows.map((r) => r.id));
+      const fresh: DrillScoreRow[] = rows
+        .filter((_, i) => !known[i])
+        .map(({ seq, ...r }) => {
+          void seq;
+          return { ...r, played_at: new Date(r.played_at).toISOString(), synced: 1 as const };
+        });
+      await d.drill_scores.bulkAdd(fresh);
+      added += fresh.length;
+      await d.sync_state.put({ ...state, drill_cursor: rows[rows.length - 1]!.seq });
+    });
+    if (rows.length < PULL_BATCH) break;
+  }
+  return added;
 }
 
 interface ServerAnswer {
@@ -250,6 +314,9 @@ async function runOnce(d: KinyaDb): Promise<void> {
     await syncProfile(userId, d);
     await push(userId, d);
     const added = await pull(userId, state, d);
+    await pushScores(userId, d);
+    const scoresAdded = await pullScores(userId, d);
+    if (scoresAdded > 0 && added === 0) progressChanged.emit();
     if (added > 0) {
       await applyProgress(Date.now(), d);
       progressChanged.emit();

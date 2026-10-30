@@ -3,6 +3,8 @@
 //
 //   { action: "forms", form_ids: [...] }   voices each form with the chosen voice, keeps the
 //                                          clip in audio_clips, and points the form at it
+//   { action: "numbers", number_ids: [...] }
+//                                          the same for the drills' numbers (number_phrases)
 //   { action: "sample", voice, items }     the listening test: voices the same items with any
 //                                          candidate voice into voice-test/<label>/
 //   { action: "voices" }                   lists the ElevenLabs voices on the account
@@ -126,40 +128,42 @@ Deno.serve(async (req) => {
       return json({ label, clips: out });
     }
 
-    if (body.action === 'forms') {
+    if (body.action === 'forms' || body.action === 'numbers') {
       const raw = env('TTS_VOICE');
       if (!raw) return json({ error: 'No voice chosen yet. Set the TTS_VOICE secret.' }, 409);
       const voice = JSON.parse(raw) as Voice;
       const label = cleanLabel(voice.label);
-      const ids = (body.form_ids as string[]).slice(0, MAX_PER_CALL);
-      const { data: forms, error } = await service
-        .from('item_forms')
-        .select('id, text')
-        .in('id', ids);
+      // Course forms and drill numbers are voiced the same way; only the table differs.
+      const numbers = body.action === 'numbers';
+      const table = numbers ? 'number_phrases' : 'item_forms';
+      const folder = numbers ? 'numbers' : 'forms';
+      const owner = numbers ? 'number_phrase_id' : 'form_id';
+      const ids = ((numbers ? body.number_ids : body.form_ids) as string[]).slice(0, MAX_PER_CALL);
+      const { data: rows, error } = await service.from(table).select('id, text').in('id', ids);
       if (error) throw error;
       const done = [];
-      for (const f of forms ?? []) {
-        const { bytes, type } = await speak(voice, f.text);
+      for (const r of rows ?? []) {
+        const { bytes, type } = await speak(voice, r.text);
         const clipId = crypto.randomUUID();
-        const path = `forms/${f.id}/${clipId}.${extension(type)}`;
+        const path = `${folder}/${r.id}/${clipId}.${extension(type)}`;
         const up = await service.storage.from('audio').upload(path, bytes, { contentType: type });
         if (up.error) throw up.error;
         const url = service.storage.from('audio').getPublicUrl(path).data.publicUrl;
         const source = `ai:${label}`;
         const clip = await service.from('audio_clips').insert({
           id: clipId,
-          form_id: f.id,
+          [owner]: r.id,
           path: url,
           source,
           created_by: who.user?.id ?? null,
         });
         if (clip.error) throw clip.error;
         const upd = await service
-          .from('item_forms')
+          .from(table)
           .update({ audio_path: url, audio_source: source })
-          .eq('id', f.id);
+          .eq('id', r.id);
         if (upd.error) throw upd.error;
-        done.push({ form_id: f.id, audio_path: url, audio_source: source });
+        done.push({ [owner]: r.id, audio_path: url, audio_source: source });
       }
       return json({ done });
     }

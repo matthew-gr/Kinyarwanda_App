@@ -3,7 +3,8 @@
 
 import Dexie, { type EntityTable } from 'dexie';
 import type { AnswerResult, Deck, LearnState } from '../engine/learn';
-import type { Item, ItemForm } from '../engine/types';
+import type { DrillScore } from '../engine/drill';
+import type { Item, ItemForm, NumberPhrase } from '../engine/types';
 import type { VerbState } from '../engine/verbs';
 
 export interface LearnStateRow {
@@ -60,12 +61,14 @@ export interface SyncStateRow {
   user_id: string | null;
   /** The last server `seq` downloaded. */
   cursor: number;
+  /** The last drill_scores `seq` downloaded. Missing on devices synced before Prompt 8. */
+  drill_cursor?: number;
   last_synced_at: string | null;
 }
 
-/** How far the course download has got. One row, id "main". */
+/** How far the course download has got: "main" for words and phrases, "numbers" for drills. */
 export interface ContentStateRow {
-  id: 'main';
+  id: 'main' | 'numbers';
   /** The newest server `updated_at` already on this device. */
   cursor: string | null;
   last_checked_at: string | null;
@@ -97,6 +100,11 @@ export interface VerbStateRow {
   updated_at: string;
 }
 
+/** A finished drill session, kept until the server has it. */
+export interface DrillScoreRow extends DrillScore {
+  synced: 0 | 1;
+}
+
 export interface Profile {
   id: string;
   verb_level: number;
@@ -117,6 +125,8 @@ export class KinyaDb extends Dexie {
   content_state!: EntityTable<ContentStateRow, 'id'>;
   reports!: EntityTable<ReportRow, 'id'>;
   verb_state!: EntityTable<VerbStateRow, 'id'>;
+  number_phrases!: EntityTable<NumberPhrase, 'id'>;
+  drill_scores!: EntityTable<DrillScoreRow, 'id'>;
 
   constructor(name = 'kinyarwanda') {
     super(name);
@@ -160,6 +170,8 @@ export class KinyaDb extends Dexie {
     this.version(4).stores({ content_state: 'id', reports: 'id, synced' });
     // Prompt 7: Verb Builder progress.
     this.version(5).stores({ verb_state: 'id' });
+    // Prompt 8: the drills' numbers, and finished drill sessions.
+    this.version(6).stores({ number_phrases: 'id, level', drill_scores: 'id, drill, synced' });
   }
 }
 

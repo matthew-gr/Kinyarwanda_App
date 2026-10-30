@@ -3,9 +3,11 @@ import { Link, useSearchParams } from 'react-router';
 import {
   errorText,
   listFormAudio,
+  listNumberAudio,
   listItems,
   listReports,
   makeAudio,
+  makeNumberAudio,
   resolveReport,
   type ReportView,
 } from '../../data/admin';
@@ -21,6 +23,7 @@ const STATUS_NAMES: Record<Item['status'], string> = {
 const WHEN = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
 type FormAudio = Pick<ItemForm, 'id' | 'item_id' | 'audio_path' | 'retired'>;
+type NumberAudio = { id: string; audio_path: string | null; retired: boolean };
 
 export function AdminHome() {
   const [params] = useSearchParams();
@@ -48,6 +51,7 @@ export function AdminHome() {
 function Course() {
   const [items, setItems] = useState<Item[] | null>(null);
   const [forms, setForms] = useState<FormAudio[]>([]);
+  const [numbers, setNumbers] = useState<NumberAudio[]>([]);
   const [kind, setKind] = useState<Item['kind']>('word');
   const [query, setQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -56,11 +60,12 @@ function Course() {
 
   useEffect(() => {
     let alive = true;
-    Promise.all([listItems(), listFormAudio()]).then(
-      ([i, f]) => {
+    Promise.all([listItems(), listFormAudio(), listNumberAudio()]).then(
+      ([i, f, n]) => {
         if (!alive) return;
         setItems(i);
         setForms(f);
+        setNumbers(n);
       },
       (e: unknown) => alive && setError(errorText(e)),
     );
@@ -71,6 +76,9 @@ function Course() {
 
   const live = forms.filter((f) => !f.retired);
   const silent = live.filter((f) => !f.audio_path);
+  const liveNumbers = numbers.filter((n) => !n.retired);
+  const silentNumbers = liveNumbers.filter((n) => !n.audio_path);
+  const missing = silent.length + silentNumbers.length;
   const audioByItem = useMemo(() => {
     const m = new Map<string, { all: number; voiced: number }>();
     for (const f of live) {
@@ -93,7 +101,11 @@ function Course() {
     try {
       await makeAudio(
         silent.map((f) => f.id),
-        (done) => setMaking(`${done} of ${silent.length}`),
+        (done) => setMaking(`${done} of ${missing}`),
+      );
+      await makeNumberAudio(
+        silentNumbers.map((n) => n.id),
+        (done) => setMaking(`${silent.length + done} of ${missing}`),
       );
       setReload((r) => r + 1);
     } catch (e) {
@@ -112,6 +124,10 @@ function Course() {
         <p className="body">
           {live.length - silent.length} of {live.length} forms have audio.
         </p>
+        <p className="body">
+          {liveNumbers.length - silentNumbers.length} of {liveNumbers.length} drill numbers have
+          audio.
+        </p>
         <div className="admin-actions">
           <Link to="/admin/voices" className="btn btn-missed">
             Voice test
@@ -119,7 +135,7 @@ function Course() {
           <button
             type="button"
             className="btn btn-primary"
-            disabled={silent.length === 0 || making !== null}
+            disabled={missing === 0 || making !== null}
             onClick={() => void makeMissing()}
           >
             {making ? `Making audio: ${making}` : 'Make missing audio'}

@@ -3,11 +3,12 @@
 // stored one only when it is newer, so the bundled snapshot never undoes a downloaded edit.
 
 import { learnConfigFor, reconcileOrder, type Deck } from '../engine/learn';
-import type { Item, ItemForm } from '../engine/types';
+import type { Item, ItemForm, NumberPhrase } from '../engine/types';
 import { db, type KinyaDb } from './db';
 import { progressChanged } from './signals';
 import { supabase } from './supabase';
 import bundled from './seed/content.json';
+import bundledNumberSeed from './seed/numbers.json';
 
 const PULL_BATCH = 1000;
 /** Course changes are rare, so a sync checks for them at most this often unless asked. */
@@ -16,6 +17,7 @@ const DECKS: Deck[] = ['words', 'phrases'];
 
 export const bundledItems = bundled.items as Item[];
 export const bundledForms = bundled.item_forms as ItemForm[];
+export const bundledNumbers = bundledNumberSeed.number_phrases as NumberPhrase[];
 
 const isNewer = (incoming: { updated_at: string }, stored?: { updated_at?: string }) =>
   !stored?.updated_at || Date.parse(incoming.updated_at) > Date.parse(stored.updated_at);
@@ -76,8 +78,36 @@ async function reconcile(d: KinyaDb): Promise<void> {
   }
 }
 
+/** Stores newer numbers and removes retired ones. Returns true when anything changed. */
+export async function applyNumbers(
+  rows: readonly NumberPhrase[],
+  d: KinyaDb = db,
+): Promise<boolean> {
+  return d.transaction('rw', d.number_phrases, async () => {
+    const stored = await d.number_phrases.bulkGet(rows.map((r) => r.id));
+    const fresh = rows.filter((r, i) => isNewer(r, stored[i]));
+    if (fresh.length === 0) return false;
+    await d.number_phrases.bulkPut(fresh.filter((r) => !r.retired));
+    await d.number_phrases.bulkDelete(fresh.filter((r) => r.retired).map((r) => r.id));
+    return true;
+  });
+}
+
+const newestStamp = (rows: readonly { updated_at: string }[], from = '') =>
+  rows
+    .map((r) => new Date(r.updated_at).toISOString())
+    .reduce((max, t) => (t > max ? t : max), from);
+
 /** Loads the bundled snapshot. Cheap when the device already has it. */
 export async function ensureSeeded(d: KinyaDb = db): Promise<void> {
+  await applyNumbers(bundledNumbers, d);
+  if (!(await d.content_state.get('numbers'))) {
+    await d.content_state.put({
+      id: 'numbers',
+      cursor: newestStamp(bundledNumbers) || null,
+      last_checked_at: null,
+    });
+  }
   await applyContent(bundledItems, bundledForms, d);
   if (!(await d.content_state.get('main'))) {
     const newest = [...bundledItems, ...bundledForms].reduce(
@@ -89,7 +119,7 @@ export async function ensureSeeded(d: KinyaDb = db): Promise<void> {
 }
 
 async function pullTable<T extends { updated_at: string }>(
-  table: 'items' | 'item_forms',
+  table: 'items' | 'item_forms' | 'number_phrases',
   since: string | null,
 ): Promise<T[]> {
   const rows: T[] = [];
@@ -136,15 +166,25 @@ export function pullContent(d: KinyaDb = db, force = false): Promise<void> {
         pullTable<ItemForm>('item_forms', state.cursor),
       ]);
       const changed = await applyContent(items.map(iso), forms.map(iso), d);
-      const newest = [...items, ...forms]
-        .map((r) => new Date(r.updated_at).toISOString())
-        .reduce((max, t) => (t > max ? t : max), state.cursor ?? '');
       await d.content_state.put({
         ...state,
-        cursor: newest || null,
+        cursor: newestStamp([...items, ...forms], state.cursor ?? '') || null,
         last_checked_at: new Date().toISOString(),
       });
-      if (changed) progressChanged.emit();
+      // Numbers keep their own place, since their table arrived after the course's.
+      const numberState = (await d.content_state.get('numbers')) ?? {
+        id: 'numbers' as const,
+        cursor: null,
+        last_checked_at: null,
+      };
+      const numbers = await pullTable<NumberPhrase>('number_phrases', numberState.cursor);
+      const numbersChanged = await applyNumbers(numbers.map(iso), d);
+      await d.content_state.put({
+        ...numberState,
+        cursor: newestStamp(numbers, numberState.cursor ?? '') || null,
+        last_checked_at: new Date().toISOString(),
+      });
+      if (changed || numbersChanged) progressChanged.emit();
     } finally {
       pulling = null;
     }

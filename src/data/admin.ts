@@ -210,6 +210,30 @@ export async function makeAudio(
   await pullContent(undefined, true);
 }
 
+/** Every drill number's audio, for the audio count. */
+export async function listNumberAudio(): Promise<
+  { id: string; audio_path: string | null; retired: boolean }[]
+> {
+  const { data, error } = await client()
+    .from('number_phrases')
+    .select('id, audio_path, retired')
+    .limit(10000);
+  if (error) throw error;
+  return data as { id: string; audio_path: string | null; retired: boolean }[];
+}
+
+/** Voices the drills' numbers, like makeAudio does for course forms. */
+export async function makeNumberAudio(
+  ids: string[],
+  onProgress?: (done: number) => void,
+): Promise<void> {
+  for (let i = 0; i < ids.length; i += 25) {
+    await callAudio({ action: 'numbers', number_ids: ids.slice(i, i + 25) });
+    onProgress?.(Math.min(ids.length, i + 25));
+  }
+  await pullContent(undefined, true);
+}
+
 export function listVoices() {
   return callAudio<{
     voices: { voice_id: string; name: string; labels: Record<string, string> }[];
