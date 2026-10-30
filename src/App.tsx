@@ -9,8 +9,11 @@ import {
   useNavigate,
 } from 'react-router';
 import { BottomNav } from './components/BottomNav';
-import { ensureSeeded } from './data/repo';
+import { ensureSeeded } from './data/content';
 import { startSync } from './data/sync';
+import { AdminHome } from './routes/admin/AdminHome';
+import { AdminItem } from './routes/admin/AdminItem';
+import { VoiceTest } from './routes/admin/VoiceTest';
 import { History } from './routes/History';
 import { Home } from './routes/Home';
 import { Learn } from './routes/Learn';
@@ -68,6 +71,9 @@ export function App() {
         </Route>
         <Route path="learn/:deck" element={<Learn />} />
         <Route path="review" element={<Review />} />
+        <Route path="admin" element={<AdminHome />} />
+        <Route path="admin/items/:id" element={<AdminItem />} />
+        <Route path="admin/voices" element={<VoiceTest />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

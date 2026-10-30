@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { Link } from 'react-router';
 import { AchievementCard } from '../components/AchievementCard';
 import { SectionHeader } from '../components/SectionHeader';
 import { StatRow } from '../components/StatRow';
@@ -14,6 +15,7 @@ import {
   syncNow,
   type SyncStatus,
 } from '../data/sync';
+import { useAdmin } from './admin/useAdmin';
 import { waitInWords } from './cardText';
 import { useProgressVersion } from './useProgressVersion';
 
@@ -165,7 +167,25 @@ export function Profile() {
       ) : (
         <SignIn pending={status.pending} />
       )}
+      <AdminLink email={status.email} />
     </div>
+  );
+}
+
+/** Shown only to admins. */
+function AdminLink({ email }: { email: string | null }) {
+  const admin = useAdmin(email);
+  if (!email || !admin) return null;
+  return (
+    <section className="panel" aria-labelledby="admin-title">
+      <h2 id="admin-title" className="h2-bold">
+        Admin
+      </h2>
+      <p className="body">Edit the course, make audio and read mistake reports.</p>
+      <Link to="/admin" className="btn btn-missed">
+        Open admin
+      </Link>
+    </section>
   );
 }
 

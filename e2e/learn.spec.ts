@@ -10,7 +10,7 @@ test('Learn walkthrough: words, then phrases without touching words', async ({ p
   test.setTimeout(90_000);
   await page.goto('/');
   await expect(page.getByText('Start Learning today')).toBeVisible();
-  await expect(page.getByText('0 of 22 learned')).toBeVisible();
+  await expect(page.getByText('0 of 100 learned')).toBeVisible();
 
   // Open Words: two introductions, front and back together.
   await page.getByRole('button', { name: /^Words/ }).click();
@@ -41,7 +41,7 @@ test('Learn walkthrough: words, then phrases without touching words', async ({ p
 
   // Back to Home: Words shows progress.
   await page.getByRole('button', { name: 'Back to Home' }).click();
-  await expect(rowSubtitle(page, 'Words')).toHaveText(/^[1-9]\d* of 22 learned$/);
+  await expect(rowSubtitle(page, 'Words')).toHaveText(/^[1-9]\d* of 100 learned$/);
   const wordsBefore = (await rowSubtitle(page, 'Words').textContent()) ?? '';
 
   // Phrases, through the switch on the Learn screen.
@@ -59,7 +59,7 @@ test('Learn walkthrough: words, then phrases without touching words', async ({ p
 
   // Words progress is untouched by Phrases.
   await page.getByRole('button', { name: 'Back to Home' }).click();
-  await expect(rowSubtitle(page, 'Phrases')).toHaveText(/^[1-9]\d* of 10 learned$/);
+  await expect(rowSubtitle(page, 'Phrases')).toHaveText(/^[1-9]\d* of 50 learned$/);
   await expect(rowSubtitle(page, 'Words')).toHaveText(wordsBefore);
 });
 

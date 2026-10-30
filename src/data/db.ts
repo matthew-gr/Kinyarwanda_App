@@ -1,5 +1,5 @@
-// IndexedDB through Dexie. Table and column names match the Supabase tables planned for
-// Prompt 3, so sync can copy rows across without reshaping them.
+// IndexedDB through Dexie. Table and column names match the Supabase tables, so sync can copy
+// rows across without reshaping them.
 
 import Dexie, { type EntityTable } from 'dexie';
 import type { AnswerResult, Deck, LearnState } from '../engine/learn';
@@ -62,6 +62,26 @@ export interface SyncStateRow {
   last_synced_at: string | null;
 }
 
+/** How far the course download has got. One row, id "main". */
+export interface ContentStateRow {
+  id: 'main';
+  /** The newest server `updated_at` already on this device. */
+  cursor: string | null;
+  last_checked_at: string | null;
+}
+
+/** A mistake report, kept until the server has it. */
+export interface ReportRow {
+  id: string;
+  item_id: string;
+  form_id: string | null;
+  module: 'learn' | 'review';
+  shown_text: string;
+  message: string;
+  created_at: string;
+  synced: 0 | 1;
+}
+
 export interface Profile {
   id: string;
   verb_level: number;
@@ -79,6 +99,8 @@ export class KinyaDb extends Dexie {
   review_session!: EntityTable<ReviewSessionRow, 'id'>;
   sync_state!: EntityTable<SyncStateRow, 'id'>;
   profile!: EntityTable<Profile, 'id'>;
+  content_state!: EntityTable<ContentStateRow, 'id'>;
+  reports!: EntityTable<ReportRow, 'id'>;
 
   constructor(name = 'kinyarwanda') {
     super(name);
@@ -118,6 +140,8 @@ export class KinyaDb extends Dexie {
             e.synced ??= 0;
           }),
       );
+    // Prompt 5: the course downloads from the server, and mistake reports wait here to send.
+    this.version(4).stores({ content_state: 'id', reports: 'id, synced' });
   }
 }
 

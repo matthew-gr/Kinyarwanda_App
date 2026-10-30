@@ -3,6 +3,8 @@
 // the whole log. Uploads are keyed by the answer's own ID, so a retry never adds a row.
 
 import { applyProgress } from './applyProgress';
+import { pullContent } from './content';
+import { sendReports } from './reports';
 import { db, type AnswerEvent, type KinyaDb, type SyncStateRow } from './db';
 import { getProfile } from './repo';
 import { answerSaved, progressChanged } from './signals';
@@ -214,6 +216,9 @@ export function syncNow(d: KinyaDb = db): Promise<void> {
 
 async function runOnce(d: KinyaDb): Promise<void> {
   if (!supabase) return;
+  // Course changes download for everyone, signed in or not. A failure here waits for next time.
+  await pullContent(d).catch(() => undefined);
+  await sendReports(d).catch(() => undefined);
   const { data } = await supabase.auth.getSession();
   const session = data.session;
   if (!session) {
@@ -271,10 +276,14 @@ export function requestSync(delayMs = 0): void {
 
 let started = false;
 
-/** Starts syncing in the background: on sign-in, after answers, when back online, and every minute. */
+/**
+ * Starts syncing in the background: on start, on sign-in, after answers, when back online, and
+ * every minute.
+ */
 export function startSync(): void {
   if (started || !supabase) return;
   started = true;
+  requestSync();
   void getSyncState(db).then((s) => setStatus({ lastSyncedAt: s.last_synced_at }));
   supabase.auth.onAuthStateChange((event, session) => {
     if (session) {

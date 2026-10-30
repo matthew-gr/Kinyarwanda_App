@@ -12,16 +12,8 @@ import {
   type ReviewItem,
   type ReviewSessionRow,
 } from './db';
-import { seedForms, seedItems } from './seed';
 
 export const kindFor = (deck: Deck): Item['kind'] => (deck === 'words' ? 'word' : 'phrase');
-
-export async function ensureSeeded(d: KinyaDb = db): Promise<void> {
-  await d.transaction('rw', d.items, d.item_forms, async () => {
-    await d.items.bulkPut(seedItems);
-    await d.item_forms.bulkPut(seedForms);
-  });
-}
 
 export async function getProfile(d: KinyaDb = db): Promise<Profile> {
   return d.transaction('rw', d.profile, async () => {
