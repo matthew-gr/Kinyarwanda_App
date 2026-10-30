@@ -9,7 +9,7 @@ Choices made while building the app that the prompts or the product spec did not
 3. **Rounds are built when the previous one ends.** New items are introduced at the end of each round (rule 6) and shown before the next round starts, so new items join that next round.
 4. **Tiers are computed from rank and `tierSizes`; the last size repeats.** Words use `[100, 400]` (the first 100, then up to 500); phrases use `[25]`, so every batch is 25. Any words after 500 would fall into further tiers of 400, which is a placeholder: the spec has the learner choose topic pools after 500, which is not built yet.
 5. **The next tier opens automatically** when every item in the current tier has graduated. "Done" shows only when every item in the deck has graduated, so with today's 22 seed words and 10 phrases the done screen appears after the whole deck is learned.
-6. **The engine keeps the item order it was created with.** If seed content changes later (Prompt 5), new items will need a migration step that appends them to a saved deck. Not built now.
+6. **The engine keeps the item order it was created with.** When the course changes, `reconcileOrder` moves a saved deck onto it (decision 70).
 7. **Duplicate answers** are rejected twice over: the engine ignores any `cardViewId` other than the one on screen, and `answer_events.card_view_id` has a unique index.
 
 ## Forms engine
@@ -89,6 +89,24 @@ Prompt 2 was written from the product spec's Module 2 section; the build plan na
 63. **Profile** shows the day streak, words learned, phrases learned, best streak, the verb level (always 1 until the Verb Builder), the six badges in a carousel, the daily goal setting, then the account section.
 64. **New design system ports**: CourseCard (with a locked state), PageDots, StatRow and AchievementCard, plus the confetti, hands-clapping, settings, time-fill and global-learning icons, copied from the design system bundle.
 
+## AI content, audio, admin and reports (Prompt 5)
+
+65. **I drafted the course myself, in the repo**, rather than through a server function calling Claude. `scripts/draft-content.ts` holds the drafts as compact tables and writes `src/data/seed/content.json`. Every row is `ai_draft` with source `ai:claude-opus-5-5`. No Anthropic API key is needed until Stories (Prompt 10).
+66. **The first 100 words are ordered by usefulness, not counted from a corpus.** I did not download the Common Voice sentences, so the order is my judgment of frequency: greetings first, then people, food and drink, question words, numbers 1 to 10, and the 23 verbs. There are 40 nouns, 23 verbs, 10 numbers, 6 pronouns and 21 other words. Agreeing adjectives and possessives are left out, since they change with every noun class.
+67. **Verbs carry six level 1 forms each**: present tense for I, you, he or she, we, you all and they (ndakina … barakina). The he or she form comes first, as in the dev seed. Later tenses wait for the Verb Builder prompts.
+68. **Nouns with a plural carry both forms.** Nouns whose plural looks the same (inshuti, imodoka, inka) or that have none (amazi, ibiryo, akazi) have one form, with both meanings in the English where it applies ("car, cars"). Noun classes are recorded as "1/2", "9/10" and so on.
+69. **The pronunciation guide is syllables only**, such as mu_ra_ko_ze, worked out from the spelling (`src/engine/pronunciation.ts`). Kinyarwanda spelling doesn't mark vowel length or tone, and I can't vouch for either, so the guide doesn't double long vowels as the spec's example does. Forms other than the dictionary form get a guide from their own spelling. Admins can overwrite any guide.
+70. **Every dev item kept its ID**, and all 22 words and 10 phrases are in the new course, so existing progress carries over. `reconcileOrder` keeps introduced items at the front of a saved deck, drops removed ones, and puts the rest in the new rank order. Review drops items that have left the course.
+71. **The automated checks** (`src/engine/contentCheck.ts`) cover: missing fields, exactly one first form, duplicate forms, noun plurals, all six persons on a verb, duplicate words and clashing ranks. Two words spelled alike pass when their meanings differ, for pairs like kurira (cry) and kurira (climb). The same checks run in the admin editor before saving.
+72. **The server holds the course**: `items` and `item_forms` in Supabase, readable by anyone (signed in or not), writable only by admins. Nothing is deleted; a removed row is marked `retired`, so every device learns it is gone. Each change is stamped, and devices download rows stamped after the newest one they have. A sync checks for course changes at most every 5 minutes; an admin's own device checks straight after each save.
+73. **The app still ships the course** as a snapshot, so it works offline from the first launch. A row replaces the stored one only when it is newer, so the snapshot never undoes an admin's edit. Course changes download with every sync, for everyone.
+74. **Admins** are listed in an `admins` table. Matt is the first; there is no screen to add more yet (a one-line SQL insert does it). The database rules, not the screens, decide who can edit.
+75. **Admin screens** are at /admin, linked from Profile for admins only. The Course tab lists words or phrases with status and audio coverage, and adds new ones. The editor changes every field and form, retires items and forms, and makes or remakes audio per form. Rows added in the editor are marked `admin:editor`. The Reports tab lists open reports and marks them resolved, with a note.
+76. **Audio is made by a server function** (`generate-audio`), for admins only. It keeps every clip ever made in `audio_clips` and points the form at the newest. Files live in a public `audio` storage bucket. The function talks to ElevenLabs, or to any endpoint that takes text and returns audio (a hosted Meta MMS model, for example). The chosen voice is the `TTS_VOICE` secret, so switching voices needs no code change. The "..." in phrases like "Nitwa ..." is not spoken.
+77. **The voice listening test** is an admin screen. It voices the same 20 items (the first 14 words, abana, turiruka and the first 4 phrases) with each candidate, side by side. Results are remembered in the browser, and choosing one shows the exact `TTS_VOICE` value to store.
+78. **Report a mistake** is on every card: on introductions and card backs in Learn, and on card backs in Review. A report records the item, the form and the text shown, and is saved on the device first, then sent with the next sync. Anyone can send one, signed in or not; only admins can read them.
+79. **The card back** shows the example sentence, or for a phrase its word-by-word meanings, in a notes area at the foot of the card. The centre text moves up to make room ("Changed:" in `components.css`).
+
 ## Colour pairs below contrast guidelines (kept as designed)
 
 From the design system's Accessibility section. None were changed.
@@ -110,7 +128,7 @@ From the design system's Accessibility section. None were changed.
 
 ## Dependencies
 
-The prompt names the stack; these supporting packages come with it and were added without asking: `@vitejs/plugin-react`, `@types/react`, `@types/react-dom`, `@types/node`, `jsdom` and `@testing-library/dom` (for Testing Library under Vitest), `typescript-eslint`, `@eslint/js`, `eslint-plugin-react-hooks`, `eslint-plugin-react-refresh`, `eslint-config-prettier` and `globals`. `@supabase/supabase-js` was added in Prompt 3 with Matt's approval. No others. The Supabase CLI runs from its own folder (`%LOCALAPPDATA%/supabase-cli`), not as a project dependency.
+The prompt names the stack; these supporting packages come with it and were added without asking: `@vitejs/plugin-react`, `@types/react`, `@types/react-dom`, `@types/node`, `jsdom` and `@testing-library/dom` (for Testing Library under Vitest), `typescript-eslint`, `@eslint/js`, `eslint-plugin-react-hooks`, `eslint-plugin-react-refresh`, `eslint-config-prettier` and `globals`. `@supabase/supabase-js` was added in Prompt 3 with Matt's approval. No others. The audio server function imports `@supabase/supabase-js` from JSR inside Deno; that is not a project dependency. The Supabase CLI runs from its own folder (`%LOCALAPPDATA%/supabase-cli`), not as a project dependency.
 
 - `react-router` v7 is used (the package formerly published as `react-router-dom`).
 - `scripts/build-tokens.ts` runs directly on Node 22.18+, which strips TypeScript types itself, so no `tsx` or `ts-node` is needed.
@@ -122,8 +140,9 @@ The prompt names the stack; these supporting packages come with it and were adde
 
 1. **Safari coverage.** Should CI also run the walkthrough in Playwright's WebKit? It is closer to iPhone Safari but adds a few minutes to every push. Real-device checks on an iPhone and an Android phone still need a person.
 2. **After 500 words.** The engine needs a tier size for anything beyond 500. It uses 400 for now. Should it stop at 500 until topic pools exist?
-3. **Daily goal.** Does the goal count items learned (graduated) today, as built, or items introduced today?
-4. **Between tiers.** Should finishing a tier show a moment of celebration ("You've learned your first 100 words") before the next tier's first introductions? Today it moves straight on.
-5. **Seed content.** amazi, ibiryo and akazi have no plural in the seed; please confirm they should stay single-form nouns until AI content replaces the seed.
-6. **Review stages.** Is "an item at stage N waits stage N's interval" the reading you meant (decision 29)? The other reading would make the second review 5 minutes after the first instead of 15.
-7. **One Review queue or two.** Words and phrases are mixed in one Review queue. Should Review get the same Words | Phrases switch as Learn?
+3. **Between tiers.** Should finishing a tier show a moment of celebration ("You've learned your first 100 words") before the next tier's first introductions? Today it moves straight on.
+4. **Review stages.** Is "an item at stage N waits stage N's interval" the reading you meant (decision 29)? The other reading would make the second review 5 minutes after the first instead of 15.
+5. **One Review queue or two.** Words and phrases are mixed in one Review queue. Should Review get the same Words | Phrases switch as Learn?
+6. **Word list.** Please skim the first 100 words in `scripts/draft-content.ts`. Is a usefulness order acceptable until a corpus count is run, and should numbers sit inside the first 100 (they open Speed Speaking)?
+7. **Who else is an admin?** Only Matt for now. Native reviewers will need accounts in a later phase.
+8. **Reports from people not signed in.** These are allowed so testers don't have to sign in. If spam ever shows up, reports can require sign-in instead.
