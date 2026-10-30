@@ -124,6 +124,19 @@ Prompt 2 was written from the product spec's Module 2 section; the build plan na
 92. **Object forms (level 3) exist only for guseka (laugh at) and gusoma (kiss)**, the two starter verbs that take a person as object. Pairs whose object includes the subject (I and me, I and us, you all and you) need reflexive forms and are left out. "He laughs at him" is two people, so it stays.
 93. **The verb table is bundled in the app** (`src/data/verbSeed.ts`), like the course snapshot. Moving it into Supabase with admin editing belongs with the Verb Builder screens or native review.
 
+## Verb Builder screens (Prompt 7)
+
+94. **The Verb Builder is at /verbs**, opened from its card on Home, which shows the learner's level. Levels 1 to 3 have screens; levels 4 to 6 come later (`LEVELS_BUILT` in `src/engine/verbLevels.ts`).
+95. **Each level opens with its own screen**: what the level adds, then 2 or 3 worked examples built one piece at a time (barakina, ndakina and ariruka at level 1; nzakina and agakina at level 2; ndaguseka and arabaseka at level 3). When the joined word differs from its pieces, a line says the pieces change sound when they join.
+96. **Guided practice is 3 rounds** after each opening screen. The right tiles are outlined. Guided answers are graded and shown but do not count toward mastery, and a miss there does not come back sooner.
+97. **A build round** shows the pictures and the English, the word so far as a strip (fixed pieces such as ra at level 1, and the ending a, in grey), and one row of tiles per slot. Tapping a filled slot in the strip clears it. Check is enabled once every slot has a tile. **A reverse round** shows and plays the word, and its tiles show pictures and meanings without the pieces, which would give the answer away.
+98. **After every answer** the stored word is shown, played when it has audio, and each slot is marked right or wrong with an icon and words ("you picked tu (we). It's ba (they).").
+99. **Finishing a level unlocks the next**: every verb and slot at the level mastered (3 right in a row). The new level is saved to the profile and syncs. A level only ever rises across devices: a device that is behind never lowers it. After level 3 a message says levels 1 to 3 are done, once, and practice carries on.
+100. **Word forms follow the verb level.** The 11 course verbs that are also starter verbs get their level 2 forms (future and "and then") and level 3 object forms from the verb table, 144 new forms, through `scripts/draft-content.ts`. Learn and Review already pick only forms at or below the learner's level, so these appear once unlocked. "It" forms stay in the Verb Builder. gusoma's object forms are left out of the course, since the course teaches it as "to read" and those forms mean "to kiss".
+101. **Verb Builder progress stays on the device** (the `verb_state` table); only the level reached syncs. Signing in to another account clears it, like the rest of the progress. Syncing mastery itself needs a server table; it can come with native review.
+102. **Pictures are emoji stand-ins** (`src/routes/verbPictures.ts`) until the drawn pictures exist. Each always sits beside a word label, so the meaning never depends on the picture.
+103. **Verb Builder audio** reuses course audio where the spelling matches a course form. Words found only in the Verb Builder (the "it" forms, and the verbs not in the course) have no audio yet, so a reverse round shows the word written as well as playing it. Report a mistake is not on Verb Builder screens yet, because reports point at course items.
+
 ## Planned later
 
 - **A section on the rules of elision** (Matt, 30 October 2026). Learners should practise the letter changes that happen when pieces join, which Verb Builder shows in the stored word but never teaches as rules: a vowel dropping before another vowel (ra + iruka is riruka, a + a is ya), n + r becoming nd (ndakina), and Dahl's law (ku, tu, ka and ki voicing before a voiceless consonant, as in agakina and dukaza). The sound rules in decision 90 are the starting list. Added to the build plan's later phases.
@@ -170,3 +183,4 @@ The prompt names the stack; these supporting packages come with it and were adde
 9. **Narrative "and then".** The spec's table shows "akakina"; the draft uses "agakina", following Dahl's law. Which is right? The same rule decides ngakina, tugakina and agahagarara.
 10. **Level 3 verbs.** Only guseka (laugh at) and gusoma (kiss) among the starter verbs take a person as object. Should level 3 add transitive verbs from the course, such as kubona (see), gukunda (love), gufasha (help) and kureba (look at)?
 11. **"It" verbs.** "It" forms are drafted for cry, sleep, go, come, run, stand and sit. Should laugh, dance, sing or play have them too?
+12. **How long a level takes.** Finishing a level needs every one of the 13 verbs' slots mastered, about 40 right rounds at level 1. Is that the right length, or should a level finish after fewer verbs?

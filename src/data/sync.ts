@@ -68,9 +68,10 @@ const countPending = (d: KinyaDb) => d.answer_events.where('synced').equals(0).c
 async function clearProgress(d: KinyaDb): Promise<void> {
   await d.transaction(
     'rw',
-    [d.answer_events, d.learn_state, d.review_items, d.review_session, d.sync_state],
+    [d.answer_events, d.learn_state, d.review_items, d.review_session, d.sync_state, d.verb_state],
     async () => {
       await Promise.all([
+        d.verb_state.clear(),
         d.answer_events.clear(),
         d.learn_state.clear(),
         d.review_items.clear(),
@@ -92,13 +93,15 @@ async function syncProfile(userId: string, d: KinyaDb): Promise<void> {
     .maybeSingle();
   if (error) throw error;
   if (data && local.dirty) {
-    // A change made on this device goes up; until then the server copy wins.
+    // A change made on this device goes up; until then the server copy wins. The verb level
+    // only ever rises, so a device that is behind never lowers another device's level.
+    const verb_level = Math.max(local.verb_level, (data as { verb_level: number }).verb_level);
     const { error: updateError } = await client
       .from('profiles')
-      .update({ daily_goal: local.daily_goal, updated_at: new Date().toISOString() })
+      .update({ daily_goal: local.daily_goal, verb_level, updated_at: new Date().toISOString() })
       .eq('id', userId);
     if (updateError) throw updateError;
-    await d.profile.put({ ...local, dirty: false });
+    await d.profile.put({ ...local, verb_level, dirty: false });
     return;
   }
   if (data) {

@@ -4,6 +4,7 @@
 import Dexie, { type EntityTable } from 'dexie';
 import type { AnswerResult, Deck, LearnState } from '../engine/learn';
 import type { Item, ItemForm } from '../engine/types';
+import type { VerbState } from '../engine/verbs';
 
 export interface LearnStateRow {
   deck: Deck;
@@ -82,6 +83,20 @@ export interface ReportRow {
   synced: 0 | 1;
 }
 
+/** Verb Builder progress on this device. One row, id "main". */
+export interface VerbStateRow {
+  id: 'main';
+  /** The Verb Builder engine's serialized state. */
+  state: VerbState;
+  /** The highest level whose opening screen the learner has been through; 0 before any. */
+  intro_seen: number;
+  /** Guided rounds left after the opening screen, before free rounds. */
+  guided_left: number;
+  /** True once the "levels 1 to 3 done" message has been shown. */
+  finished_seen: boolean;
+  updated_at: string;
+}
+
 export interface Profile {
   id: string;
   verb_level: number;
@@ -101,6 +116,7 @@ export class KinyaDb extends Dexie {
   profile!: EntityTable<Profile, 'id'>;
   content_state!: EntityTable<ContentStateRow, 'id'>;
   reports!: EntityTable<ReportRow, 'id'>;
+  verb_state!: EntityTable<VerbStateRow, 'id'>;
 
   constructor(name = 'kinyarwanda') {
     super(name);
@@ -142,6 +158,8 @@ export class KinyaDb extends Dexie {
       );
     // Prompt 5: the course downloads from the server, and mistake reports wait here to send.
     this.version(4).stores({ content_state: 'id', reports: 'id, synced' });
+    // Prompt 7: Verb Builder progress.
+    this.version(5).stores({ verb_state: 'id' });
   }
 }
 

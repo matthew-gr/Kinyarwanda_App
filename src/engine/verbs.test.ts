@@ -4,7 +4,9 @@ import { checkVerbs, samePerson } from './verbCheck';
 import {
   answerRound,
   createVerbState,
+  formPieces,
   levelComplete,
+  levelProgress,
   masteryKey,
   nextRound,
   setLevel,
@@ -340,6 +342,25 @@ describe('mastery and misses', () => {
     expect(levelComplete(createVerbState(1), VERBS, FORMS)).toBe(false);
     const partly = playRounds(createVerbState(1), 14, 5).state;
     expect(levelComplete(partly, VERBS, FORMS)).toBe(false);
+  });
+
+  it('counts mastered verb and slot pairs for the level', () => {
+    // Level 1 asks who and the action of 5 verbs; level 3 adds whom for the one transitive verb.
+    expect(levelProgress(createVerbState(1), VERBS, FORMS)).toEqual({ mastered: 0, total: 10 });
+    expect(levelProgress(createVerbState(3), VERBS, FORMS).total).toBe(5 * 3 + 1);
+    const done = playRounds(createVerbState(1), 14, 400).state;
+    expect(levelProgress(done, VERBS, FORMS)).toEqual({ mastered: 10, total: 10 });
+  });
+});
+
+describe('formPieces', () => {
+  it('lists the pieces left to right, with whom before the action', () => {
+    const form = FORMS.find((f) => f.verb_id === laugh.id && f.who === '3pl' && f.whom === '1sg')!;
+    expect(formPieces(form, laugh).map((p) => p.piece)).toEqual(['ba', 'ra', 'n', 'sek', 'a']);
+    const plain = FORMS.find(
+      (f) => f.verb_id === play.id && f.who === '1sg' && f.when === 'future',
+    )!;
+    expect(formPieces(plain, play).map((p) => p.slot)).toEqual(['who', 'when', 'action', 'ending']);
   });
 });
 

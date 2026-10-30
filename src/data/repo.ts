@@ -25,6 +25,12 @@ export async function getProfile(d: KinyaDb = db): Promise<Profile> {
   });
 }
 
+/** Saves a new Verb Builder level on this device and marks it for the next sync. */
+export async function setVerbLevel(level: number, d: KinyaDb = db): Promise<void> {
+  const profile = await getProfile(d);
+  await d.profile.put({ ...profile, verb_level: level, dirty: true });
+}
+
 /** Saves a new daily goal on this device and marks it for the next sync. */
 export async function setDailyGoal(goal: number, d: KinyaDb = db): Promise<void> {
   const profile = await getProfile(d);
@@ -78,6 +84,7 @@ export interface HomeStats {
   phrases: { learned: number; total: number };
   learnedToday: number;
   dailyGoal: number;
+  verbLevel: number;
   review: DueCounts;
 }
 
@@ -99,6 +106,7 @@ export async function loadHomeStats(now: number, d: KinyaDb = db): Promise<HomeS
     phrases: count('phrase'),
     learnedToday: reviews.filter((r) => Date.parse(r.created_at) >= startOfDay.getTime()).length,
     dailyGoal: profile.daily_goal,
+    verbLevel: profile.verb_level,
     review: dueCounts(
       reviews.map((r) => ({ itemId: r.item_id, dueAt: Date.parse(r.due_at) })),
       now,

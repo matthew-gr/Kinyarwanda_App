@@ -669,3 +669,271 @@ textarea.field-input {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+/* Verb Builder */
+.screen-verbs > .kn-session,
+.screen-verbs > .panel,
+.screen-verbs > .verb-tiles,
+.screen-verbs > .verb-intro {
+  width: 100%;
+}
+
+.verb-intro {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-16);
+  width: 100%;
+}
+
+.verb-intro > h2,
+.verb-intro > p {
+  margin: 0;
+  width: 100%;
+}
+
+.verb-level-tag {
+  color: var(--text-secondary);
+}
+
+.verb-example {
+  width: 100%;
+}
+
+.verb-example-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-10);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.verb-example-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  animation: note-in 0.2s ease-out;
+}
+
+.verb-example-word,
+.verb-target-word {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-9);
+  margin: 0;
+}
+
+.verb-sound-note {
+  margin: var(--space-9) 0 0;
+  color: var(--text-secondary);
+}
+
+.verb-pieces,
+.verb-pieces-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-5);
+}
+
+.verb-plus {
+  color: var(--text-meta);
+}
+
+.verb-piece {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0 var(--space-9);
+  border-radius: var(--radius-field);
+  background: var(--blue-tile);
+  color: var(--blue-tile-text);
+  font-family: var(--font-sans);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.verb-piece-fixed {
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+}
+
+.verb-word {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--green-word);
+}
+
+.verb-speak {
+  display: inline-flex;
+  padding: var(--space-6);
+  border-radius: var(--radius-full);
+  color: var(--ink);
+}
+
+.verb-speak:focus-visible,
+.verb-slot:focus-visible,
+.verb-tile:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.verb-target {
+  align-items: center;
+  text-align: center;
+}
+
+.verb-target-pictures {
+  display: flex;
+  gap: var(--space-10);
+  margin: 0;
+  font-size: 40px;
+  line-height: 1;
+}
+
+.verb-target-en {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.verb-strip {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-5);
+  margin: 0;
+}
+
+.verb-slot {
+  cursor: pointer;
+}
+
+.verb-slot-empty {
+  background: var(--surface);
+  border: 2px dashed var(--line);
+  color: var(--text-meta);
+  cursor: default;
+}
+
+.verb-guide {
+  margin: 0;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.verb-tiles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-10);
+}
+
+.verb-tile-group {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.verb-tile-group legend {
+  padding: 0;
+  margin-bottom: var(--space-6);
+  color: var(--text-secondary);
+}
+
+.verb-tile-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: var(--space-6);
+}
+
+.verb-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 72px;
+  padding: var(--space-6) var(--space-5);
+  border: 2px solid var(--line);
+  border-radius: var(--radius-field);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  text-align: center;
+}
+
+.verb-tile-selected {
+  border-color: var(--green-word);
+  background: var(--green-card);
+}
+
+.verb-tile-hint {
+  outline: 2px dashed var(--green-word);
+  outline-offset: 2px;
+}
+
+.verb-tile-picture {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.verb-tile-piece {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.verb-tile-label {
+  font-size: 12px;
+  line-height: 1.2;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.verb-feedback {
+  align-items: center;
+  text-align: center;
+}
+
+.verb-verdict {
+  margin: 0;
+}
+
+.verb-right {
+  color: var(--green-word);
+}
+
+.verb-wrong {
+  color: var(--ink);
+}
+
+.verb-slot-results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+
+.verb-slot-results .verb-right {
+  color: var(--ink);
+}
+
+.verb-unlocked {
+  margin: 0;
+  padding: var(--space-10) var(--space-16);
+  border-radius: var(--radius-field);
+  background: var(--yellow-card);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .verb-example-step {
+    animation: none;
+  }
+}

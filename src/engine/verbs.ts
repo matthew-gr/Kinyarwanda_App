@@ -382,12 +382,12 @@ export function answerRound(
   };
 }
 
-/** True once every verb and slot this level asks about has been mastered. */
-export function levelComplete(
+/** Verb and slot pairs this level asks about, and how many are mastered. */
+export function levelProgress(
   state: VerbState,
   verbs: readonly Verb[],
   forms: readonly VerbForm[],
-): boolean {
+): { mastered: number; total: number } {
   const usable = usableForms(forms, state.level);
   const ids = new Set(verbs.map((v) => v.id));
   const keys = new Set<string>();
@@ -395,5 +395,38 @@ export function levelComplete(
     if (!ids.has(f.verb_id)) continue;
     for (const s of roundSlots(state.level, 'build', f, usable)) keys.add(masteryKey(f.verb_id, s));
   }
-  return keys.size > 0 && [...keys].every((k) => state.mastery[k]?.mastered === true);
+  const mastered = [...keys].filter((k) => state.mastery[k]?.mastered === true).length;
+  return { mastered, total: keys.size };
+}
+
+/** True once every verb and slot this level asks about has been mastered. */
+export function levelComplete(
+  state: VerbState,
+  verbs: readonly Verb[],
+  forms: readonly VerbForm[],
+): boolean {
+  const { mastered, total } = levelProgress(state, verbs, forms);
+  return total > 0 && mastered === total;
+}
+
+export interface Piece {
+  slot: Slot;
+  piece: string;
+  label: string;
+}
+
+/**
+ * The pieces a stored word is built from, left to right, as the tiles teach them:
+ * ba + ra + rir + a. The joined word can sound different (n + ra + kin + a is ndakina), which is
+ * why the stored word, not these pieces, is the answer.
+ */
+export function formPieces(form: VerbForm, verb: Verb): Piece[] {
+  const pieces: Piece[] = [
+    { slot: 'who', ...WHO_PIECES[form.who] },
+    { slot: 'when', ...WHEN_PIECES[form.when] },
+  ];
+  if (form.whom) pieces.push({ slot: 'whom', ...WHOM_PIECES[form.whom] });
+  pieces.push({ slot: 'action', piece: verb.root, label: verb.en });
+  pieces.push({ slot: 'ending', piece: form.ending, label: 'plain' });
+  return pieces;
 }

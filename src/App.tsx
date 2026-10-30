@@ -20,6 +20,7 @@ import { Learn } from './routes/Learn';
 import { Profile } from './routes/Profile';
 import { Review } from './routes/Review';
 import { Search } from './routes/Search';
+import { VerbBuilder } from './routes/VerbBuilder';
 
 function TabsLayout() {
   const { pathname } = useLocation();
@@ -71,6 +72,7 @@ export function App() {
         </Route>
         <Route path="learn/:deck" element={<Learn />} />
         <Route path="review" element={<Review />} />
+        <Route path="verbs" element={<VerbBuilder />} />
         <Route path="admin" element={<AdminHome />} />
         <Route path="admin/items/:id" element={<AdminItem />} />
         <Route path="admin/voices" element={<VoiceTest />} />

@@ -50,11 +50,6 @@ const COMING: ModuleCard[] = [
     meta: 'Coming soon',
   },
   {
-    title: 'Verb Builder',
-    description: 'Build verbs from picture cues: who, when, what.',
-    meta: 'Coming soon',
-  },
-  {
     title: 'Speed Speaking',
     description: 'Say a noun and a number aloud, fast.',
     meta: 'Coming soon',
@@ -132,6 +127,12 @@ export function Home() {
       meta: stats ? `${stats.review.total} in Review` : ' ',
       detail: stats ? `${due} due` : undefined,
       onClick: () => navigate('/review'),
+    },
+    {
+      title: 'Verb Builder',
+      description: 'Build verbs from picture cues: who, when, what.',
+      meta: stats ? `Level ${stats.verbLevel}` : ' ',
+      onClick: () => navigate('/verbs'),
     },
     ...COMING,
   ];
