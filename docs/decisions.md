@@ -107,6 +107,23 @@ Prompt 2 was written from the product spec's Module 2 section; the build plan na
 78. **Report a mistake** is on every card: on introductions and card backs in Learn, and on card backs in Review. A report records the item, the form and the text shown, and is saved on the device first, then sent with the next sync. Anyone can send one, signed in or not; only admins can read them.
 79. **The card back** shows the example sentence, or for a phrase its word-by-word meanings, in a notes area at the foot of the card. The centre text moves up to make room ("Changed:" in `components.css`).
 
+## Verb Builder (Prompt 6)
+
+80. **Slots by level.** Level 1 asks for who and the action (present tense only). Level 2 adds when (now, tomorrow or later, and then). Level 3 adds whom. The ending slot is always -a until the past tense at level 4, so it is not asked yet.
+81. **Grading compares slot values, not spellings.** Each stored form records its who, when, whom, verb and ending. A tile is right when its value matches the stored form's value for that slot. The stored word is shown and played after every answer, so sound changes are taught by the word and never computed at grading time.
+82. **Mastery is per verb and slot**, such as gukina's who slot: 3 right in a row, like Learn. A miss resets the streak and un-masters the pair, so it has to earn 3 in a row again. A slot answered right keeps its own streak even when another slot in the same round was wrong.
+83. **Misses come back sooner.** A missed form returns after exactly one other round. Come-backs take at most every other round, so a learner who misses everything still meets new forms instead of two forms taking turns.
+84. **Choosing the next form**: a missed form that is due back; otherwise a form whose verb still has a slot to master; otherwise any form at the learner's level. The same form never comes twice in a row while another can.
+85. **Reverse rounds are every 4th round.** The stored word plays, and the learner picks the who, when and action pictures (never whom, as the spec lists only those three).
+86. **Tiles.** Who and when tiles are listed in a fixed order (n, u, a, tu, mu, ba, ki, bi; ra, za, ka), and only those that lead to a stored word for that verb are offered. Action tiles are the right verb plus 3 others, shuffled. Whom adds a "no one" tile, and is asked only for verbs that take a person as object.
+87. **The engine state is plain JSON** (`VerbState`). `nextRound` records the round on screen, so a reload shows the same round, and a second answer for the same round ID is ignored, as in Learn.
+88. **Changing level keeps mastery.** `levelComplete` reports when every verb and slot at the learner's level is mastered, for Prompt 7's graduation screens.
+89. **The form table is drafted by `scripts/draft-verbs.ts`** into `src/data/seed/verbs.json`: 13 verbs and 324 forms, all `ai_draft`. Each form has a confidence (144 high, 156 medium, 24 low) so native reviewers can check the weakest first. Past stems are drafted for level 4, each with its own confidence.
+90. **Sound rules used for the drafts**: n + r is nd (ndakina, ndiruka); a marker's vowel drops before a vowel stem (ra + iruka is riruka); Dahl's law voices ku, tu, ka and ki before a voiceless consonant (ndaguseka, dukaza, agakina, ngicara). The spec's draft table gives "akakina" for "and then he plays"; Dahl's law gives **agakina**, which the draft uses (see the questions).
+91. **"It" forms** (ki- and bi- subjects) are drafted only for verbs an iki or ibi thing can sensibly do: cry, sleep, go, come, run, stand and sit.
+92. **Object forms (level 3) exist only for guseka (laugh at) and gusoma (kiss)**, the two starter verbs that take a person as object. Pairs whose object includes the subject (I and me, I and us, you all and you) need reflexive forms and are left out. "He laughs at him" is two people, so it stays.
+93. **The verb table is bundled in the app** (`src/data/verbSeed.ts`), like the course snapshot. Moving it into Supabase with admin editing belongs with the Verb Builder screens or native review.
+
 ## Colour pairs below contrast guidelines (kept as designed)
 
 From the design system's Accessibility section. None were changed.
@@ -146,3 +163,6 @@ The prompt names the stack; these supporting packages come with it and were adde
 6. **Word list.** Please skim the first 100 words in `scripts/draft-content.ts`. Is a usefulness order acceptable until a corpus count is run, and should numbers sit inside the first 100 (they open Speed Speaking)?
 7. **Who else is an admin?** Only Matt for now. Native reviewers will need accounts in a later phase.
 8. **Reports from people not signed in.** These are allowed so testers don't have to sign in. If spam ever shows up, reports can require sign-in instead.
+9. **Narrative "and then".** The spec's table shows "akakina"; the draft uses "agakina", following Dahl's law. Which is right? The same rule decides ngakina, tugakina and agahagarara.
+10. **Level 3 verbs.** Only guseka (laugh at) and gusoma (kiss) among the starter verbs take a person as object. Should level 3 add transitive verbs from the course, such as kubona (see), gukunda (love), gufasha (help) and kureba (look at)?
+11. **"It" verbs.** "It" forms are drafted for cry, sleep, go, come, run, stand and sit. Should laugh, dance, sing or play have them too?
