@@ -81,7 +81,9 @@ Six phases take the app from an empty repository to a phone install, each ending
 - The placement check.
 - Topic pools after 500 words.
 - Verb Builder levels 4 to 6.
-- A section on the rules of elision and sound change, where learners practise how letters change when pieces join: a vowel dropping before another vowel (ra + iruka is riruka), n + r becoming nd (ndakina), and Dahl's law (ku, tu, ka and ki becoming gu, du, ga and gi, as in agakina). Requested by Matt on 30 October 2026.
+- A Pronunciation section with two activities. Requested by Matt on 30 October 2026.
+  - **Hard words:** listening practice on words learners find hard to hear.
+  - **Letter changes:** a word is shown in its pieces as they are before joining (ra + iruka). The learner types the joined word (riruka) and submits, then sees whether it's right and can open an explanation of the rule. The rules are a vowel dropping before another vowel, n + r becoming nd (ndakina), and Dahl's law (ku, tu, ka and ki becoming gu, du, ga and gi, as in agakina).
 - Speech recognition for Speed Speaking.
 
 ## Claude Code prompt sequence

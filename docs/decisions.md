@@ -139,7 +139,7 @@ Prompt 2 was written from the product spec's Module 2 section; the build plan na
 
 ## Planned later
 
-- **A section on the rules of elision** (Matt, 30 October 2026). Learners should practise the letter changes that happen when pieces join, which Verb Builder shows in the stored word but never teaches as rules: a vowel dropping before another vowel (ra + iruka is riruka, a + a is ya), n + r becoming nd (ndakina), and Dahl's law (ku, tu, ka and ki voicing before a voiceless consonant, as in agakina and dukaza). The sound rules in decision 90 are the starting list. Added to the build plan's later phases.
+- **A Pronunciation section** (Matt, 30 October 2026), with two activities. *Hard words* is listening practice on words that are hard to hear; it overlaps with Sound Pairs and may absorb it. *Letter changes* shows a word in its pieces as they are before joining (ra + iruka); the learner types the joined word (riruka), submits, sees whether it's right, and can open an explanation of the rule that applied. Verb Builder's `formPieces` already gives the pieces for every verb form, so the verb forms can supply the first set of questions. Learners should practise the letter changes that happen when pieces join, which Verb Builder shows in the stored word but never teaches as rules: a vowel dropping before another vowel (ra + iruka is riruka, a + a is ya), n + r becoming nd (ndakina), and Dahl's law (ku, tu, ka and ki voicing before a voiceless consonant, as in agakina and dukaza). The sound rules in decision 90 are the starting list. Added to the build plan's later phases.
 
 ## Colour pairs below contrast guidelines (kept as designed)
 
