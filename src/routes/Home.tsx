@@ -42,21 +42,18 @@ function DueSummary({ counts }: { counts: DueCounts }) {
 
 const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
 
+/** The drills open once numbers 1 to 5 are learned. */
+function drillMeta(stats: HomeStats | null): string {
+  if (!stats) return ' ';
+  const { learned, needed } = stats.numbers;
+  return learned >= needed ? 'About 2 minutes' : `${learned} of ${needed} numbers learned`;
+}
+
 /** The modules not built yet, from the product spec. */
 const COMING: ModuleCard[] = [
   {
     title: 'Stories',
     description: 'Short stories made from words you already know.',
-    meta: 'Coming soon',
-  },
-  {
-    title: 'Speed Speaking',
-    description: 'Say a noun and a number aloud, fast.',
-    meta: 'Coming soon',
-  },
-  {
-    title: 'Number Listening',
-    description: 'Hear a number and type it as fast as you can.',
     meta: 'Coming soon',
   },
   {
@@ -133,6 +130,18 @@ export function Home() {
       description: 'Build verbs from picture cues: who, when, what.',
       meta: stats ? `Level ${stats.verbLevel}` : ' ',
       onClick: () => navigate('/verbs'),
+    },
+    {
+      title: 'Speed Speaking',
+      description: 'Say a noun and a number aloud, fast.',
+      meta: drillMeta(stats),
+      onClick: () => navigate('/drills/speaking'),
+    },
+    {
+      title: 'Number Listening',
+      description: 'Hear a number and type it as fast as you can.',
+      meta: drillMeta(stats),
+      onClick: () => navigate('/drills/numbers'),
     },
     ...COMING,
   ];
