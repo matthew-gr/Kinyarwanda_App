@@ -124,6 +124,10 @@ Prompt 2 was written from the product spec's Module 2 section; the build plan na
 92. **Object forms (level 3) exist only for guseka (laugh at) and gusoma (kiss)**, the two starter verbs that take a person as object. Pairs whose object includes the subject (I and me, I and us, you all and you) need reflexive forms and are left out. "He laughs at him" is two people, so it stays.
 93. **The verb table is bundled in the app** (`src/data/verbSeed.ts`), like the course snapshot. Moving it into Supabase with admin editing belongs with the Verb Builder screens or native review.
 
+## Planned later
+
+- **A section on the rules of elision** (Matt, 30 October 2026). Learners should practise the letter changes that happen when pieces join, which Verb Builder shows in the stored word but never teaches as rules: a vowel dropping before another vowel (ra + iruka is riruka, a + a is ya), n + r becoming nd (ndakina), and Dahl's law (ku, tu, ka and ki voicing before a voiceless consonant, as in agakina and dukaza). The sound rules in decision 90 are the starting list. Added to the build plan's later phases.
+
 ## Colour pairs below contrast guidelines (kept as designed)
 
 From the design system's Accessibility section. None were changed.
