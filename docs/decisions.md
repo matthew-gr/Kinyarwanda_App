@@ -151,6 +151,8 @@ Prompt 2 was written from the product spec's Module 2 section; the build plan na
 113. **Scores sync**: a new `drill_scores` table, append-only like the answer log. Personal bests follow the learner to every device, and signing in to another account clears them from the device like the rest of the progress.
 114. **Noun pictures are emoji stand-ins** (`src/routes/numberPictures.ts`), each beside the noun.
 115. **"na" before a vowel is written n'** (makumyabiri n'icyenda, cumi n'umunani, igihumbi n'ijana), as standard written Kinyarwanda does, so the voice says it joined. 36 numbers changed; a migration updates only rows still holding the old draft. Matt chose to review the number words in production rather than before release.
+116. **The voice is ElevenLabs' Sarah** (`EXAVITQu4vr4xnSDxMaL`, model eleven_v3), Matt's pick from the voice test.
+117. **The voice reads a spoken spelling; learners see the real one** (Matt's idea). The voices read letters as written, so they missed sounds written Kinyarwanda doesn't show. `supabase/functions/_shared/spoken.ts` respells the text just before it goes to the voice: a consonant before w takes a g or k (umwami → umgwami, Rwanda → Rgwanda, twese → tkwese), and n or m before t, k or p breathes it out (umuntu → umunhu, inka → inha, impamvu → imhamvu). The rules are AI drafts to confirm by ear. A word the rules get wrong will need its own spoken spelling stored with it; there is no such field yet.
 
 ## Planned later
 

@@ -19,6 +19,7 @@
 // SUPABASE_URL, SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY are provided.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { spokenSpelling } from '../_shared/spoken.ts';
 
 const MAX_PER_CALL = 25;
 const CORS = {
@@ -49,7 +50,8 @@ const cleanLabel = (s: string) =>
 
 async function speak(voice: Voice, text: string): Promise<{ bytes: Uint8Array; type: string }> {
   // The "..." in a phrase like "Nitwa ..." is a gap for the learner's own word, not speech.
-  const spoken = text.replace(/\.{3}|…/g, '').trim();
+  // The voice gets the word as it is said (umuntu as umunhu); learners still see the spelling.
+  const spoken = spokenSpelling(text.replace(/\.{3}|…/g, '').trim());
   let res: Response;
   if (voice.provider === 'elevenlabs') {
     res = await fetch(
