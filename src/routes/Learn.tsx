@@ -6,7 +6,8 @@ import { FlashcardDeck } from '../components/FlashcardDeck';
 import { SessionHeader } from '../components/SessionHeader';
 import { LearnSession, type CardView } from '../data/learnSession';
 import type { AnswerResult, Deck } from '../engine/learn';
-import { dictionaryLine, playAudio, tagFor } from './cardText';
+import { CardNotes, ReportMistake } from './CardExtras';
+import { dictionaryLine, hasNotes, playAudio, pronunciationFor, tagFor } from './cardText';
 import { useProgressVersion } from './useProgressVersion';
 
 const DECK_NAMES: Record<Deck, string> = { words: 'Words', phrases: 'Phrases' };
@@ -211,8 +212,10 @@ function CardArea({
             key={view.key}
             side={isIntro ? 'both' : flipped ? 'back' : 'front'}
             word={form.text}
+            phonetic={pronunciationFor(item, form)}
             translation={form.en}
             detail={dictionaryLine(item, form)}
+            notes={hasNotes(item) ? <CardNotes item={item} /> : undefined}
             tag={tagFor(item)}
             hint="Tap to reveal meaning"
             onFlip={onFlip}
@@ -257,6 +260,7 @@ function CardArea({
         ) : (
           <p className="learn-tip body-small">Tap the card, or press Space, to see the meaning.</p>
         )}
+        {isIntro || flipped ? <ReportMistake item={item} form={form} module="learn" /> : null}
       </div>
     </>
   );

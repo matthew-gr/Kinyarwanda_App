@@ -434,6 +434,29 @@
 .kn-flash-intro .kn-flash-detail {
   color: var(--ink);
 }
+/* Changed: added. An example sentence or a phrase's breakdown at the foot of the back. The
+   centre moves up to make room. */
+.kn-flash-has-notes .kn-flash-center,
+.kn-flash-has-notes .kn-flash-back .kn-flash-center {
+  margin-top: 64px;
+}
+.kn-flash-has-notes .kn-flash-detail {
+  margin-top: 8px;
+}
+.kn-flash-notes {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 20px;
+  text-align: center;
+  color: var(--ink);
+}
+.kn-flash-notes p {
+  margin: 0;
+}
+.kn-flash-notes p + p {
+  margin-top: 4px;
+}
 
 /* FlashcardDeck. Changed: shrinks with the card on narrow phones. */
 .kn-deck {

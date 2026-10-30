@@ -7,7 +7,15 @@ import { SessionHeader } from '../components/SessionHeader';
 import { ReviewSession, type ReviewCard, type ReviewView } from '../data/reviewSession';
 import type { AnswerResult } from '../engine/learn';
 import { TOP_STAGE, type ReviewSchedule } from '../engine/review';
-import { dictionaryLine, playAudio, tagFor, waitInWords } from './cardText';
+import { CardNotes, ReportMistake } from './CardExtras';
+import {
+  dictionaryLine,
+  hasNotes,
+  playAudio,
+  pronunciationFor,
+  tagFor,
+  waitInWords,
+} from './cardText';
 import { useProgressVersion } from './useProgressVersion';
 
 /** Longest the empty screen waits before checking again for newly due items. */
@@ -228,8 +236,10 @@ function ReviewCardArea({
             key={card.cardViewId}
             side={flipped ? 'back' : 'front'}
             word={form.text}
+            phonetic={pronunciationFor(item, form)}
             translation={form.en}
             detail={dictionaryLine(item, form)}
+            notes={hasNotes(item) ? <CardNotes item={item} /> : undefined}
             tag={tagFor(item)}
             hint="Tap to reveal meaning"
             onFlip={onFlip}
@@ -265,6 +275,7 @@ function ReviewCardArea({
         ) : (
           <p className="learn-tip body-small">Tap the card, or press Space, to see the meaning.</p>
         )}
+        {flipped ? <ReportMistake item={item} form={form} module="review" /> : null}
       </div>
     </>
   );

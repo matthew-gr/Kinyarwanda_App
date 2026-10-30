@@ -12,6 +12,8 @@ export interface FlashcardProps {
   translation: ReactNode;
   /** A line under the translation, such as the dictionary form. */
   detail?: ReactNode;
+  /** Small print at the foot of the back, such as an example sentence. */
+  notes?: ReactNode;
   /** Word-type tag: WORD, VERB or PHRASE. */
   tag?: string;
   tone?: DeckTone;
@@ -47,6 +49,7 @@ export function Flashcard({
   phonetic,
   translation,
   detail,
+  notes,
   tag,
   tone = 'green',
   side,
@@ -58,7 +61,15 @@ export function Flashcard({
 }: FlashcardProps) {
   if (side === 'both') {
     return (
-      <div className={cx('kn-flash', `kn-flash-${tone}`, 'kn-flash-intro', className)}>
+      <div
+        className={cx(
+          'kn-flash',
+          `kn-flash-${tone}`,
+          'kn-flash-intro',
+          notes ? 'kn-flash-has-notes' : false,
+          className,
+        )}
+      >
         <div className="kn-flash-face kn-flash-front">
           {tag ? (
             <Badge tone="phrase" className="kn-flash-tag kn-flash-tag-left">
@@ -73,6 +84,7 @@ export function Flashcard({
             <p className="kn-flash-translation flash-translation">{translation}</p>
             {detail ? <p className="kn-flash-detail body">{detail}</p> : null}
           </div>
+          {notes ? <div className="kn-flash-notes body-small">{notes}</div> : null}
         </div>
       </div>
     );
@@ -80,7 +92,15 @@ export function Flashcard({
 
   const isBack = side === 'back';
   return (
-    <div className={cx('kn-flash', `kn-flash-${tone}`, isBack && 'is-back', className)}>
+    <div
+      className={cx(
+        'kn-flash',
+        `kn-flash-${tone}`,
+        isBack && 'is-back',
+        notes ? 'kn-flash-has-notes' : false,
+        className,
+      )}
+    >
       <div className="kn-flash-inner">
         <div className="kn-flash-face kn-flash-front" aria-hidden={isBack || undefined}>
           <button
@@ -113,6 +133,7 @@ export function Flashcard({
             <p className="kn-flash-translation flash-translation">{translation}</p>
             {detail ? <p className="kn-flash-detail body">{detail}</p> : null}
           </div>
+          {notes ? <div className="kn-flash-notes body-small">{notes}</div> : null}
         </div>
       </div>
     </div>

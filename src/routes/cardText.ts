@@ -1,5 +1,6 @@
 // Text and audio for flashcards, shared by Learn and Review.
 
+import { syllables } from '../engine/pronunciation';
 import type { Item, ItemForm } from '../engine/types';
 
 export function tagFor(item: Item): string {
@@ -13,6 +14,13 @@ export function dictionaryLine(item: Item, form: ItemForm): string | undefined {
   if (form.text === item.base) return undefined;
   return `Dictionary form: ${item.base} (${item.en})`;
 }
+
+/** The stored guide for the dictionary form; other forms get theirs from their spelling. */
+export function pronunciationFor(item: Item, form: ItemForm): string {
+  return form.text === item.base && item.pronunciation ? item.pronunciation : syllables(form.text);
+}
+
+export const hasNotes = (item: Item) => Boolean(item.breakdown?.length || item.example);
 
 export function playAudio(path: string): void {
   void new Audio(path).play().catch(() => {
