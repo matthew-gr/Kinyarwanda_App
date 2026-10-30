@@ -30,7 +30,8 @@ describe('sayNumber', () => {
     expect(sayNumber(20)).toBe('makumyabiri');
     expect(sayNumber(25)).toBe('makumyabiri na gatanu');
     expect(sayNumber(42)).toBe('mirongo ine na kabiri');
-    expect(sayNumber(99)).toBe('mirongo icyenda na icyenda');
+    expect(sayNumber(99)).toBe("mirongo icyenda n'icyenda");
+    expect(sayNumber(18)).toBe("cumi n'umunani");
   });
 
   it('says hundreds', () => {
@@ -38,6 +39,7 @@ describe('sayNumber', () => {
     expect(sayNumber(300)).toBe('magana atatu');
     expect(sayNumber(150)).toBe('ijana na mirongo itanu');
     expect(sayNumber(911)).toBe('magana cyenda na cumi na rimwe');
+    expect(sayNumber(110)).toBe("ijana n'icumi");
   });
 
   it('says thousands', () => {
@@ -45,6 +47,7 @@ describe('sayNumber', () => {
     expect(sayNumber(1500)).toBe('igihumbi na magana atanu');
     expect(sayNumber(2000)).toBe('ibihumbi bibiri');
     expect(sayNumber(10000)).toBe('ibihumbi icumi');
+    expect(sayNumber(1100)).toBe("igihumbi n'ijana");
     expect(sayNumber(50000)).toBe('ibihumbi mirongo itanu');
   });
 

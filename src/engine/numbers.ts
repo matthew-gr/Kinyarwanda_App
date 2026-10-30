@@ -44,6 +44,9 @@ const THOUSANDS_AGREE = [
   'icyenda',
 ];
 
+/** "and": na, or n' before a vowel, as written Kinyarwanda joins them (makumyabiri n'icyenda). */
+const and = (word: string) => (/^[aeiou]/.test(word) ? `n'${word}` : `na ${word}`);
+
 function tens(t: number): string {
   if (t === 1) return 'icumi';
   if (t === 2) return 'makumyabiri';
@@ -56,7 +59,7 @@ function under100(n: number): string {
   const u = n % 10;
   if (u === 0) return tens(t);
   // 11 to 19 drop the i of icumi: cumi na rimwe.
-  return `${t === 1 ? 'cumi' : tens(t)} na ${UNITS[u]}`;
+  return `${t === 1 ? 'cumi' : tens(t)} ${and(UNITS[u]!)}`;
 }
 
 function under1000(n: number): string {
@@ -64,7 +67,7 @@ function under1000(n: number): string {
   const h = Math.floor(n / 100);
   const rest = n % 100;
   const hundreds = h === 1 ? 'ijana' : `magana ${HUNDREDS_AGREE[h]}`;
-  return rest === 0 ? hundreds : `${hundreds} na ${under100(rest)}`;
+  return rest === 0 ? hundreds : `${hundreds} ${and(under100(rest))}`;
 }
 
 /** Thousands this file can say. Above 10,000 only round tens and 100 for now. */
@@ -81,7 +84,7 @@ export function sayNumber(n: number): string {
   const rest = n % 1000;
   const thousands =
     k === 1 ? 'igihumbi' : k < 10 ? `ibihumbi ${THOUSANDS_AGREE[k]}` : `ibihumbi ${under1000(k)}`;
-  return rest === 0 ? thousands : `${thousands} na ${under1000(rest)}`;
+  return rest === 0 ? thousands : `${thousands} ${and(under1000(rest))}`;
 }
 
 /** A price in Rwandan francs. Only whole hundreds, so no small number has to agree. */

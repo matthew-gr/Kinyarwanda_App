@@ -21,7 +21,8 @@ import {
 import type { Item, ItemForm, NumberPhrase } from '../src/engine/types.ts';
 
 const SOURCE = 'ai:claude-opus-5-5';
-const UPDATED_AT = '2026-10-30T00:00:00.000Z';
+/** Bumped whenever the rules change a row, so devices replace the copy they already have. */
+const UPDATED_AT = '2026-10-30T08:00:00.000Z';
 
 /** A stable UUID from a key, so the same row keeps its ID. */
 function idFor(key: string): string {

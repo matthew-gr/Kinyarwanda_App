@@ -150,6 +150,7 @@ Prompt 2 was written from the product spec's Module 2 section; the build plan na
 112. **Without audio, Number Listening shows the words written**, so it can be tried before the voice is chosen. It becomes a listening drill once Make missing audio has run.
 113. **Scores sync**: a new `drill_scores` table, append-only like the answer log. Personal bests follow the learner to every device, and signing in to another account clears them from the device like the rest of the progress.
 114. **Noun pictures are emoji stand-ins** (`src/routes/numberPictures.ts`), each beside the noun.
+115. **"na" before a vowel is written n'** (makumyabiri n'icyenda, cumi n'umunani, igihumbi n'ijana), as standard written Kinyarwanda does, so the voice says it joined. 36 numbers changed; a migration updates only rows still holding the old draft. Matt chose to review the number words in production rather than before release.
 
 ## Planned later
 
@@ -198,5 +199,5 @@ The prompt names the stack; these supporting packages come with it and were adde
 10. **Level 3 verbs.** Only guseka (laugh at) and gusoma (kiss) among the starter verbs take a person as object. Should level 3 add transitive verbs from the course, such as kubona (see), gukunda (love), gufasha (help) and kureba (look at)?
 11. **"It" verbs.** "It" forms are drafted for cry, sleep, go, come, run, stand and sit. Should laugh, dance, sing or play have them too?
 12. **How long a level takes.** Finishing a level needs every one of the 13 verbs' slots mastered, about 40 right rounds at level 1. Is that the right length, or should a level finish after fewer verbs?
-13. **Number words.** Please check a sample in `src/data/seed/numbers.json`, especially: "na" before a vowel (makumyabiri na icyenda; is it said n'icyenda?), magana cyenda for 900, ibihumbi umunani for 8,000, the class 10 forms (inka ebyiri, eshatu, enye, eshanu), and how phone numbers are grouped when read aloud.
+13. **Number words** (to check in production). Decided for now: n' before a vowel (decision 115); 900 is magana cyenda; 8,000 is ibihumbi umunani; class 10 counts as inka ebyiri, eshatu, enye, eshanu; phone numbers are read 3 digits, then groups of 3, 2 or 1, with any group starting with 0 read digit by digit. Report a mistake on the drills would make this easier; it can come with Quick Recall.
 14. **Colloquial numbers (Number Listening level 7).** Could a native speaker list the everyday forms, such as the spec's chatanu for 1,500? The level is built once the list exists.
