@@ -11,7 +11,9 @@ async function pickHints(page: Page) {
   }
 }
 
-test('Verb Builder: opening screen, guided rounds, a free round, and a reload', async ({ page }) => {
+test('Verb Builder: opening screen, guided rounds, a free round, and a reload', async ({
+  page,
+}) => {
   await page.goto('/');
   const card = page.getByRole('listitem').filter({ hasText: 'Verb Builder' });
   await expect(card).toContainText('Level 1');
