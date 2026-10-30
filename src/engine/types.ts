@@ -63,3 +63,32 @@ export interface ItemForm {
   updated_at: string;
   retired: boolean;
 }
+
+/** How a number is read: counting, with a noun, as money, or as a phone number. */
+export type NumberKind = 'count' | 'noun' | 'money' | 'phone';
+
+/** A number as Speed Speaking and Number Listening use it: the digits, the words, the audio. */
+export interface NumberPhrase {
+  id: string;
+  kind: NumberKind;
+  /** The digits the learner types: "1500", "0788123456". */
+  value: string;
+  /** The Number Listening level it belongs to, 1 to 5. */
+  level: number;
+  /** A phone number's groups as read aloud, such as [3, 3, 2, 2]. */
+  groups: number[] | null;
+  /** For a noun phrase: the course noun, the form shown (abantu) and its English (people). */
+  noun_item_id: string | null;
+  noun: string | null;
+  noun_en: string | null;
+  /** The Kinyarwanda as said: abantu babiri. */
+  text: string;
+  /** The English: 2 people, 1,500 francs. */
+  en: string;
+  audio_path: string | null;
+  audio_source: ContentSource | null;
+  status: ContentStatus;
+  source: ContentSource;
+  updated_at: string;
+  retired: boolean;
+}
