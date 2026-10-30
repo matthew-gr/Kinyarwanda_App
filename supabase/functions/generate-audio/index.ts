@@ -31,7 +31,8 @@ type Voice =
   | { provider: 'elevenlabs'; voice_id: string; model_id?: string; label: string }
   | { provider: 'http'; label: string };
 
-const env = (name: string) => Deno.env.get(name) ?? '';
+/** A secret pasted with a line break, spaces or quotes around it would break the request header. */
+const env = (name: string) => (Deno.env.get(name) ?? '').trim().replace(/^["']|["']$/g, '');
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
