@@ -235,6 +235,51 @@ export function applyAnswer(
   return graduated ? { state: next, graduated } : { state: next };
 }
 
+/**
+ * Moves a saved deck onto a changed course. Items already introduced keep their place at the
+ * front, in the order they came; items removed from the course leave the deck; everything not
+ * yet introduced follows in the new rank order. Tiers are recounted for the new length.
+ */
+export function reconcileOrder(state: LearnState, items: readonly LearnItemRef[]): LearnState {
+  const live = new Set(items.map((i) => i.id));
+  const introduced = state.order.slice(0, state.nextIndex).filter((id) => live.has(id));
+  const seen = new Set(introduced);
+  const rest = items
+    .slice()
+    .sort((a, b) => a.rank - b.rank)
+    .map((i) => i.id)
+    .filter((id) => !seen.has(id));
+  const order = [...introduced, ...rest];
+  const unchanged =
+    order.length === state.order.length && order.every((id, i) => id === state.order[i]);
+  if (unchanged) return state;
+
+  const tierEnds = tierEndsFor(order.length, state.config.tierSizes);
+  const nextIndex = introduced.length;
+  let tier = Math.max(0, Math.min(state.tier, tierEnds.length - 1));
+  while (tier < tierEnds.length - 1 && nextIndex > tierEnds[tier]!) tier++;
+
+  const keep = (id: string) => live.has(id);
+  const pool = state.pool.filter((c) => keep(c.itemId));
+  const current = state.current && keep(state.current.itemId) ? state.current : null;
+  return refill(
+    {
+      ...state,
+      order,
+      tierEnds,
+      tier,
+      nextIndex,
+      pool,
+      intros: state.intros.filter(keep),
+      queue: state.queue.filter(keep),
+      current,
+      lastShownId: state.lastShownId && keep(state.lastShownId) ? state.lastShownId : null,
+      graduated: state.graduated.filter(keep),
+    },
+    false,
+  );
+}
+
 export function streakOf(state: LearnState, itemId: string): number {
   return state.pool.find((c) => c.itemId === itemId)?.streak ?? 0;
 }

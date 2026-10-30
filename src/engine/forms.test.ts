@@ -12,7 +12,13 @@ const item = (id: string, word_type: Item['word_type'], base: string): Item => (
   noun_class: null,
   rank: 1,
   tier: 1,
+  pronunciation: '',
+  example: null,
+  breakdown: null,
   status: 'dev',
+  source: 'dev',
+  updated_at: '',
+  retired: false,
 });
 
 const form = (
@@ -31,8 +37,11 @@ const form = (
   tense: null,
   verb_level: null,
   audio_path: null,
+  audio_source: null,
   source: 'dev',
   status: 'dev',
+  updated_at: '',
+  retired: false,
   ...extra,
 });
 

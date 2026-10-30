@@ -5,6 +5,7 @@ import {
   learnConfigFor,
   markIntroSeen,
   nextStep,
+  reconcileOrder,
   streakOf,
   type AnswerResult,
   type LearnConfig,
@@ -319,5 +320,55 @@ describe('Learn engine', () => {
     expect(wordsAfter.graduated.length).toBeGreaterThan(0);
     expect(JSON.stringify(phrases)).toBe(before);
     expect(phrases.order.some((id) => wordsAfter.order.includes(id))).toBe(false);
+  });
+});
+
+describe('reconcileOrder', () => {
+  /** A deck with w1 graduated, w2 and w3 in the pool, and w4 onwards not yet introduced. */
+  function midway(): LearnState {
+    let s = createLearnState('words', items(10), config([5]));
+    const rng = createSeededRng(7);
+    s = nextStep(s, rng).state;
+    return {
+      ...s,
+      nextIndex: 3,
+      pool: [
+        { itemId: 'w2', streak: 2 },
+        { itemId: 'w3', streak: 0 },
+      ],
+      intros: [],
+      queue: ['w3'],
+      current: null,
+      lastShownId: 'w2',
+      graduated: ['w1'],
+      tier: 0,
+    };
+  }
+
+  it('keeps introduced items first, then follows the new ranks', () => {
+    const s = midway();
+    const course = [{ id: 'n1', rank: 1 }, ...items(10).map((i) => ({ ...i, rank: i.rank + 1 }))];
+    const next = reconcileOrder(s, course);
+    expect(next.order.slice(0, 4)).toEqual(['w1', 'w2', 'w3', 'n1']);
+    expect(next.order).toHaveLength(11);
+    expect(next.nextIndex).toBe(3);
+    expect(next.pool).toEqual(s.pool);
+    expect(next.tierEnds).toEqual([5, 10, 11]);
+  });
+
+  it('drops removed items from every list and tops the pool back up', () => {
+    const s = midway();
+    const course = items(10).filter((i) => i.id !== 'w3');
+    const next = reconcileOrder(s, course);
+    expect(next.order).not.toContain('w3');
+    expect(next.queue).toEqual([]);
+    expect(next.pool.map((c) => c.itemId)).toEqual(['w2', 'w4']);
+    expect(next.intros).toEqual(['w4']);
+    expect(next.nextIndex).toBe(3);
+  });
+
+  it('returns the same state when nothing changed', () => {
+    const s = midway();
+    expect(reconcileOrder(s, items(10))).toBe(s);
   });
 });
