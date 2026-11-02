@@ -19,6 +19,7 @@ import { Home } from './routes/Home';
 import { Learn } from './routes/Learn';
 import { NumberListening } from './routes/NumberListening';
 import { Profile } from './routes/Profile';
+import { QuickRecall } from './routes/QuickRecall';
 import { Review } from './routes/Review';
 import { Search } from './routes/Search';
 import { SpeedSpeaking } from './routes/SpeedSpeaking';
@@ -77,6 +78,7 @@ export function App() {
         <Route path="verbs" element={<VerbBuilder />} />
         <Route path="drills/speaking" element={<SpeedSpeaking />} />
         <Route path="drills/numbers" element={<NumberListening />} />
+        <Route path="drills/recall" element={<QuickRecall />} />
         <Route path="admin" element={<AdminHome />} />
         <Route path="admin/items/:id" element={<AdminItem />} />
         <Route path="admin/voices" element={<VoiceTest />} />

@@ -155,10 +155,17 @@ async function push(userId: string, d: KinyaDb): Promise<void> {
   }
 }
 
+/** False once the server has turned a Quick Recall session away: it predates Prompt 9. */
+let recallOnServer = true;
+
 async function pushScores(userId: string, d: KinyaDb): Promise<void> {
   const client = supabase!;
   for (;;) {
-    const batch = await d.drill_scores.where('synced').equals(0).limit(PUSH_BATCH).toArray();
+    const pending = await d.drill_scores.where('synced').equals(0).toArray();
+    // Quick Recall sessions wait until the server knows the drill, without holding up the rest.
+    const batch = (
+      recallOnServer ? pending : pending.filter((s) => s.drill !== 'quick_recall')
+    ).slice(0, PUSH_BATCH);
     if (batch.length === 0) return;
     const { error } = await client.from('drill_scores').upsert(
       batch.map(({ synced, ...s }) => {
@@ -167,6 +174,10 @@ async function pushScores(userId: string, d: KinyaDb): Promise<void> {
       }),
       { onConflict: 'id', ignoreDuplicates: true },
     );
+    if (error && recallOnServer && batch.some((s) => s.drill === 'quick_recall')) {
+      recallOnServer = false;
+      continue;
+    }
     if (error) throw error;
     await d.drill_scores
       .where('id')
@@ -183,20 +194,27 @@ async function pullScores(userId: string, d: KinyaDb): Promise<number> {
     const state = await getSyncState(d);
     const { data, error } = await client
       .from('drill_scores')
-      .select('id, drill, level, played_at, answers, correct, median_ms, best_countdown_ms, seq')
+      // All columns, so this works before and after the server gains on_time (Prompt 9).
+      .select('*')
       .eq('user_id', userId)
       .gt('seq', state.drill_cursor ?? 0)
       .order('seq')
       .limit(PULL_BATCH);
     if (error) throw error;
-    const rows = (data ?? []) as (DrillScore & { seq: number })[];
+    const rows = (data ?? []) as (DrillScore & {
+      seq: number;
+      user_id: string;
+      received_at: string;
+    })[];
     if (rows.length === 0) break;
     await d.transaction('rw', d.drill_scores, d.sync_state, async () => {
       const known = await d.drill_scores.bulkGet(rows.map((r) => r.id));
       const fresh: DrillScoreRow[] = rows
         .filter((_, i) => !known[i])
-        .map(({ seq, ...r }) => {
+        .map(({ seq, user_id, received_at, ...r }) => {
           void seq;
+          void user_id;
+          void received_at;
           return { ...r, played_at: new Date(r.played_at).toISOString(), synced: 1 as const };
         });
       await d.drill_scores.bulkAdd(fresh);

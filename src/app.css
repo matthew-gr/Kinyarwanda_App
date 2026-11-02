@@ -1052,6 +1052,60 @@ textarea.field-input {
   font-weight: 700;
 }
 
+.recall-word {
+  font-size: 30px;
+  color: var(--green-word);
+}
+
+.recall-heard {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.recall-options {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-self: stretch;
+  width: 100%;
+  gap: var(--space-10);
+}
+
+.recall-option {
+  min-height: 72px;
+  padding: var(--space-6) var(--space-8);
+  border: 2px solid var(--line);
+  border-radius: var(--radius-field);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.recall-option:disabled {
+  cursor: default;
+}
+
+.recall-option-right {
+  border-color: var(--green-card);
+  background: var(--green-card);
+  color: var(--green-on-card);
+}
+
+.recall-option-wrong {
+  border-color: var(--ink);
+  border-style: dashed;
+}
+
+.recall-status {
+  min-height: 1.5em;
+  margin: 0;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
 .drill-form {
   display: flex;
   flex-direction: column;

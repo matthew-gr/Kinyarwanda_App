@@ -5,7 +5,9 @@ import { HeroBanner } from '../components/HeroBanner';
 import { PracticeRow } from '../components/PracticeRow';
 import { ProgressBar } from '../components/ProgressBar';
 import { SectionHeader } from '../components/SectionHeader';
+import { recallOpen } from '../data/drills';
 import { loadHomeStats, type HomeStats } from '../data/repo';
+import { OPEN_AT_IN_REVIEW } from '../engine/quickRecall';
 import type { DueCounts } from '../engine/review';
 import { waitInWords } from './cardText';
 import { ModuleCarousel, type ModuleCard } from './ModuleCarousel';
@@ -49,16 +51,20 @@ function drillMeta(stats: HomeStats | null): string {
   return learned >= needed ? 'About 2 minutes' : `${learned} of ${needed} numbers learned`;
 }
 
+/** Quick Recall opens at 20 in Review, once a few of them are well known. */
+function recallMeta(stats: HomeStats | null): string {
+  if (!stats) return ' ';
+  if (recallOpen(stats.recall)) return 'About 2 minutes';
+  if (stats.recall.inReview < OPEN_AT_IN_REVIEW)
+    return `${stats.recall.inReview} of ${OPEN_AT_IN_REVIEW} in Review`;
+  return `${stats.recall.wellKnown} well known so far`;
+}
+
 /** The modules not built yet, from the product spec. */
 const COMING: ModuleCard[] = [
   {
     title: 'Stories',
     description: 'Short stories made from words you already know.',
-    meta: 'Coming soon',
-  },
-  {
-    title: 'Quick Recall',
-    description: 'Pick a word’s meaning against the clock.',
     meta: 'Coming soon',
   },
   {
@@ -142,6 +148,12 @@ export function Home() {
       description: 'Hear a number and type it as fast as you can.',
       meta: drillMeta(stats),
       onClick: () => navigate('/drills/numbers'),
+    },
+    {
+      title: 'Quick Recall',
+      description: 'Pick a word’s meaning against the clock.',
+      meta: recallMeta(stats),
+      onClick: () => navigate('/drills/recall'),
     },
     ...COMING,
   ];

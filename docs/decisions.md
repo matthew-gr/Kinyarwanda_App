@@ -158,6 +158,14 @@ Prompt 2 was written from the product spec's Module 2 section; the build plan na
 120. **Learn shows the deck's count**: learned today (by the device's clock) and in all, counted from Review's records, the same way Home counts.
 121. **Verb tiles drop their pictures after guided practice** when building from English, so the learner picks by the Kinyarwanda piece and its label. Guided practice and reading rounds (Kinyarwanda to English) keep them; the target pictures above the strip and the feedback stay.
 
+## Quick Recall (Prompt 9)
+
+122. **Quick Recall opens at 20 in Review and 4 at stage 3 or above.** The spec draws only from stage 3 and up, so with 20 items all at stage 1 there would be nothing to ask. It waits for 4 well-known items, so one word doesn't repeat every turn.
+123. **Wrong options are other course meanings**, the same kind first (words with words), never repeating the right answer's wording. They come from the whole course, not only learned items, so there are always 3.
+124. **The target starts at 3 seconds**, shortens by 0.25 seconds after 3 on-time answers in a row, down to 1 second, and lengthens by 0.25 after 2 wrong or slow answers. These mirror Speed Speaking's rule; the spec gives no numbers.
+125. **The score is on-time right answers a minute**, with the median time of right answers beside it. A slow right answer counts toward accuracy but not the speed score, as the spec says. A personal best needs 10 answers and 80% right, like Number Listening, and the most on-time answers wins, then the faster median.
+126. **Two modes, saved as levels**: level 1 reads the word, level 2 plays it (and shows the text if a word has no audio yet). The session ends by itself when the 2 minutes run out mid-question; that question isn't counted. drill_scores gains an `on_time` column and allows `quick_recall`.
+
 ## Planned later
 
 - **A Pronunciation section** (Matt, 30 October 2026), with two activities. *Hard words* is listening practice on words that are hard to hear; it overlaps with Sound Pairs and may absorb it. *Letter changes* shows a word in its pieces as they are before joining (ra + iruka); the learner types the joined word (riruka), submits, sees whether it's right, and can open an explanation of the rule that applied. Verb Builder's `formPieces` already gives the pieces for every verb form, so the verb forms can supply the first set of questions. Learners should practise the letter changes that happen when pieces join, which Verb Builder shows in the stored word but never teaches as rules: a vowel dropping before another vowel (ra + iruka is riruka, a + a is ya), n + r becoming nd (ndakina), and Dahl's law (ku, tu, ka and ki voicing before a voiceless consonant, as in agakina and dukaza). The sound rules in decision 90 are the starting list. Added to the build plan's later phases.

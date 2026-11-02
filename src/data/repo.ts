@@ -12,7 +12,7 @@ import {
   type ReviewItem,
   type ReviewSessionRow,
 } from './db';
-import { numbersLearned, type NumbersLearned } from './drills';
+import { numbersLearned, recallStatus, type NumbersLearned, type RecallStatus } from './drills';
 
 export const kindFor = (deck: Deck): Item['kind'] => (deck === 'words' ? 'word' : 'phrase');
 
@@ -107,15 +107,18 @@ export interface HomeStats {
   verbLevel: number;
   /** Numbers 1 to 5 learned, which open the drills. */
   numbers: NumbersLearned;
+  /** Words in Review and how many are well known, which open Quick Recall. */
+  recall: RecallStatus;
   review: DueCounts;
 }
 
 export async function loadHomeStats(now: number, d: KinyaDb = db): Promise<HomeStats> {
-  const [items, reviews, profile, numbers] = await Promise.all([
+  const [items, reviews, profile, numbers, recall] = await Promise.all([
     d.items.toArray(),
     d.review_items.toArray(),
     getProfile(d),
     numbersLearned(d),
+    recallStatus(d),
   ]);
   const kindById = new Map(items.map((i) => [i.id, i.kind]));
   const startOfDay = new Date(now);
@@ -131,6 +134,7 @@ export async function loadHomeStats(now: number, d: KinyaDb = db): Promise<HomeS
     dailyGoal: profile.daily_goal,
     verbLevel: profile.verb_level,
     numbers,
+    recall,
     review: dueCounts(
       reviews.map((r) => ({ itemId: r.item_id, dueAt: Date.parse(r.due_at) })),
       now,

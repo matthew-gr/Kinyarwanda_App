@@ -1,10 +1,10 @@
 // The shared drill engine: a timed session, its score, and personal bests. Speed Speaking,
-// Number Listening and later Quick Recall each add their own rounds on top. Like every engine,
+// Number Listening and Quick Recall each add their own rounds on top. Like every engine,
 // it takes the time as an argument and holds no clock of its own.
 
 import { pickOne, type Rng } from './random';
 
-export type DrillKind = 'speed_speaking' | 'number_listening';
+export type DrillKind = 'speed_speaking' | 'number_listening' | 'quick_recall';
 
 /** Each session runs about 2 minutes. */
 export const SESSION_MS = 120_000;
@@ -37,10 +37,15 @@ export interface DrillScore {
   played_at: string;
   answers: number;
   correct: number;
-  /** Number Listening: median time from the end of the audio to the last digit typed. */
+  /**
+   * Number Listening: median time from the end of the audio to the last digit typed.
+   * Quick Recall: median time to a right answer.
+   */
   median_ms: number | null;
   /** Speed Speaking: the shortest countdown the learner got a card right on. */
   best_countdown_ms: number | null;
+  /** Quick Recall: right answers inside the target time, the speed score. Absent elsewhere. */
+  on_time?: number | null;
 }
 
 export const accuracy = (s: Pick<DrillScore, 'answers' | 'correct'>) =>
@@ -59,6 +64,12 @@ export function beats(a: DrillScore, b: DrillScore | null): boolean {
     if (a.best_countdown_ms !== b.best_countdown_ms)
       return a.best_countdown_ms < b.best_countdown_ms;
     return a.correct > b.correct;
+  }
+  if (a.drill === 'quick_recall') {
+    if (!countsForBest(a)) return false;
+    if (!b) return true;
+    if ((a.on_time ?? 0) !== (b.on_time ?? 0)) return (a.on_time ?? 0) > (b.on_time ?? 0);
+    return (a.median_ms ?? Infinity) < (b.median_ms ?? Infinity);
   }
   if (!countsForBest(a) || a.median_ms === null) return false;
   if (!b || b.median_ms === null) return true;

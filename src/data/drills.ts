@@ -1,9 +1,15 @@
-// The drills' data: which numbers there are, whether the drills are open, and finished
+// The drills' data: which numbers and known words there are, whether the drills are open, and finished
 // sessions with their personal bests. A finished session is saved on this device first and
 // uploads on the next sync.
 
 import { personalBest, type DrillKind, type DrillScore } from '../engine/drill';
 import { MIX_LEVEL, openListeningLevels } from '../engine/numberListening';
+import {
+  MIN_PROMPTS,
+  MIN_STAGE,
+  OPEN_AT_IN_REVIEW,
+  type RecallPrompt,
+} from '../engine/quickRecall';
 import type { NumberPhrase } from '../engine/types';
 import { db, type KinyaDb } from './db';
 import { answerSaved } from './signals';
@@ -75,4 +81,51 @@ export async function saveScore(score: DrillScore, d: KinyaDb = db): Promise<Dri
   await d.drill_scores.put({ ...score, synced: 0 });
   answerSaved.emit();
   return before;
+}
+
+export interface RecallStatus {
+  /** Words and phrases in Review. */
+  inReview: number;
+  /** Those at Review stage 3 or above: the ones Quick Recall asks about. */
+  wellKnown: number;
+}
+
+export async function recallStatus(d: KinyaDb = db): Promise<RecallStatus> {
+  const rows = await d.review_items.toArray();
+  return { inReview: rows.length, wellKnown: rows.filter((r) => r.stage >= MIN_STAGE).length };
+}
+
+export const recallOpen = (s: RecallStatus) =>
+  s.inReview >= OPEN_AT_IN_REVIEW && s.wellKnown >= MIN_PROMPTS;
+
+/** Every word and phrase in the course as a prompt: its base form, meaning and audio. */
+async function coursePrompts(d: KinyaDb): Promise<RecallPrompt[]> {
+  const items = (await d.items.toArray()).filter((i) => !i.retired);
+  const bases = await d.item_forms.filter((f) => f.is_base && !f.retired).toArray();
+  const baseOf = new Map(bases.map((f) => [f.item_id, f]));
+  return items.map((i) => {
+    const f = baseOf.get(i.id);
+    return {
+      id: i.id,
+      kind: i.kind,
+      text: f?.text ?? i.base,
+      en: i.en,
+      audio_path: f?.audio_path ?? null,
+    };
+  });
+}
+
+export interface RecallPool {
+  /** The words and phrases asked about: in Review at stage 3 or above. */
+  prompts: RecallPrompt[];
+  /** Every meaning in the course, for the wrong options. */
+  meanings: RecallPrompt[];
+}
+
+export async function loadRecallPool(d: KinyaDb = db): Promise<RecallPool> {
+  const meanings = await coursePrompts(d);
+  const known = new Set(
+    (await d.review_items.toArray()).filter((r) => r.stage >= MIN_STAGE).map((r) => r.item_id),
+  );
+  return { prompts: meanings.filter((m) => known.has(m.id)), meanings };
 }

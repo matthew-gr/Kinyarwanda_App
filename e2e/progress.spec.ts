@@ -17,7 +17,8 @@ test('Home, History and Profile show progress from learning, and the goal can ch
   await expect(modules.getByRole('button', { name: /^Verb Builder/ })).toBeAttached();
   await expect(modules.getByRole('button', { name: /^Speed Speaking/ })).toBeAttached();
   await expect(modules.getByRole('button', { name: /^Number Listening/ })).toBeAttached();
-  await expect(modules.getByText('Coming soon')).toHaveCount(3);
+  await expect(modules.getByRole('button', { name: /^Quick Recall/ })).toBeAttached();
+  await expect(modules.getByText('Coming soon')).toHaveCount(2);
   await expect(modules.getByRole('button', { name: /^Stories/ })).toHaveCount(0);
 
   // History is empty before any practice.
