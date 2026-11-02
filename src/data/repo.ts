@@ -80,6 +80,25 @@ export async function recordAnswer(
   });
 }
 
+/** Items of one deck learned (graduated into Review) today, by the device's clock, and in all. */
+export async function loadDeckLearned(
+  deck: Deck,
+  now: number,
+  d: KinyaDb = db,
+): Promise<{ today: number; total: number }> {
+  const [ids, reviews] = await Promise.all([
+    d.items.where('kind').equals(kindFor(deck)).primaryKeys(),
+    d.review_items.toArray(),
+  ]);
+  const inDeck = new Set(ids);
+  const startOfDay = new Date(now).setHours(0, 0, 0, 0);
+  const learned = reviews.filter((r) => inDeck.has(r.item_id));
+  return {
+    today: learned.filter((r) => Date.parse(r.created_at) >= startOfDay).length,
+    total: learned.length,
+  };
+}
+
 export interface HomeStats {
   words: { learned: number; total: number };
   phrases: { learned: number; total: number };

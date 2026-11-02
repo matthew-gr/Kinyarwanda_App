@@ -5,6 +5,7 @@ import { Flashcard, type DeckTone } from '../components/Flashcard';
 import { FlashcardDeck } from '../components/FlashcardDeck';
 import { SessionHeader } from '../components/SessionHeader';
 import { LearnSession, type CardView } from '../data/learnSession';
+import { loadDeckLearned } from '../data/repo';
 import type { AnswerResult, Deck } from '../engine/learn';
 import { CardNotes, ReportMistake } from './CardExtras';
 import { dictionaryLine, hasNotes, playAudio, pronunciationFor, tagFor } from './cardText';
@@ -44,6 +45,7 @@ function LearnDeck({ deck }: { deck: Deck }) {
   const [view, setView] = useState<CardView | null>(null);
   const [flippedKey, setFlippedKey] = useState<string | null>(null);
   const [note, setNote] = useState<{ text: string; id: number } | null>(null);
+  const [learned, setLearned] = useState<{ today: number; total: number } | null>(null);
   const flipRef = useRef<HTMLButtonElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
   const gotRef = useRef<HTMLButtonElement>(null);
@@ -60,6 +62,17 @@ function LearnDeck({ deck }: { deck: Deck }) {
       alive = false;
     };
   }, [deck, version]);
+
+  // Recounted after a sync and whenever a card graduates (note is set then).
+  useEffect(() => {
+    let alive = true;
+    void loadDeckLearned(deck, Date.now()).then((l) => {
+      if (alive) setLearned(l);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [deck, version, note]);
 
   const step = view?.step;
   const flipped = view !== null && flippedKey === view.key;
@@ -131,6 +144,11 @@ function LearnDeck({ deck }: { deck: Deck }) {
     <main className="screen screen-learn">
       <AppBar title={title} onBack={() => navigate('/')} backLabel="Back to Home" />
       <DeckSwitch deck={deck} />
+      <p className="learn-count body-small">
+        {learned
+          ? `${DECK_NAMES[deck]} learned: ${learned.today} today · ${learned.total} in all`
+          : ' '}
+      </p>
 
       {view === null ? null : view.step.type === 'done' ? (
         <section className="learn-done" aria-labelledby="done-title">
@@ -258,7 +276,13 @@ function CardArea({
             </button>
           </div>
         ) : (
-          <p className="learn-tip body-small">Tap the card, or press Space, to see the meaning.</p>
+          // Turn sits where "I knew it" appears, so two taps in one place turn and mark it.
+          <div className="grade">
+            <p className="learn-tip body-small">Tap the card or Turn, or press Space.</p>
+            <button type="button" className="btn btn-primary" onClick={onFlip}>
+              Turn
+            </button>
+          </div>
         )}
         {isIntro || flipped ? <ReportMistake item={item} form={form} module="learn" /> : null}
       </div>

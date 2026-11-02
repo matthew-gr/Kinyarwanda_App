@@ -30,7 +30,11 @@ test('Cards show the guide and example, and take a mistake report', async ({ pag
   await toNextCard(page, () => page.getByRole('button', { name: 'Next' }).click());
   await expect(page.locator('.kn-flash-intro .kn-flash-word')).toHaveText('murakoze');
   await toNextCard(page, () => page.getByRole('button', { name: 'Next' }).click());
-  await page.getByRole('button', { name: /Tap to reveal meaning/ }).click();
+  await expect(page.getByText('Words learned: 0 today · 0 in all')).toBeVisible();
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/front.png` });
+  // Turn sits where "I knew it" then appears.
+  await page.getByRole('button', { name: 'Turn' }).click();
+  await expect(page.getByRole('button', { name: /I knew it/ })).toBeVisible();
   const back = page.locator('.kn-flash-back');
   await expect(back.locator('.kn-flash-notes')).toContainText(/amakuru|cyane/);
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/back.png` });

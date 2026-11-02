@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const PORT = 4173;
+// PW_PORT moves the test server when another project's preview already holds 4173.
+const PORT = Number(process.env.PW_PORT ?? 4173);
 const CI = !!process.env.CI;
 
 export default defineConfig({

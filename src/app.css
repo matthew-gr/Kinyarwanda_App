@@ -108,8 +108,8 @@ body {
 
 .btn-got {
   background: var(--green-card);
-  border-color: var(--green-word);
-  color: var(--green-word);
+  border-color: var(--green-card);
+  color: var(--green-on-card);
 }
 
 .btn-missed {
@@ -191,6 +191,15 @@ body {
 .learn-tip {
   margin: 0;
   text-align: center;
+  color: var(--text-meta);
+}
+
+.grade .learn-tip {
+  align-self: center;
+}
+
+.learn-count {
+  margin: 0;
   color: var(--text-meta);
 }
 
@@ -869,6 +878,7 @@ textarea.field-input {
 .verb-tile-selected {
   border-color: var(--green-word);
   background: var(--green-card);
+  color: var(--green-on-card);
 }
 
 .verb-tile-hint {
