@@ -5,6 +5,7 @@ import Dexie, { type EntityTable } from 'dexie';
 import type { AnswerResult, Deck, LearnState } from '../engine/learn';
 import type { DrillScore } from '../engine/drill';
 import type { Item, ItemForm, NumberPhrase } from '../engine/types';
+import type { StoryFeedback } from '../engine/stories';
 import type { VerbState } from '../engine/verbs';
 
 export interface LearnStateRow {
@@ -63,6 +64,8 @@ export interface SyncStateRow {
   cursor: number;
   /** The last drill_scores `seq` downloaded. Missing on devices synced before Prompt 8. */
   drill_cursor?: number;
+  /** The newest stories `updated_at` downloaded. Missing before Prompt 10. */
+  story_cursor?: string | null;
   last_synced_at: string | null;
 }
 
@@ -77,9 +80,12 @@ export interface ContentStateRow {
 /** A mistake report, kept until the server has it. */
 export interface ReportRow {
   id: string;
-  item_id: string;
+  /** The course item, or null for a story. */
+  item_id: string | null;
   form_id: string | null;
-  module: 'learn' | 'review';
+  /** The story, for a report from Stories. */
+  story_id?: string | null;
+  module: 'learn' | 'review' | 'stories';
   shown_text: string;
   message: string;
   created_at: string;
@@ -105,6 +111,31 @@ export interface DrillScoreRow extends DrillScore {
   synced: 0 | 1;
 }
 
+/** A story written for this learner, as the server keeps it, plus local reading changes. */
+export interface StoryRow {
+  id: string;
+  title: string;
+  title_en: string;
+  sentences: { rw: string; en: string; audio_path: string | null }[];
+  glossary: { word: string; en: string }[];
+  questions: { question: string; options: string[]; answer: number }[];
+  settings: Record<string, unknown>;
+  coverage: number;
+  source: string;
+  audio_source: string | null;
+  status: 'ai_draft' | 'reviewed' | 'approved';
+  reads: number;
+  last_read_at: string | null;
+  next_due_at: string | null;
+  retired: boolean;
+  feedback: StoryFeedback | null;
+  feedback_note: string | null;
+  created_at: string;
+  updated_at: string;
+  /** 1 after a reading or feedback change the server does not have yet. */
+  dirty: 0 | 1;
+}
+
 export interface Profile {
   id: string;
   verb_level: number;
@@ -127,6 +158,7 @@ export class KinyaDb extends Dexie {
   verb_state!: EntityTable<VerbStateRow, 'id'>;
   number_phrases!: EntityTable<NumberPhrase, 'id'>;
   drill_scores!: EntityTable<DrillScoreRow, 'id'>;
+  stories!: EntityTable<StoryRow, 'id'>;
 
   constructor(name = 'kinyarwanda') {
     super(name);
@@ -172,6 +204,8 @@ export class KinyaDb extends Dexie {
     this.version(5).stores({ verb_state: 'id' });
     // Prompt 8: the drills' numbers, and finished drill sessions.
     this.version(6).stores({ number_phrases: 'id, level', drill_scores: 'id, drill, synced' });
+    // Prompt 10: the learner's stories.
+    this.version(7).stores({ stories: 'id, created_at, dirty' });
   }
 }
 

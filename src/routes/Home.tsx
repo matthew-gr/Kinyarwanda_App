@@ -6,8 +6,10 @@ import { PracticeRow } from '../components/PracticeRow';
 import { ProgressBar } from '../components/ProgressBar';
 import { SectionHeader } from '../components/SectionHeader';
 import { recallOpen } from '../data/drills';
+import { loadStories, storiesStatus } from '../data/stories';
 import { loadHomeStats, type HomeStats } from '../data/repo';
 import { OPEN_AT_IN_REVIEW } from '../engine/quickRecall';
+import { dueRepeats } from '../engine/stories';
 import type { DueCounts } from '../engine/review';
 import { waitInWords } from './cardText';
 import { ModuleCarousel, type ModuleCard } from './ModuleCarousel';
@@ -60,13 +62,21 @@ function recallMeta(stats: HomeStats | null): string {
   return `${stats.recall.wellKnown} well known so far`;
 }
 
+interface StoriesInfo {
+  wordsLearned: number;
+  needed: number;
+  due: number;
+}
+
+/** Stories open at 100 words; after that, repeats due show beside a new story. */
+function storiesMeta(s: StoriesInfo | null): string {
+  if (!s) return ' ';
+  if (s.wordsLearned < s.needed) return `${s.wordsLearned} of ${s.needed} words learned`;
+  return s.due > 0 ? `${s.due} to read again` : 'A new story';
+}
+
 /** The modules not built yet, from the product spec. */
 const COMING: ModuleCard[] = [
-  {
-    title: 'Stories',
-    description: 'Short stories made from words you already know.',
-    meta: 'Coming soon',
-  },
   {
     title: 'Sound Pairs',
     description: 'Tell near-identical words apart by ear.',
@@ -80,6 +90,7 @@ const LEARNER_NAME = 'Learner';
 export function Home() {
   const navigate = useNavigate();
   const [stats, setStats] = useState<HomeStats | null>(null);
+  const [stories, setStories] = useState<StoriesInfo | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const version = useProgressVersion();
 
@@ -87,6 +98,9 @@ export function Home() {
     let alive = true;
     void loadHomeStats(now).then((s) => {
       if (alive) setStats(s);
+    });
+    void Promise.all([storiesStatus(), loadStories()]).then(([st, list]) => {
+      if (alive) setStories({ ...st, due: dueRepeats(list, now).length });
     });
     return () => {
       alive = false;
@@ -130,6 +144,12 @@ export function Home() {
       meta: stats ? `${stats.review.total} in Review` : ' ',
       detail: stats ? `${due} due` : undefined,
       onClick: () => navigate('/review'),
+    },
+    {
+      title: 'Stories',
+      description: 'Short stories made from words you already know.',
+      meta: storiesMeta(stories),
+      onClick: () => navigate('/stories'),
     },
     {
       title: 'Verb Builder',

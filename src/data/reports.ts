@@ -6,7 +6,7 @@ import { supabase } from './supabase';
 
 export type NewReport = Pick<
   ReportRow,
-  'item_id' | 'form_id' | 'module' | 'shown_text' | 'message'
+  'item_id' | 'form_id' | 'story_id' | 'module' | 'shown_text' | 'message'
 >;
 
 export async function saveReport(report: NewReport, d: KinyaDb = db): Promise<void> {
@@ -33,6 +33,7 @@ export async function sendReports(d: KinyaDb = db): Promise<void> {
       user_id: userId,
       item_id: r.item_id,
       form_id: r.form_id,
+      story_id: r.story_id ?? null,
       module: r.module,
       shown_text: r.shown_text,
       message: r.message,

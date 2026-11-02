@@ -8,9 +8,11 @@ import { supabase } from './supabase';
 
 export interface ReportView {
   id: string;
-  item_id: string;
+  /** Null for a report on a story. */
+  item_id: string | null;
   form_id: string | null;
-  module: 'learn' | 'review';
+  story_id?: string | null;
+  module: 'learn' | 'review' | 'stories';
   shown_text: string;
   message: string;
   created_at: string;

@@ -262,14 +262,20 @@ function ReportCard({ report, onDone }: { report: ReportView; onDone: () => void
     <li className="admin-report">
       <p className="body-small">
         {WHEN.format(new Date(report.created_at))} ·{' '}
-        {report.module === 'learn' ? 'Learn' : 'Review'}
+        {report.module === 'learn' ? 'Learn' : report.module === 'review' ? 'Review' : 'Stories'}
       </p>
-      <p className="body-bold">
-        <Link to={`/admin/items/${report.item_id}`} lang="rw">
-          {report.item?.base ?? 'Unknown item'}
-        </Link>{' '}
-        <span className="body-small">(showed {report.shown_text})</span>
-      </p>
+      {report.item_id ? (
+        <p className="body-bold">
+          <Link to={`/admin/items/${report.item_id}`} lang="rw">
+            {report.item?.base ?? 'Unknown item'}
+          </Link>{' '}
+          <span className="body-small">(showed {report.shown_text})</span>
+        </p>
+      ) : (
+        <p className="body-small" lang="rw">
+          Story: {report.shown_text}
+        </p>
+      )}
       <p className="body">{report.message}</p>
       {report.resolved_at ? (
         <p className="body-small">

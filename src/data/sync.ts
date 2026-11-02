@@ -7,7 +7,14 @@ import { applyProgress } from './applyProgress';
 import { pullContent } from './content';
 import { sendReports } from './reports';
 import type { DrillScore } from '../engine/drill';
-import { db, type AnswerEvent, type DrillScoreRow, type KinyaDb, type SyncStateRow } from './db';
+import {
+  db,
+  type StoryRow,
+  type AnswerEvent,
+  type DrillScoreRow,
+  type KinyaDb,
+  type SyncStateRow,
+} from './db';
 import { getProfile } from './repo';
 import { answerSaved, progressChanged } from './signals';
 import { supabase } from './supabase';
@@ -78,9 +85,11 @@ async function clearProgress(d: KinyaDb): Promise<void> {
       d.sync_state,
       d.verb_state,
       d.drill_scores,
+      d.stories,
     ],
     async () => {
       await Promise.all([
+        d.stories.clear(),
         d.drill_scores.clear(),
         d.verb_state.clear(),
         d.answer_events.clear(),
@@ -185,6 +194,75 @@ async function pushScores(userId: string, d: KinyaDb): Promise<void> {
       .modify({ synced: 1 });
   }
 }
+
+/** Columns a learner may change on their own story. */
+const STORY_PROGRESS = [
+  'reads',
+  'last_read_at',
+  'next_due_at',
+  'retired',
+  'feedback',
+  'feedback_note',
+] as const;
+
+/** Uploads reading progress and feedback on stories. */
+async function pushStories(d: KinyaDb): Promise<void> {
+  const client = supabase!;
+  const dirty = await d.stories.where('dirty').equals(1).toArray();
+  for (const s of dirty) {
+    const change = Object.fromEntries(STORY_PROGRESS.map((k) => [k, s[k]]));
+    const { error } = await client.from('stories').update(change).eq('id', s.id);
+    if (error) throw error;
+    // A change made while this one uploaded stays dirty for the next sync.
+    await d.stories
+      .where('id')
+      .equals(s.id)
+      .and((now) => now.updated_at === s.updated_at && now.dirty === 1)
+      .modify({ dirty: 0 });
+  }
+}
+
+/** Downloads stories made or changed on other devices. Local changes not yet sent are kept. */
+async function pullStories(userId: string, d: KinyaDb): Promise<number> {
+  const client = supabase!;
+  let added = 0;
+  for (;;) {
+    const state = await getSyncState(d);
+    // Admins can read every story; a device keeps only its learner's own.
+    let q = client
+      .from('stories')
+      .select('*')
+      .eq('user_id', userId)
+      .order('updated_at')
+      .limit(PULL_BATCH);
+    if (state.story_cursor) q = q.gt('updated_at', state.story_cursor);
+    const { data, error } = await q;
+    if (error) throw error;
+    const rows = (data ?? []) as (Omit<StoryRow, 'dirty'> & { user_id: string })[];
+    if (rows.length === 0) break;
+    await d.transaction('rw', d.stories, d.sync_state, async () => {
+      const local = await d.stories.bulkGet(rows.map((r) => r.id));
+      const fresh = rows
+        .filter((_, i) => local[i]?.dirty !== 1)
+        .map(({ user_id, ...r }) => {
+          void user_id;
+          return { ...r, dirty: 0 as const };
+        });
+      await d.stories.bulkPut(fresh);
+      added += fresh.length;
+      await d.sync_state.put({ ...state, story_cursor: rows[rows.length - 1]!.updated_at });
+    });
+    if (rows.length < PULL_BATCH) break;
+  }
+  return added;
+}
+
+/** True for the error a server without the stories table gives (before Prompt 10's update). */
+const noStoriesTable = (e: unknown) =>
+  typeof e === 'object' &&
+  e !== null &&
+  'code' in e &&
+  ['42P01', 'PGRST205'].includes(String(e.code));
 
 /** Downloads drill sessions played on other devices. Returns how many were new here. */
 async function pullScores(userId: string, d: KinyaDb): Promise<number> {
@@ -334,7 +412,14 @@ async function runOnce(d: KinyaDb): Promise<void> {
     const added = await pull(userId, state, d);
     await pushScores(userId, d);
     const scoresAdded = await pullScores(userId, d);
-    if (scoresAdded > 0 && added === 0) progressChanged.emit();
+    let storiesAdded = 0;
+    try {
+      await pushStories(d);
+      storiesAdded = await pullStories(userId, d);
+    } catch (e) {
+      if (!noStoriesTable(e)) throw e;
+    }
+    if ((scoresAdded > 0 || storiesAdded > 0) && added === 0) progressChanged.emit();
     if (added > 0) {
       await applyProgress(Date.now(), d);
       progressChanged.emit();

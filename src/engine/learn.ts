@@ -72,6 +72,8 @@ export interface LearnState {
   /** The item on the last step shown, intro or test. Guards against repeats across rounds. */
   lastShownId: string | null;
   graduated: string[];
+  /** Items a learner moved to the front (from a story), newest first, until introduced. */
+  ahead?: string[];
 }
 
 export interface Graduation {
@@ -244,12 +246,15 @@ export function reconcileOrder(state: LearnState, items: readonly LearnItemRef[]
   const live = new Set(items.map((i) => i.id));
   const introduced = state.order.slice(0, state.nextIndex).filter((id) => live.has(id));
   const seen = new Set(introduced);
+  // Items added from a story keep their place at the front of what is new.
+  const ahead = (state.ahead ?? []).filter((id) => live.has(id) && !seen.has(id));
+  for (const id of ahead) seen.add(id);
   const rest = items
     .slice()
     .sort((a, b) => a.rank - b.rank)
     .map((i) => i.id)
     .filter((id) => !seen.has(id));
-  const order = [...introduced, ...rest];
+  const order = [...introduced, ...ahead, ...rest];
   const unchanged =
     order.length === state.order.length && order.every((id, i) => id === state.order[i]);
   if (unchanged) return state;
@@ -275,9 +280,23 @@ export function reconcileOrder(state: LearnState, items: readonly LearnItemRef[]
       current,
       lastShownId: state.lastShownId && keep(state.lastShownId) ? state.lastShownId : null,
       graduated: state.graduated.filter(keep),
+      ahead,
     },
     false,
   );
+}
+
+/**
+ * Moves an item not yet introduced to the front of what comes next, as when a learner adds a
+ * word from a story. An item already introduced, or not in the deck, leaves the state as it is.
+ */
+export function bringForward(state: LearnState, itemId: string): LearnState {
+  const at = state.order.indexOf(itemId);
+  if (at < state.nextIndex) return state;
+  const order = [...state.order];
+  order.splice(at, 1);
+  order.splice(state.nextIndex, 0, itemId);
+  return { ...state, order, ahead: [itemId, ...(state.ahead ?? []).filter((id) => id !== itemId)] };
 }
 
 export function streakOf(state: LearnState, itemId: string): number {

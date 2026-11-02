@@ -1,9 +1,9 @@
 // The parts of a flashcard that come from the course: the pronunciation guide, the example or
 // breakdown, and the Report a mistake form.
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { requestSync } from '../data/sync';
-import { saveReport } from '../data/reports';
+import { saveReport, type NewReport } from '../data/reports';
 import type { Item, ItemForm } from '../engine/types';
 
 /** A word's example sentence, or a phrase's word-by-word meanings. */
@@ -41,6 +41,35 @@ export function ReportMistake({
   form: ItemForm;
   module: 'learn' | 'review';
 }) {
+  return (
+    <ReportLink
+      report={{
+        item_id: item.id,
+        form_id: form.id,
+        module,
+        shown_text: `${form.text} = ${form.en}`,
+      }}
+      intro={
+        <>
+          This card was drafted by AI and is not yet checked by a native speaker. What looks wrong
+          in <span lang="rw">{form.text}</span>?
+        </>
+      }
+      placeholder="For example: the plural is wrong, or the audio says something else"
+    />
+  );
+}
+
+/** The Report a mistake link and form, for a card or a story. */
+export function ReportLink({
+  report,
+  intro,
+  placeholder,
+}: {
+  report: Omit<NewReport, 'message'>;
+  intro: ReactNode;
+  placeholder: string;
+}) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [message, setMessage] = useState('');
   const [sent, setSent] = useState(false);
@@ -55,13 +84,7 @@ export function ReportMistake({
 
   const send = async () => {
     if (!message.trim()) return;
-    await saveReport({
-      item_id: item.id,
-      form_id: form.id,
-      module,
-      shown_text: `${form.text} = ${form.en}`,
-      message,
-    });
+    await saveReport({ ...report, message });
     requestSync();
     setMessage('');
     setSent(true);
@@ -89,10 +112,7 @@ export function ReportMistake({
           <h2 id={titleId} className="h3-bold">
             Report a mistake
           </h2>
-          <p className="body-small">
-            This card was drafted by AI and is not yet checked by a native speaker. What looks wrong
-            in <span lang="rw">{form.text}</span>?
-          </p>
+          <p className="body-small">{intro}</p>
           <label className="field" htmlFor={fieldId}>
             <span className="body-small-bold">What&apos;s wrong</span>
             <textarea
@@ -102,7 +122,7 @@ export function ReportMistake({
               maxLength={1000}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="For example: the plural is wrong, or the audio says something else"
+              placeholder={placeholder}
               required
             />
           </label>

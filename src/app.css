@@ -1072,7 +1072,7 @@ textarea.field-input {
 
 .recall-option {
   min-height: 72px;
-  padding: var(--space-6) var(--space-8);
+  padding: var(--space-6) var(--space-9);
   border: 2px solid var(--line);
   border-radius: var(--radius-field);
   background: var(--surface);
@@ -1182,4 +1182,239 @@ textarea.field-input {
   .drill-answer {
     animation: none;
   }
+}
+
+/* Stories */
+
+.screen-stories > * {
+  align-self: stretch;
+}
+
+.screen-stories > .learn-actions,
+.screen-stories > .report-link {
+  align-self: center;
+}
+
+.story-new {
+  gap: var(--space-10);
+}
+
+.story-new > p,
+.story-new > h2 {
+  margin: 0;
+}
+
+.story-note {
+  min-height: 1.5em;
+  color: var(--text-secondary);
+}
+
+.story-list-title {
+  margin: var(--space-6) 0 var(--space-6);
+}
+
+.story-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.story-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-9) var(--space-10);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-field);
+  background: var(--surface);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.story-row-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--green-word);
+}
+
+.story-row-meta {
+  color: var(--text-secondary);
+}
+
+.story-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.story-head > * {
+  margin: 0;
+}
+
+.story-head h2 {
+  color: var(--green-word);
+}
+
+.story-head-en {
+  color: var(--text-secondary);
+}
+
+.story-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-6);
+  color: var(--text-meta);
+}
+
+.story-tools {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-9);
+}
+
+.story-tool {
+  min-height: 48px;
+  padding-inline: var(--space-9);
+  font-size: 16px;
+}
+
+.story-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-9);
+  margin: 0;
+  padding-left: var(--space-10);
+  list-style: none;
+}
+
+.story-sentence {
+  padding: var(--space-2) var(--space-5);
+  border-radius: var(--radius-field);
+}
+
+.story-sentence-playing {
+  background: var(--green-hint);
+}
+
+.story-rw {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.6;
+}
+
+.story-word-btn {
+  padding: 0 1px;
+  border-radius: 4px;
+  color: var(--ink);
+  font: inherit;
+  text-decoration: underline dotted var(--line);
+  text-underline-offset: 4px;
+  cursor: pointer;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+.story-word-btn:hover,
+.story-word-btn:focus-visible {
+  background: var(--green-tint);
+}
+
+.story-replay {
+  display: inline-flex;
+  margin-left: var(--space-5);
+  vertical-align: middle;
+  color: var(--green-word);
+  cursor: pointer;
+}
+
+.story-en {
+  margin: var(--space-2) 0 0;
+  color: var(--text-secondary);
+}
+
+.story-notice {
+  min-height: 1.5em;
+  margin: 0;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.story-word {
+  position: sticky;
+  bottom: var(--space-9);
+  gap: var(--space-6);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+}
+
+.story-word > p {
+  margin: 0;
+}
+
+.story-word-text {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--green-word);
+}
+
+.story-questions {
+  gap: var(--space-10);
+}
+
+.story-questions > h3 {
+  margin: 0;
+}
+
+.story-question {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.story-question > p {
+  margin: 0;
+}
+
+.story-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.story-options .recall-option {
+  min-height: 52px;
+}
+
+.story-finish {
+  gap: var(--space-10);
+}
+
+.story-finish > p {
+  margin: 0;
+}
+
+.story-feedback {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-6);
+}
+
+.story-feedback > .btn {
+  min-height: 48px;
+  padding-inline: var(--space-5);
+  font-size: 15px;
+}
+
+.story-feedback-on {
+  border-color: var(--green-card);
+  background: var(--green-card);
+  color: var(--green-on-card);
 }
