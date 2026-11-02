@@ -53,6 +53,13 @@ test('Verb Builder: opening screen, guided rounds, a free round, and a reload', 
   const target = (await page.locator('.verb-target').textContent()) ?? '';
   await page.reload();
   await expect(page.locator('.verb-target')).toHaveText(target);
+  // Past guided practice, building from English shows no pictures on the tiles.
+  if (target.includes('Build the word for')) {
+    await expect(page.locator('.verb-tile-picture')).toHaveCount(0);
+  } else {
+    await expect(page.locator('.verb-tile-picture').first()).toBeVisible();
+  }
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/verb-free-round.png` });
 
   const groups = page.locator('.verb-tile-group');
   const slots = await groups.count();
@@ -63,4 +70,14 @@ test('Verb Builder: opening screen, guided rounds, a free round, and a reload', 
   await expect(page.locator('.verb-verdict')).toContainText(/Right|Not quite/);
   await expect(page.locator('.verb-slot-results li')).toHaveCount(slots);
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/verb-free.png` });
+
+  // The next free round follows the same rule.
+  await page.getByRole('button', { name: /Continue|See what/ }).click();
+  const nextTarget = (await page.locator('.verb-target').textContent()) ?? '';
+  if (nextTarget.includes('Build the word for')) {
+    await expect(page.locator('.verb-tile-picture')).toHaveCount(0);
+  } else {
+    await expect(page.locator('.verb-tile-picture').first()).toBeVisible();
+  }
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/verb-free-round-2.png` });
 });

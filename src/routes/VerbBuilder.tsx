@@ -370,7 +370,9 @@ function Round({ view, verbs, choices, audio, onChoose, onClear, onCheck }: Roun
                 <TileButton
                   key={tile.value}
                   tile={tile}
-                  picture={pictureFor(slot, tile.value, verbs)}
+                  // After guided practice, building from English leans on the pieces alone;
+                  // reading a Kinyarwanda word keeps the pictures as its answers.
+                  picture={guided || reverse ? pictureFor(slot, tile.value, verbs) : null}
                   showPiece={!reverse}
                   selected={choices[slot] === tile.value}
                   hint={guided && slotValue(form, slot) === tile.value}
@@ -393,7 +395,7 @@ function Round({ view, verbs, choices, audio, onChoose, onClear, onCheck }: Roun
 
 interface TileButtonProps {
   tile: Tile;
-  picture: string;
+  picture: string | null;
   showPiece: boolean;
   selected: boolean;
   hint: boolean;
@@ -412,9 +414,11 @@ function TileButton({ tile, picture, showPiece, selected, hint, onClick }: TileB
       aria-pressed={selected}
       onClick={onClick}
     >
-      <span className="verb-tile-picture" aria-hidden="true">
-        {picture}
-      </span>
+      {picture ? (
+        <span className="verb-tile-picture" aria-hidden="true">
+          {picture}
+        </span>
+      ) : null}
       {showPiece && tile.piece ? <span className="verb-tile-piece">{tile.piece}</span> : null}
       <span className="verb-tile-label">{tile.label}</span>
       {hint ? <span className="sr-only">(hint: this one)</span> : null}

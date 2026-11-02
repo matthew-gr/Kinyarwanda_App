@@ -156,6 +156,7 @@ Prompt 2 was written from the product spec's Module 2 section; the build plan na
 118. **The green deck is forest green, not lime** (Matt's call). `green-card` is #2d6a4f, with white text on it (`green-on-card`, 6.6:1); the other greens moved to the same family. I knew it buttons are forest green with white text.
 119. **Learn has a Turn button** in the right-hand slot, where I knew it appears once the card turns, so two taps in one place turn a card and mark it known. The flip takes 0.25s, down from 0.5s.
 120. **Learn shows the deck's count**: learned today (by the device's clock) and in all, counted from Review's records, the same way Home counts.
+121. **Verb tiles drop their pictures after guided practice** when building from English, so the learner picks by the Kinyarwanda piece and its label. Guided practice and reading rounds (Kinyarwanda to English) keep them; the target pictures above the strip and the feedback stay.
 
 ## Planned later
 

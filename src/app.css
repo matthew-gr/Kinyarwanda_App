@@ -865,6 +865,7 @@ textarea.field-input {
   flex-direction: column;
   align-items: center;
   gap: var(--space-2);
+  justify-content: center;
   min-height: 72px;
   padding: var(--space-6) var(--space-5);
   border: 2px solid var(--line);
@@ -879,6 +880,10 @@ textarea.field-input {
   border-color: var(--green-word);
   background: var(--green-card);
   color: var(--green-on-card);
+}
+
+.verb-tile-selected .verb-tile-label {
+  color: var(--green-phonetic-on-card);
 }
 
 .verb-tile-hint {
