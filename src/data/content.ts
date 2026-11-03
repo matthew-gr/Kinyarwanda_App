@@ -118,21 +118,27 @@ export async function ensureSeeded(d: KinyaDb = db): Promise<void> {
   }
 }
 
-async function pullTable<T extends { updated_at: string }>(
+async function pullTable<T extends { id: string; updated_at: string }>(
   table: 'items' | 'item_forms' | 'number_phrases',
   since: string | null,
 ): Promise<T[]> {
   const rows: T[] = [];
   let from = since;
+  let after: string | null = null;
   for (;;) {
     let q = supabase!.from(table).select('*').order('updated_at').order('id').limit(PULL_BATCH);
-    if (from) q = q.gt('updated_at', from);
+    // A migration can stamp more than a page of rows with the same time, so a later page
+    // carries on after the last row's time and id, not just its time.
+    if (from && after)
+      q = q.or(`updated_at.gt."${from}",and(updated_at.eq."${from}",id.gt."${after}")`);
+    else if (from) q = q.gt('updated_at', from);
     const { data, error } = await q;
     if (error) throw error;
     const page = (data ?? []) as T[];
     rows.push(...page);
     if (page.length < PULL_BATCH) return rows;
     from = page[page.length - 1]!.updated_at;
+    after = page[page.length - 1]!.id;
   }
 }
 

@@ -30,6 +30,26 @@ export const batchSize = (v: Pick<Voice, 'provider'>) => (v.provider === 'pindo'
 /** A secret pasted with a line break, spaces or quotes around it would break the request header. */
 export const env = (name: string) => (Deno.env.get(name) ?? '').trim().replace(/^["']|["']$/g, '');
 
+/**
+ * The voice's account has no credit left. Every later request would be refused too (and Pindo
+ * emails a warning for each), so a run stops at the first one instead of going on.
+ */
+export class OutOfCredit extends Error {}
+
+/** How Pindo and ElevenLabs word a refusal for lack of credit. */
+const NO_CREDIT = /balance|credit|insufficient|funds|top.?up|quota|payment/i;
+
+/** Throws OutOfCredit for a refusal over credit, and a plain error for any other. */
+async function refused(who: string, res: Response): Promise<never> {
+  const text = (await res.text()).slice(0, 300);
+  if (res.status === 402 || NO_CREDIT.test(text))
+    throw new OutOfCredit(`${who} is out of credit (${res.status}: ${text.slice(0, 160)})`);
+  throw new Error(`${who} said ${res.status}: ${text}`);
+}
+
+/** Requests sent to the voice; each one is billed, including retries. */
+export type Count = { requests: number; notes: string[] };
+
 /** Labels become storage folders and audio_source values, so keep them plain. */
 export const cleanLabel = (s: string) =>
   s
@@ -42,16 +62,18 @@ export async function speak(
   text: string,
   /** A batch's script, whose "..." are the pauses between items and must stay. */
   script = false,
+  count: Count = { requests: 0, notes: [] },
 ): Promise<{ bytes: Uint8Array; type: string }> {
   // The "..." in a phrase like "Nitwa ..." is a gap for the learner's own word, not speech.
   const plain = script ? text : text.replace(/\.{3}|…/g, '').trim();
-  if (voice.provider === 'pindo') return speakPindo(voice, plain);
+  if (voice.provider === 'pindo') return speakPindo(voice, plain, count);
   if (voice.provider !== 'elevenlabs')
     throw new Error(
       `the voice "${(voice as { provider: string }).provider}" is no longer offered; choose Pindo or ElevenLabs`,
     );
   // The voice gets the word as it is said (umuntu as umunhu); learners still see the spelling.
   const spoken = spokenSpelling(plain, voice.stress !== false);
+  count.requests++;
   const res = await fetch(
     `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voice.voice_id)}?output_format=mp3_44100_64`,
     {
@@ -60,8 +82,7 @@ export async function speak(
       body: JSON.stringify({ text: spoken, model_id: voice.model_id || 'eleven_v3' }),
     },
   );
-  if (!res.ok)
-    throw new Error(`elevenlabs said ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  if (!res.ok) await refused('ElevenLabs', res);
   const type = (res.headers.get('content-type') ?? 'audio/mpeg').split(';')[0]!.trim();
   return { bytes: new Uint8Array(await res.arrayBuffer()), type };
 }
@@ -69,10 +90,12 @@ export async function speak(
 async function speakPindo(
   voice: Extract<Voice, { provider: 'pindo' }>,
   text: string,
+  count: Count,
 ): Promise<{ bytes: Uint8Array; type: string }> {
   const token = env('PINDO_TOKEN');
-  const ask = (t: string) =>
-    fetch(`https://api.pindo.io/ai/tts/rw${token ? '' : '/public'}`, {
+  const ask = (t: string) => {
+    count.requests++;
+    return fetch(`https://api.pindo.io/ai/tts/rw${token ? '' : '/public'}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -80,17 +103,24 @@ async function speakPindo(
       },
       body: JSON.stringify({ text: t, lang: 'rw', speech_rate: voice.speech_rate ?? 1 }),
     });
+  };
   let res = await ask(text);
   // Pindo often fails on very short words (yego, oya, ndi); written as a sentence ("Yego.")
   // they sometimes go through.
   if (res.status >= 500) {
+    const why = await res.clone().text();
+    if (NO_CREDIT.test(why)) await refused('Pindo', res);
     const sentence = text[0]!.toUpperCase() + text.slice(1) + (/[.?!]$/.test(text) ? '' : '.');
     res = await ask(sentence);
   }
-  if (!res.ok) throw new Error(`pindo said ${res.status}: ${(await res.text()).slice(0, 300)}`);
-  const out = (await res.json()) as { data?: { generated_audio_url?: string } };
+  if (!res.ok) await refused('Pindo', res);
+  const reply = await res.text();
+  const out = JSON.parse(reply || '{}') as { data?: { generated_audio_url?: string } };
   const url = out.data?.generated_audio_url;
-  if (!url) throw new Error('pindo returned no audio');
+  // A refusal can also come back as a 200 with a message instead of audio.
+  if (!url && NO_CREDIT.test(reply))
+    throw new OutOfCredit(`Pindo is out of credit (${reply.slice(0, 160)})`);
+  if (!url) throw new Error(`pindo returned no audio: ${reply.slice(0, 160)}`);
   const file = await fetch(new URL(url, 'https://api.pindo.io/'));
   if (!file.ok) throw new Error(`pindo audio said ${file.status}`);
   const type = (file.headers.get('content-type') ?? 'audio/wav').split(';')[0]!.trim();
@@ -102,28 +132,35 @@ async function speakPindo(
 
 export type Spoken = { bytes: Uint8Array; type: string } | { error: string };
 
-const failed = (e: unknown): Spoken => ({ error: e instanceof Error ? e.message : String(e) });
+/** One item on its own. Running out of credit isn't a failed item: it ends the run. */
+const one = (voice: Voice, text: string, count: Count): Promise<Spoken> =>
+  speak(voice, text, false, count).catch((e: unknown) => {
+    if (e instanceof OutOfCredit) throw e;
+    return { error: e instanceof Error ? e.message : String(e) };
+  });
 
 /**
- * Voices several items. A voice that charges per request is sent them together, one per line,
- * and the recording is cut at the pauses; if the pauses aren't clear, the batch is halved and
- * tried again, down to single items, so a clip never holds half a neighbour.
+ * Voices several items. A voice that charges per request is sent them together and the
+ * recording is cut at the pauses; if the pauses aren't clear, that batch's items are voiced
+ * one at a time, so a clip never holds half a neighbour. If the voice runs out of credit, the
+ * rest are left unvoiced and `stopped` says why.
  */
 export async function speakMany(
   voice: Voice,
   texts: string[],
-): Promise<{ spoken: Spoken[]; requests: number; notes: string[] }> {
+): Promise<{ spoken: Spoken[]; requests: number; notes: string[]; stopped?: string }> {
   const size = batchSize(voice);
-  const count = { requests: 0, notes: [] as string[] };
+  const count: Count = { requests: 0, notes: [] };
   const out: Spoken[] = [];
-  if (size <= 1) {
-    for (const t of texts) {
-      count.requests++;
-      out.push(await speak(voice, t).catch(failed));
-    }
-  } else {
-    for (let i = 0; i < texts.length; i += size)
-      out.push(...(await together(voice, texts.slice(i, i + size), count)));
+  try {
+    if (size <= 1) for (const t of texts) out.push(await one(voice, t, count));
+    else
+      for (let i = 0; i < texts.length; i += size)
+        await together(voice, texts.slice(i, i + size), count, out);
+  } catch (e) {
+    if (!(e instanceof OutOfCredit)) throw e;
+    while (out.length < texts.length) out.push({ error: e.message });
+    return { spoken: out, requests: count.requests, notes: count.notes, stopped: e.message };
   }
   return { spoken: out, requests: count.requests, notes: count.notes };
 }
@@ -135,28 +172,30 @@ export async function speakMany(
  */
 const SEPARATOR = ' ... ';
 
-async function together(
-  voice: Voice,
-  texts: string[],
-  count: { requests: number; notes: string[] },
-): Promise<Spoken[]> {
-  count.requests++;
-  if (texts.length === 1) return [await speak(voice, texts[0]!).catch(failed)];
+/**
+ * Voices a batch into `out`. A batch that can't be cut goes one item at a time rather than in
+ * halves: halving cost up to 29 billed requests for 15 words, one at a time costs 16.
+ */
+async function together(voice: Voice, texts: string[], count: Count, out: Spoken[]) {
+  if (texts.length === 1) {
+    out.push(await one(voice, texts[0]!, count));
+    return;
+  }
   const script = texts
     .map((t) =>
       t
-        .replace(/\.{3}|…/g, '')
+        .replace(/.{3}|…/g, '')
         .trim()
         .replace(/[.?!]*$/, (m) => m || '.'),
     )
     .join(SEPARATOR);
   const label = `${texts.length} items (${texts[0]} … ${texts.at(-1)})`;
   try {
-    const { bytes } = await speak(voice, script, true);
+    const { bytes } = await speak(voice, script, true, count);
     const pcm = readWav(bytes);
     if (!pcm) {
       const head = String.fromCharCode(...bytes.subarray(0, 4));
-      count.notes.push(`${label}: not a WAV we can read (starts "${head}"), halved`);
+      count.notes.push(`${label}: not a WAV we can read (starts "${head}"), made one at a time`);
     } else {
       const cut = splitAtPauses(
         pcm,
@@ -164,19 +203,18 @@ async function together(
       );
       if (Array.isArray(cut)) {
         count.notes.push(`${label}: cut cleanly`);
-        return cut.map((c) => ({ bytes: writeWav(c), type: 'audio/wav' }));
+        out.push(...cut.map((c) => ({ bytes: writeWav(c), type: 'audio/wav' })));
+        return;
       }
-      count.notes.push(`${label}: ${cut.reason}, halved`);
+      count.notes.push(`${label}: ${cut.reason}, made one at a time`);
     }
   } catch (e) {
-    // A failed batch is tried in halves too.
-    count.notes.push(`${label}: ${e instanceof Error ? e.message.slice(0, 120) : e}, halved`);
+    if (e instanceof OutOfCredit) throw e;
+    count.notes.push(
+      `${label}: ${e instanceof Error ? e.message.slice(0, 120) : e}, made one at a time`,
+    );
   }
-  const half = Math.ceil(texts.length / 2);
-  return [
-    ...(await together(voice, texts.slice(0, half), count)),
-    ...(await together(voice, texts.slice(half), count)),
-  ];
+  for (const t of texts) out.push(await one(voice, t, count));
 }
 
 export const extension = (type: string) =>

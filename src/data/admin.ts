@@ -64,26 +64,42 @@ export async function isAdmin(): Promise<boolean> {
   return (data ?? []).length > 0;
 }
 
-export async function listItems(): Promise<Item[]> {
-  const { data, error } = await client()
-    .from('items')
-    .select('*')
-    .order('kind', { ascending: false })
-    .order('rank');
-  if (error) throw error;
-  return data as Item[];
+/** The server sends at most 1,000 rows per query, so longer lists are fetched a page at a time. */
+async function allRows<T>(
+  page: (from: number, to: number) => PromiseLike<{ data: unknown[] | null; error: unknown }>,
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await page(from, from + 999);
+    if (error) throw error;
+    rows.push(...((data ?? []) as T[]));
+    if ((data ?? []).length < 1000) return rows;
+  }
+}
+
+export function listItems(): Promise<Item[]> {
+  return allRows<Item>((from, to) =>
+    client()
+      .from('items')
+      .select('*')
+      .order('kind', { ascending: false })
+      .order('rank')
+      .order('id')
+      .range(from, to),
+  );
 }
 
 /** Every form's item and audio, for the course list. */
-export async function listFormAudio(): Promise<
+export function listFormAudio(): Promise<
   Pick<ItemForm, 'id' | 'item_id' | 'audio_path' | 'retired'>[]
 > {
-  const { data, error } = await client()
-    .from('item_forms')
-    .select('id, item_id, audio_path, retired')
-    .limit(10000);
-  if (error) throw error;
-  return data as Pick<ItemForm, 'id' | 'item_id' | 'audio_path' | 'retired'>[];
+  return allRows((from, to) =>
+    client()
+      .from('item_forms')
+      .select('id, item_id, audio_path, retired')
+      .order('id')
+      .range(from, to),
+  );
 }
 
 export async function loadItem(
@@ -208,49 +224,65 @@ async function callAudio<T>(body: object): Promise<T> {
 export interface AudioBatch {
   requests?: number;
   failed?: { id: string; error: string }[];
+  /** How each batch of items said together went. */
+  notes?: string[];
+  /** Set when the voice ran out of credit; nothing more is sent. */
+  stopped?: string;
+  provider?: string;
+}
+
+/**
+ * Sends ids to the audio function 25 at a time. Ends early, with the reason, when the voice
+ * runs out of credit or `stop` says so; either way the clips made so far are kept.
+ */
+async function voiceInGroups(
+  action: 'forms' | 'numbers',
+  ids: string[],
+  onProgress?: (done: number, batch: AudioBatch) => void,
+  stop?: () => boolean,
+): Promise<string | null> {
+  let why: string | null = null;
+  for (let i = 0; i < ids.length; i += 25) {
+    if (stop?.()) {
+      why = 'Stopped.';
+      break;
+    }
+    const slice = ids.slice(i, i + 25);
+    const batch = await callAudio<AudioBatch>(
+      action === 'forms' ? { action, form_ids: slice } : { action, number_ids: slice },
+    );
+    onProgress?.(Math.min(ids.length, i + 25), batch ?? {});
+    if (batch?.stopped) {
+      why = batch.stopped;
+      break;
+    }
+  }
+  await pullContent(undefined, true);
+  return why;
 }
 
 /** Voices forms with the chosen voice, a few per call so no call runs too long. */
-export async function makeAudio(
+export const makeAudio = (
   formIds: string[],
   onProgress?: (done: number, batch: AudioBatch) => void,
-): Promise<void> {
-  for (let i = 0; i < formIds.length; i += 25) {
-    const batch = await callAudio<AudioBatch>({
-      action: 'forms',
-      form_ids: formIds.slice(i, i + 25),
-    });
-    onProgress?.(Math.min(formIds.length, i + 25), batch ?? {});
-  }
-  await pullContent(undefined, true);
-}
+  stop?: () => boolean,
+) => voiceInGroups('forms', formIds, onProgress, stop);
 
 /** Every drill number's audio, for the audio count. */
-export async function listNumberAudio(): Promise<
+export function listNumberAudio(): Promise<
   { id: string; audio_path: string | null; retired: boolean }[]
 > {
-  const { data, error } = await client()
-    .from('number_phrases')
-    .select('id, audio_path, retired')
-    .limit(10000);
-  if (error) throw error;
-  return data as { id: string; audio_path: string | null; retired: boolean }[];
+  return allRows((from, to) =>
+    client().from('number_phrases').select('id, audio_path, retired').order('id').range(from, to),
+  );
 }
 
 /** Voices the drills' numbers, like makeAudio does for course forms. */
-export async function makeNumberAudio(
+export const makeNumberAudio = (
   ids: string[],
   onProgress?: (done: number, batch: AudioBatch) => void,
-): Promise<void> {
-  for (let i = 0; i < ids.length; i += 25) {
-    const batch = await callAudio<AudioBatch>({
-      action: 'numbers',
-      number_ids: ids.slice(i, i + 25),
-    });
-    onProgress?.(Math.min(ids.length, i + 25), batch ?? {});
-  }
-  await pullContent(undefined, true);
-}
+  stop?: () => boolean,
+) => voiceInGroups('numbers', ids, onProgress, stop);
 
 export function listVoices() {
   return callAudio<{
@@ -267,6 +299,8 @@ export function makeSample(voice: SampleVoice, items: { key: string; text: strin
     requests?: number;
     /** For a batched voice, how each batch went. */
     notes?: string[];
+    /** Set when the voice ran out of credit. */
+    stopped?: string;
   }>({
     action: 'sample',
     voice,

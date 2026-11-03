@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import {
   errorText,
@@ -33,6 +33,24 @@ interface AudioRun {
   requests: number;
   failed: number;
   started: number;
+  ended?: number;
+  /** Why the run ended early: out of credit, or Stop pressed. */
+  stopped?: string | null;
+  /** Pindo bills each request as a minute, so the cost can be shown. */
+  pindo: boolean;
+  /** Batches said together that cut cleanly, and why the others didn't. */
+  clean: number;
+  notes: string[];
+}
+
+/** What Pindo charges for one request (a billed minute). */
+const PINDO_PER_REQUEST = 0.12;
+
+/** ", 41 requests to the voice (about $4.92)". */
+function spent(run: AudioRun): string {
+  if (!run.requests) return '';
+  const cost = run.pindo ? ` (about ${(run.requests * PINDO_PER_REQUEST).toFixed(2)})` : '';
+  return `, ${run.requests} requests to the voice${cost}`;
 }
 
 /** "45 s" or "3 min 10 s". */
@@ -74,6 +92,7 @@ function Course() {
   const [making, setMaking] = useState<AudioRun | null>(null);
   const [finished, setFinished] = useState<AudioRun | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const stopRef = useRef(false);
   // A clock while audio is made, so the status line visibly moves between groups.
   useEffect(() => {
     if (!making) return;
@@ -124,32 +143,44 @@ function Course() {
   const voice = async (formIds: string[], numberIds: string[]) => {
     setError(null);
     setFinished(null);
+    stopRef.current = false;
     let run: AudioRun = {
       done: 0,
       all: formIds.length + numberIds.length,
       requests: 0,
       failed: 0,
       started: Date.now(),
+      pindo: false,
+      clean: 0,
+      notes: [],
     };
     setMaking(run);
     setNow(run.started);
     const step = (offset: number) => (done: number, batch: AudioBatch) => {
+      const notes = batch.notes ?? [];
       run = {
         ...run,
         done: offset + done,
         requests: run.requests + (batch.requests ?? 0),
         failed: run.failed + (batch.failed?.length ?? 0),
+        pindo: run.pindo || batch.provider === 'pindo',
+        clean: run.clean + notes.filter((n) => n.endsWith('cut cleanly')).length,
+        notes: [...run.notes, ...notes.filter((n) => !n.endsWith('cut cleanly'))],
       };
       setMaking(run);
     };
+    const stop = () => stopRef.current;
     try {
-      await makeAudio(formIds, step(0));
-      await makeNumberAudio(numberIds, step(formIds.length));
+      // Out of credit on the forms means the numbers would be refused too.
+      const why =
+        (await makeAudio(formIds, step(0), stop)) ??
+        (await makeNumberAudio(numberIds, step(formIds.length), stop));
+      run = { ...run, stopped: why };
       setReload((r) => r + 1);
     } catch (e) {
       setError(errorText(e));
     } finally {
-      setFinished(run);
+      setFinished({ ...run, ended: Date.now() });
       setMaking(null);
     }
   };
@@ -206,21 +237,54 @@ function Course() {
           </button>
         </div>
         {making ? (
-          <p className="body-small" role="status">
-            Working, {minutes(now - making.started)}: {making.done} of {making.all} clips done
-            {making.requests ? `, ${making.requests} requests to the voice` : ''}
-            {making.failed ? `, ${making.failed} couldn't be voiced` : ''}. Each group of 25 can
-            take a minute or two; keep this page open.
-          </p>
+          <>
+            <p className="body-small" role="status">
+              Working, {minutes(now - making.started)}: {making.done} of {making.all} clips done
+              {spent(making)}
+              {making.failed ? `, ${making.failed} couldn't be voiced` : ''}. Each group of 25 can
+              take a minute or two; keep this page open.
+            </p>
+            <button
+              type="button"
+              className="btn btn-missed"
+              disabled={stopRef.current}
+              onClick={() => {
+                stopRef.current = true;
+                setNow(Date.now());
+              }}
+            >
+              {stopRef.current ? 'Stopping after this group…' : 'Stop'}
+            </button>
+          </>
         ) : finished ? (
-          <p className="body-small" role="status">
-            Finished in {minutes(Date.now() - finished.started)}: {finished.done} of {finished.all}{' '}
-            clips
-            {finished.requests ? `, ${finished.requests} requests to the voice` : ''}.
-            {finished.failed
-              ? ` ${finished.failed} couldn't be voiced; Make missing audio tries them again.`
-              : ''}
-          </p>
+          <>
+            <p className="body-small" role="status">
+              {finished.stopped ? 'Stopped' : 'Finished'} after{' '}
+              {minutes((finished.ended ?? finished.started) - finished.started)}: {finished.done} of{' '}
+              {finished.all} clips{spent(finished)}.
+              {finished.failed
+                ? ` ${finished.failed} couldn't be voiced; Make missing audio tries them again.`
+                : ''}
+            </p>
+            {finished.stopped && finished.stopped !== 'Stopped.' ? (
+              <p className="body-small-bold" role="alert">
+                The voice is out of credit, so nothing more was sent. Top up, then Make missing
+                audio carries on. ({finished.stopped})
+              </p>
+            ) : null}
+            {finished.clean + finished.notes.length > 0 ? (
+              <details className="body-small">
+                <summary>
+                  {finished.clean} of {finished.clean + finished.notes.length} batches cut cleanly
+                </summary>
+                <ul lang="rw">
+                  {finished.notes.map((n, i) => (
+                    <li key={i}>{n}</li>
+                  ))}
+                </ul>
+              </details>
+            ) : null}
+          </>
         ) : null}
         <ErrorLine error={error} />
       </section>

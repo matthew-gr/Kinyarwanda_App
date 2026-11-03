@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
       const failed: { key: string; error: string }[] = [];
       // One item the voice can't say shouldn't lose the rest of the samples. Voices that charge
       // per request get the items in one batch, cut into clips afterwards.
-      const { spoken, requests, notes } = await speakMany(
+      const { spoken, requests, notes, stopped } = await speakMany(
         voice,
         items.map((it) => it.text),
       );
@@ -92,7 +92,7 @@ Deno.serve(async (req) => {
           failed.push({ key: it.key, error: e instanceof Error ? e.message : String(e) });
         }
       }
-      return json({ label, clips: out, failed, requests, notes });
+      return json({ label, clips: out, failed, requests, notes, stopped });
     }
 
     if (body.action === 'forms' || body.action === 'numbers') {
@@ -111,7 +111,7 @@ Deno.serve(async (req) => {
       const done = [];
       const failed: { id: string; error: string }[] = [];
       const list = rows ?? [];
-      const { spoken, requests, notes } = await speakMany(
+      const { spoken, requests, notes, stopped } = await speakMany(
         voice,
         list.map((r) => r.text),
       );
@@ -144,7 +144,8 @@ Deno.serve(async (req) => {
         if (upd.error) throw upd.error;
         done.push({ [owner]: r.id, audio_path: url, audio_source: source });
       }
-      return json({ done, failed, requests, notes });
+      // `stopped` tells the admin screen not to send the next group.
+      return json({ done, failed, requests, notes, stopped, provider: voice.provider });
     }
 
     return json({ error: 'Unknown action' }, 400);
