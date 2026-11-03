@@ -1,16 +1,25 @@
-// Text to speech for the server functions: the chosen voice reads Kinyarwanda, respelled the
-// way it is said (see spoken.ts). Used by generate-audio and generate-story.
+// Text to speech for the server functions. Used by generate-audio and generate-story.
+// ElevenLabs and the plain endpoint don't know Kinyarwanda, so they get it respelled the way
+// it is said (see spoken.ts). Gemini and Pindo read Kinyarwanda, so they get the real spelling.
 
 import { spokenSpelling } from './spoken.ts';
 
 /**
- * Each word's stressed syllable is written in capitals for the voice (see spoken.ts), unless
- * `stress` is false.
+ * For the respelling voices, each word's stressed syllable is written in capitals (see
+ * spoken.ts), unless `stress` is false.
  */
 export type Voice = (
   | { provider: 'elevenlabs'; voice_id: string; model_id?: string; label: string }
   | { provider: 'http'; label: string }
+  /** Gemini TTS: a prebuilt voice name such as Kore; model gemini-3.8-flash-tts by default. */
+  | { provider: 'gemini'; voice_name: string; model_id?: string; label: string }
+  /** Pindo's Kinyarwanda voice. Without the PINDO_TOKEN secret it uses the public endpoint. */
+  | { provider: 'pindo'; speech_rate?: number; label: string }
 ) & { stress?: boolean };
+
+/** Voices that read Kinyarwanda as written. */
+export const readsKinyarwanda = (v: Pick<Voice, 'provider'>) =>
+  v.provider === 'gemini' || v.provider === 'pindo';
 
 /** A secret pasted with a line break, spaces or quotes around it would break the request header. */
 export const env = (name: string) => (Deno.env.get(name) ?? '').trim().replace(/^["']|["']$/g, '');
@@ -27,8 +36,11 @@ export async function speak(
   text: string,
 ): Promise<{ bytes: Uint8Array; type: string }> {
   // The "..." in a phrase like "Nitwa ..." is a gap for the learner's own word, not speech.
+  const plain = text.replace(/\.{3}|…/g, '').trim();
+  if (voice.provider === 'gemini') return speakGemini(voice, plain);
+  if (voice.provider === 'pindo') return speakPindo(voice, plain);
   // The voice gets the word as it is said (umuntu as umunhu); learners still see the spelling.
-  const spoken = spokenSpelling(text.replace(/\.{3}|…/g, '').trim(), voice.stress !== false);
+  const spoken = spokenSpelling(plain, voice.stress !== false);
   let res: Response;
   if (voice.provider === 'elevenlabs') {
     res = await fetch(
@@ -56,5 +68,88 @@ export async function speak(
   return { bytes: new Uint8Array(await res.arrayBuffer()), type };
 }
 
+async function speakGemini(
+  voice: Extract<Voice, { provider: 'gemini' }>,
+  text: string,
+): Promise<{ bytes: Uint8Array; type: string }> {
+  const model = voice.model_id || 'gemini-3.8-flash-tts';
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+    {
+      method: 'POST',
+      headers: { 'x-goog-api-key': env('GEMINI_API_KEY'), 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text }] }],
+        generationConfig: {
+          responseModalities: ['AUDIO'],
+          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice.voice_name } } },
+        },
+      }),
+    },
+  );
+  if (!res.ok) throw new Error(`gemini said ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  const out = (await res.json()) as {
+    candidates?: { content?: { parts?: { inlineData?: { mimeType: string; data: string } }[] } }[];
+  };
+  const audio = out.candidates?.[0]?.content?.parts?.find((p) => p.inlineData)?.inlineData;
+  if (!audio) throw new Error('gemini returned no audio');
+  const bytes = Uint8Array.from(atob(audio.data), (c) => c.charCodeAt(0));
+  // Older models return bare 16-bit PCM (audio/L16;rate=24000); give it a WAV header.
+  if (/l16|pcm/i.test(audio.mimeType)) {
+    const rate = Number(/rate=(\d+)/.exec(audio.mimeType)?.[1] ?? 24000);
+    return { bytes: wav(bytes, rate), type: 'audio/wav' };
+  }
+  return { bytes, type: audio.mimeType.split(';')[0]!.trim() || 'audio/wav' };
+}
+
+async function speakPindo(
+  voice: Extract<Voice, { provider: 'pindo' }>,
+  text: string,
+): Promise<{ bytes: Uint8Array; type: string }> {
+  const token = env('PINDO_TOKEN');
+  const res = await fetch(`https://api.pindo.io/ai/tts/rw${token ? '' : '/public'}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ text, lang: 'rw', speech_rate: voice.speech_rate ?? 1 }),
+  });
+  if (!res.ok) throw new Error(`pindo said ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  const out = (await res.json()) as { data?: { generated_audio_url?: string } };
+  const url = out.data?.generated_audio_url;
+  if (!url) throw new Error('pindo returned no audio');
+  const file = await fetch(new URL(url, 'https://api.pindo.io/'));
+  if (!file.ok) throw new Error(`pindo audio said ${file.status}`);
+  const type = (file.headers.get('content-type') ?? 'audio/wav').split(';')[0]!.trim();
+  return {
+    bytes: new Uint8Array(await file.arrayBuffer()),
+    type: type.startsWith('audio/') ? type : 'audio/wav',
+  };
+}
+
+/** Mono 16-bit PCM in a WAV file. */
+function wav(pcm: Uint8Array, rate: number): Uint8Array {
+  const out = new Uint8Array(44 + pcm.length);
+  const v = new DataView(out.buffer);
+  const text = (at: number, s: string) =>
+    [...s].forEach((c, i) => v.setUint8(at + i, c.charCodeAt(0)));
+  text(0, 'RIFF');
+  v.setUint32(4, 36 + pcm.length, true);
+  text(8, 'WAVE');
+  text(12, 'fmt ');
+  v.setUint32(16, 16, true);
+  v.setUint16(20, 1, true);
+  v.setUint16(22, 1, true);
+  v.setUint32(24, rate, true);
+  v.setUint32(28, rate * 2, true);
+  v.setUint16(32, 2, true);
+  v.setUint16(34, 16, true);
+  text(36, 'data');
+  v.setUint32(40, pcm.length, true);
+  out.set(pcm, 44);
+  return out;
+}
+
 export const extension = (type: string) =>
-  type === 'audio/wav' ? 'wav' : type === 'audio/ogg' ? 'ogg' : 'mp3';
+  /wav/.test(type) ? 'wav' : type === 'audio/ogg' ? 'ogg' : 'mp3';

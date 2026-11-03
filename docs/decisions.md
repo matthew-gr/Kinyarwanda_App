@@ -202,6 +202,10 @@ Prompt 2 was written from the product spec's Module 2 section; the build plan na
     - Signups should also be turned off in Supabase's auth settings, so an account can't be made by calling Supabase directly. Even if one is, it isn't a member: the app stays on the welcome screen and generate-story refuses it.
     - Once a device has confirmed membership, the app opens offline.
     - Builds with `VITE_INVITE_ONLY=false` skip the gate, as the browser tests do. `e2e/invite.spec.ts` tests a second build with it on.
+146. **Gemini and Pindo join the Voice test** (Matt, 3 November 2026). Both read Kinyarwanda, so they get the real spelling; the respelling (decisions 117 and 140 to 144) stays for ElevenLabs only.
+    - Gemini 3.8 Flash TTS and Flash-Lite TTS list Kinyarwanda. They are priced by seconds of audio: about $0.0003 a word clip with Flash, against about $0.0012 with ElevenLabs v3, and about $0.04 against $0.38 for a story. Gemini's prices double on 1 January 2027. The key is the `GEMINI_API_KEY` secret.
+    - Pindo is a Rwandan Kinyarwanda voice. Without a `PINDO_TOKEN` secret it uses Pindo's public endpoint, which is rate-limited. Its price isn't published.
+    - Both return WAV, about 3 times the size of ElevenLabs' MP3. That matters for offline storage once the app installs on phones.
 
 ## Planned later
 
