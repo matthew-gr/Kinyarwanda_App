@@ -419,8 +419,14 @@ function TileButton({ tile, picture, showPiece, selected, hint, onClick }: TileB
           {picture}
         </span>
       ) : null}
-      {showPiece && tile.piece ? <span className="verb-tile-piece">{tile.piece}</span> : null}
-      <span className="verb-tile-label">{tile.label}</span>
+      {/* Building from English, a tile shows only its piece, so the learner has to recall what
+          it means; the English would give the answer away. Reading a word, the meanings are
+          the choices, so they show. */}
+      {showPiece ? (
+        <span className="verb-tile-piece">{tile.piece || '–'}</span>
+      ) : (
+        <span className="verb-tile-label">{tile.label}</span>
+      )}
       {hint ? <span className="sr-only">(hint: this one)</span> : null}
     </button>
   );

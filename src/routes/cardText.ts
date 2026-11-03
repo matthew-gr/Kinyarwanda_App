@@ -22,8 +22,50 @@ export function pronunciationFor(item: Item, form: ItemForm): string {
 
 export const hasNotes = (item: Item) => Boolean(item.breakdown?.length || item.example);
 
+/** Clips loaded and ready to play, newest last. Kept to a few dozen. */
+const ready = new Map<string, HTMLAudioElement>();
+const KEEP = 60;
+/** jsdom, which the unit tests run in, has no media loading. */
+const canLoad = () => typeof Audio !== 'undefined' && !/jsdom/i.test(navigator.userAgent);
+
+function keep(path: string, audio: HTMLAudioElement) {
+  ready.delete(path);
+  ready.set(path, audio);
+  while (ready.size > KEEP) ready.delete(ready.keys().next().value!);
+}
+
+/**
+ * Downloads the clips of the next few cards, so they play at once when their card comes up
+ * instead of after a 2 to 3 second download. The download goes through the app's audio cache
+ * first, so it is only ever made once per device.
+ */
+export function preloadAudio(paths: readonly string[]): void {
+  if (!canLoad()) return;
+  for (const path of paths) {
+    if (ready.has(path)) continue;
+    const audio = new Audio();
+    audio.preload = 'auto';
+    keep(path, audio);
+    // A plain fetch is a whole-file request the service worker can store; the player's own
+    // requests are ranges, which it doesn't. The player then reads the stored copy.
+    void fetch(path)
+      .catch(() => undefined)
+      .finally(() => {
+        // Unless it was played meanwhile, which set it going already.
+        if (audio.src) return;
+        audio.src = path;
+        audio.load();
+      });
+  }
+}
+
 export function playAudio(path: string): void {
-  void new Audio(path).play().catch(() => {
+  const audio = ready.get(path) ?? new Audio(path);
+  if (canLoad()) keep(path, audio);
+  // Played before its download finished: load it now rather than wait.
+  if (!audio.src) audio.src = path;
+  audio.currentTime = 0;
+  void audio.play().catch(() => {
     // Autoplay can be blocked until the learner taps; the play button still works.
   });
 }

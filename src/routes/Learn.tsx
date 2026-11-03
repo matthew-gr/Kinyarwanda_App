@@ -9,7 +9,14 @@ import { loadDeckLearned } from '../data/repo';
 import type { AnswerResult, Deck } from '../engine/learn';
 import { placeLabel } from '../engine/vocabulary';
 import { CardNotes, ReportMistake } from './CardExtras';
-import { dictionaryLine, hasNotes, playAudio, pronunciationFor, tagFor } from './cardText';
+import {
+  dictionaryLine,
+  hasNotes,
+  playAudio,
+  preloadAudio,
+  pronunciationFor,
+  tagFor,
+} from './cardText';
 import { useProgressVersion } from './useProgressVersion';
 
 const DECK_NAMES: Record<Deck, string> = { words: 'Words', phrases: 'Phrases' };
@@ -101,6 +108,11 @@ function LearnDeck({ deck }: { deck: Deck }) {
   useEffect(() => {
     if (step?.type === 'intro' && view?.form?.audio_path) playAudio(view.form.audio_path);
   }, [view?.key, step?.type, view?.form?.audio_path]);
+
+  // The next cards' audio downloads in the background, so it plays at once.
+  useEffect(() => {
+    if (session) preloadAudio(session.upcomingAudio());
+  }, [session, view?.key]);
 
   useEffect(() => {
     if (!note) return;

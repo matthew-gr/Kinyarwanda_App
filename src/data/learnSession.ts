@@ -94,6 +94,29 @@ export class LearnSession {
     };
   }
 
+  /**
+   * The audio of the cards that can come up next: this one, the rest of the pool and the next
+   * few introductions. A card may show any of its item's forms, so each form's clip is listed.
+   */
+  upcomingAudio(limit = 30): string[] {
+    const { state } = this.row;
+    const cur = state.current;
+    const ids = [
+      ...(cur ? [cur.itemId] : []),
+      ...state.intros,
+      ...state.queue,
+      ...state.pool.map((c) => c.itemId),
+      ...(state.ahead ?? []),
+      ...state.order.slice(state.nextIndex, state.nextIndex + 3),
+    ];
+    const paths: string[] = [];
+    for (const id of new Set(ids))
+      for (const f of this.forms)
+        if (f.item_id === id && f.audio_path && !paths.includes(f.audio_path))
+          paths.push(f.audio_path);
+    return paths.slice(0, limit);
+  }
+
   /** Dismisses the introduction on screen. */
   async next(): Promise<void> {
     const cur = this.row.state.current;

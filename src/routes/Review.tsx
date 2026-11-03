@@ -12,6 +12,7 @@ import {
   dictionaryLine,
   hasNotes,
   playAudio,
+  preloadAudio,
   pronunciationFor,
   tagFor,
   waitInWords,
@@ -55,6 +56,11 @@ export function Review() {
   useEffect(() => {
     if (card) flipRef.current?.focus();
   }, [card?.cardViewId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The next cards' audio downloads in the background, so it plays at once.
+  useEffect(() => {
+    if (session) preloadAudio(session.upcomingAudio());
+  }, [session, card?.cardViewId]);
 
   useEffect(() => {
     if (flipped) gotRef.current?.focus();

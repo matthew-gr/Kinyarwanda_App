@@ -115,6 +115,21 @@ export class ReviewSession {
     return { card, counts, dueNow: due + (onScreenNotDue ? 1 : 0) };
   }
 
+  /** The audio of the card on screen and the next few to come due, every form of each. */
+  upcomingAudio(cards = 6, limit = 30): string[] {
+    const next = [...this.reviews.values()]
+      .sort((a, b) => Date.parse(a.due_at) - Date.parse(b.due_at))
+      .slice(0, cards)
+      .map((r) => r.item_id);
+    const ids = new Set([...(this.session.card ? [this.session.card.item_id] : []), ...next]);
+    const paths: string[] = [];
+    for (const id of ids)
+      for (const f of this.forms)
+        if (f.item_id === id && f.audio_path && !paths.includes(f.audio_path))
+          paths.push(f.audio_path);
+    return paths.slice(0, limit);
+  }
+
   /** Puts a card on screen when one has come due since the last check. */
   async refresh(): Promise<void> {
     if (this.busy || this.session.card) return;
