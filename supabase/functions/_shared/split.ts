@@ -115,6 +115,8 @@ const CLEAR_MARGIN = 1.25;
  * word the voice dropped or ran into the next one is caught.
  */
 const PACE_SPREAD = 2.5;
+/** A sound shorter than this (40 ms) is a click, not part of a word. */
+const MIN_SOUND_FRAMES = 4;
 
 /**
  * Cuts a recording of several items, said one after another with pauses between them, into a
@@ -140,7 +142,18 @@ export function splitAtPauses(pcm: Pcm, letters: number[]): Pcm[] | { reason: st
   // (the quietest tenth of the recording), so a noisy recording still has pauses.
   const floor = [...level].sort((a, b) => a - b)[Math.floor(frames / 10)]!;
   const threshold = Math.min(loud * 0.3, Math.max(loud * 0.04, floor * 3));
-  const quiet = (f: number) => level[f]! < threshold;
+  const isQuiet = level.map((l) => l < threshold);
+  // A breath or click in a pause is louder than silence but isn't a word: it stays faint, or
+  // lasts a moment. Count such a stretch as part of the pause, so it can't become a clip.
+  const strong = Math.min(loud * 0.5, Math.max(threshold * 1.5, loud * 0.15));
+  for (let f = 0; f < frames; f++) {
+    if (isQuiet[f]) continue;
+    const start = f;
+    let peak = 0;
+    while (f < frames && !isQuiet[f]) peak = Math.max(peak, level[f++]!);
+    if (f - start < MIN_SOUND_FRAMES || peak < strong) isQuiet.fill(true, start, f);
+  }
+  const quiet = (f: number) => isQuiet[f]!;
 
   // Where speech starts and ends, then every quiet stretch in between.
   let first = 0;
@@ -181,8 +194,13 @@ export function splitAtPauses(pcm: Pcm, letters: number[]): Pcm[] | { reason: st
     from = c.end;
   }
   bounds.push([from, last + 1]);
-  if (bounds.some(([a, b]) => (b - a) * FRAME_MS < MIN_CLIP_MS))
-    return { reason: `a clip came out shorter than ${MIN_CLIP_MS} ms` };
+  const short = bounds.findIndex(([a, b]) => (b - a) * FRAME_MS < MIN_CLIP_MS);
+  if (short >= 0) {
+    const [a, b] = bounds[short]!;
+    return {
+      reason: `clip ${short + 1} came out ${(b - a) * FRAME_MS} ms, shorter than ${MIN_CLIP_MS} ms`,
+    };
+  }
   if (count > 2) {
     const pace = bounds.map(([a, b], i) => (b - a) / Math.max(1, letters[i]!));
     const middle = [...pace].sort((x, y) => x - y)[Math.floor(count / 2)]!;

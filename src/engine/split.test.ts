@@ -82,6 +82,17 @@ describe('cutting a batch of words into clips', () => {
     expect(splitAtPauses({ ...pcm, samples: Int16Array.from(noisy) }, [4, 4, 4])).toHaveLength(3);
   });
 
+  it('counts a breath or a click in a pause as part of the pause', () => {
+    const pcm = recording([400, 600, 400, 600, 400]);
+    const at = (ms: number) => Math.round((RATE * ms) / 1000);
+    // A faint breath in the middle of the first pause (800–1000 ms).
+    for (let i = at(800); i < at(1000); i++) pcm.samples[i] = Math.round(800 * Math.sin(i / 4));
+    // A 20 ms click in the second pause, as loud as the words.
+    for (let i = at(1800); i < at(1820); i++) pcm.samples[i] = Math.round(8000 * Math.sin(i / 4));
+    const clips = splitAtPauses(pcm, [4, 4, 4]) as Pcm[];
+    expect(clips.map(ms)).toEqual([520, 520, 520]);
+  });
+
   it('reads 32-bit float WAV files too', () => {
     const rate = 8000;
     const out = new Uint8Array(44 + 4 * 4);
