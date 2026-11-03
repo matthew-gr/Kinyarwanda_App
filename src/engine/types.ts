@@ -30,7 +30,12 @@ export interface Item {
   /** A phrase's words and their meanings, where that helps. */
   breakdown: Gloss[] | null;
   rank: number;
+  /** The band (1 is Common 100), from the rank; see engine/vocabulary.ts. */
   tier: number;
+  /** Topic tags; the first is the word's topic on its card. Missing on rows from before them. */
+  tags?: string[];
+  /** A concrete thing or action you can see. */
+  picturable?: boolean;
   status: ContentStatus;
   /** Who drafted the text. */
   source: ContentSource;

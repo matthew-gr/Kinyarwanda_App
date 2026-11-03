@@ -1,5 +1,6 @@
-// Builds src/data/seed/content.json from the AI drafts below: the first 100 words in rank order
-// with their forms, and the first 50 phrases in usefulness order.
+// Builds src/data/seed/content.json from the AI drafts: the first 100 words below in rank order
+// with their forms, then the vocabulary plan's bands from scripts/vocabulary/ (Common 200 on),
+// and the first 50 phrases in usefulness order.
 //
 // AI DRAFT. Written by Claude, not yet checked by a native speaker. Every row is marked
 // status "ai_draft". Run once to make the seed; after that the Supabase tables are the source of
@@ -13,6 +14,10 @@
 import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { syllables } from '../src/engine/pronunciation.ts';
+import { bandFor } from '../src/engine/vocabulary.ts';
+import { COMMON_100_PICTURABLE, COMMON_100_TAGS } from './vocabulary/common-100-tags.ts';
+import { COMMON_200 } from './vocabulary/common-200.ts';
+import { presentForms, type Word } from './vocabulary/words.ts';
 
 const VERB_TABLE = new URL('../src/data/seed/verbs.json', import.meta.url);
 const OUT = new URL('../src/data/seed/content.json', import.meta.url);
@@ -798,6 +803,12 @@ function addForm(item: string, f: Record<string, unknown>) {
   });
 }
 
+/** Every verb is also an action. */
+function withActions(tags: string[] | undefined, verb: boolean): string[] {
+  const all = [...(tags ?? [])];
+  return verb && !all.includes('actions') ? [...all, 'actions'] : all;
+}
+
 const seen = new Set<string>();
 WORD_ORDER.forEach((base, i) => {
   if (seen.has(base)) throw new Error(`Listed twice: ${base}`);
@@ -811,8 +822,11 @@ WORD_ORDER.forEach((base, i) => {
     breakdown: null,
     rank: i + 1,
     tier: 1,
+    tags: withActions(COMMON_100_TAGS[base], Boolean(VERBS[base])),
+    picturable: COMMON_100_PICTURABLE.has(base),
     ...row,
   };
+  if (!COMMON_100_TAGS[base]) throw new Error(`No tags for ${base}`);
 
   if (OTHER[base]) {
     const [en, [exRw, exEn]] = OTHER[base];
@@ -868,6 +882,56 @@ WORD_ORDER.forEach((base, i) => {
   }
 });
 
+// The vocabulary plan's bands, cluster by cluster, ranked after the first 100.
+function addWord(w: Word, rank: number, topic: string, picturable: boolean) {
+  if (seen.has(w.base)) throw new Error(`Listed twice: ${w.base}`);
+  seen.add(w.base);
+  const id = itemId('word', w.base);
+  const tags = withActions(
+    [topic, ...(w.tags ?? []).filter((t) => t !== topic)],
+    w.type === 'verb',
+  );
+  items.push({
+    id,
+    kind: 'word',
+    base: w.base,
+    en: w.en,
+    word_type: w.type,
+    noun_class: w.type === 'noun' ? w.cls : null,
+    pronunciation: syllables(w.base),
+    example: { rw: w.example[0], en: w.example[1] },
+    breakdown: null,
+    rank,
+    tier: bandFor(rank).number,
+    tags,
+    picturable: picturable && !tags.includes('function'),
+    ...row,
+  });
+  if (w.type === 'other') {
+    addForm(id, { text: w.base, en: w.en, is_base: true });
+  } else if (w.type === 'noun') {
+    addForm(id, { text: w.base, en: w.en, is_base: true, number: w.plural ? 'singular' : null });
+    if (w.plural && w.plural !== w.base)
+      addForm(id, { text: w.plural, en: w.pluralEn, number: 'plural' });
+  } else {
+    presentForms(w.root).forEach((text, p) => {
+      addForm(id, {
+        text,
+        en: `${SUBJECTS[p]} ${p === 2 ? w.third : w.plain}`,
+        is_base: p === 2,
+        person: PERSONS[p],
+        tense: 'present',
+        verb_level: 1,
+      });
+    });
+  }
+}
+
+let rank = WORD_ORDER.length;
+for (const cluster of COMMON_200) {
+  for (const w of cluster.words) addWord(w, ++rank, cluster.topic, cluster.picturable);
+}
+
 const unused = [...Object.keys(OTHER), ...Object.keys(NOUNS), ...Object.keys(VERBS)].filter(
   (b) => !seen.has(b),
 );
@@ -887,6 +951,8 @@ PHRASES.forEach(([text, en, breakdown], i) => {
     breakdown: breakdown?.map(([rw, e]) => ({ rw, en: e })) ?? null,
     rank: i + 1,
     tier: Math.floor(i / 25) + 1,
+    tags: [],
+    picturable: false,
     ...row,
   });
   addForm(id, { text, en, is_base: true });

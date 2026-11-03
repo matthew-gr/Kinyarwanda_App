@@ -210,8 +210,14 @@ export function Home() {
         <PracticeRow
           title="Words"
           tone="green"
-          subtitle={stats ? `${stats.words.learned} of ${stats.words.total} learned` : ' '}
-          progress={stats && stats.words.total ? stats.words.learned / stats.words.total : 0}
+          subtitle={
+            stats
+              ? `${stats.wordBand.name} · ${stats.wordBand.learned} of ${stats.wordBand.total} learned`
+              : ' '
+          }
+          progress={
+            stats && stats.wordBand.total ? stats.wordBand.learned / stats.wordBand.total : 0
+          }
           onClick={() => navigate('/learn/words')}
         />
         <PracticeRow

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { checkContent } from '../engine/contentCheck';
+import { TOPICS } from '../engine/vocabulary';
 import { bundledForms as forms, bundledItems as items } from './content';
 
 describe('the drafted course', () => {
@@ -7,16 +8,24 @@ describe('the drafted course', () => {
     expect(checkContent(items, forms)).toEqual([]);
   });
 
-  it('has the first 100 words and 50 phrases, all marked as AI drafts', () => {
+  it('has Common 100 and Common 200 and 50 phrases, all marked as AI drafts', () => {
     const words = items.filter((i) => i.kind === 'word');
     const phrases = items.filter((i) => i.kind === 'phrase');
-    expect(words).toHaveLength(100);
+    expect(words).toHaveLength(200);
     expect(phrases).toHaveLength(50);
     expect(words.map((w) => w.rank).sort((a, b) => a - b)).toEqual(
-      Array.from({ length: 100 }, (_, i) => i + 1),
+      Array.from({ length: 200 }, (_, i) => i + 1),
     );
+    expect(words.every((w) => w.tier === (w.rank <= 100 ? 1 : 2))).toBe(true);
     expect(phrases.filter((p) => p.tier === 1)).toHaveLength(25);
     expect([...items, ...forms].every((r) => r.status === 'ai_draft')).toBe(true);
+  });
+
+  it('gives every word a known topic tag, and every verb the actions tag', () => {
+    const words = items.filter((i) => i.kind === 'word');
+    const known = new Set<string>(TOPICS.map((t) => t.key));
+    expect(words.filter((w) => !w.tags?.length || !w.tags.every((t) => known.has(t)))).toEqual([]);
+    expect(words.filter((w) => w.word_type === 'verb' && !w.tags?.includes('actions'))).toEqual([]);
   });
 
   it('gives verbs a level 1 present form for every person, and nouns their plurals', () => {

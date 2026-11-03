@@ -41,7 +41,7 @@ test('Learn walkthrough: words, then phrases without touching words', async ({ p
 
   // Back to Home: Words shows progress.
   await page.getByRole('button', { name: 'Back to Home' }).click();
-  await expect(rowSubtitle(page, 'Words')).toHaveText(/^[1-9]\d* of 100 learned$/);
+  await expect(rowSubtitle(page, 'Words')).toHaveText(/^Common 100 · [1-9]\d* of 100 learned$/);
   const wordsBefore = (await rowSubtitle(page, 'Words').textContent()) ?? '';
 
   // Phrases, through the switch on the Learn screen.

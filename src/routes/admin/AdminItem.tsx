@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { errorText, listItems, loadItem, makeAudio, saveItem, type Clip } from '../../data/admin';
 import { checkItem, type ContentProblem } from '../../engine/contentCheck';
+import { bandFor } from '../../engine/vocabulary';
 import { syllables } from '../../engine/pronunciation';
 import type { ContentStatus, Gloss, Item, ItemForm } from '../../engine/types';
 import { playAudio } from '../cardText';
@@ -36,7 +37,8 @@ function blankItem(kind: Item['kind'], rank: number): Item {
     example: kind === 'word' ? { rw: '', en: '' } : null,
     breakdown: null,
     rank,
-    tier: kind === 'phrase' ? Math.floor((rank - 1) / 25) + 1 : rank <= 100 ? 1 : 2,
+    tier: kind === 'phrase' ? Math.floor((rank - 1) / 25) + 1 : bandFor(rank).number,
+    tags: [],
     status: 'reviewed',
     source: EDITED,
     updated_at: '',

@@ -7,6 +7,7 @@ import { SessionHeader } from '../components/SessionHeader';
 import { LearnSession, type CardView } from '../data/learnSession';
 import { loadDeckLearned } from '../data/repo';
 import type { AnswerResult, Deck } from '../engine/learn';
+import { placeLabel } from '../engine/vocabulary';
 import { CardNotes, ReportMistake } from './CardExtras';
 import { dictionaryLine, hasNotes, playAudio, pronunciationFor, tagFor } from './cardText';
 import { useProgressVersion } from './useProgressVersion';
@@ -219,7 +220,13 @@ function CardArea({
     <>
       <SessionHeader
         level={`${view.inPlay} of ${view.maxPool} in play`}
-        meta={isIntro ? 'New card' : `Streak ${view.streak} of ${view.graduateStreak}`}
+        meta={
+          isIntro
+            ? item.kind === 'word'
+              ? `New card · ${placeLabel(item)}`
+              : 'New card'
+            : `Streak ${view.streak} of ${view.graduateStreak}`
+        }
         progress={isIntro ? 0 : view.streak / view.graduateStreak}
         progressLabel="Streak"
       />

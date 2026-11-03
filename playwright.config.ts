@@ -43,7 +43,7 @@ export default defineConfig({
       command: `npm run build && npm run preview -- --port ${PORT} --strictPort`,
       url: `http://localhost:${PORT}`,
       reuseExistingServer: !CI,
-      timeout: 180_000,
+      timeout: 360_000,
       // These tests run the app without the invite-only sign-in.
       env: { VITE_INVITE_ONLY: 'false' },
     },
@@ -51,7 +51,7 @@ export default defineConfig({
       command: `npx vite build --outDir dist-invite && npx vite preview --outDir dist-invite --port ${INVITE_PORT} --strictPort`,
       url: `http://localhost:${INVITE_PORT}`,
       reuseExistingServer: !CI,
-      timeout: 180_000,
+      timeout: 360_000,
       env: { VITE_INVITE_ONLY: 'true' },
     },
   ],

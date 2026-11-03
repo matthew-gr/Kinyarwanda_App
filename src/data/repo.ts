@@ -3,6 +3,7 @@
 import { createLearnState, learnConfigFor, type Deck } from '../engine/learn';
 import { dueCounts, type DueCounts } from '../engine/review';
 import type { Item, ItemForm } from '../engine/types';
+import { BANDS, bandFor } from '../engine/vocabulary';
 import {
   db,
   type AnswerEvent,
@@ -101,6 +102,8 @@ export async function loadDeckLearned(
 
 export interface HomeStats {
   words: { learned: number; total: number };
+  /** The first band with words still to learn, and how far into it the learner is. */
+  wordBand: { name: string; learned: number; total: number };
   phrases: { learned: number; total: number };
   learnedToday: number;
   dailyGoal: number;
@@ -127,8 +130,21 @@ export async function loadHomeStats(now: number, d: KinyaDb = db): Promise<HomeS
     learned: reviews.filter((r) => kindById.get(r.item_id) === kind).length,
     total: items.filter((i) => i.kind === kind).length,
   });
+  const learnedIds = new Set(reviews.map((r) => r.item_id));
+  const words = items.filter((i) => i.kind === 'word' && !i.retired);
+  const bands = BANDS.map((b) => {
+    const inBand = words.filter((w) => bandFor(w.rank).number === b.number);
+    return {
+      name: b.name,
+      learned: inBand.filter((w) => learnedIds.has(w.id)).length,
+      total: inBand.length,
+    };
+  }).filter((b) => b.total > 0);
+  const wordBand = bands.find((b) => b.learned < b.total) ??
+    bands[bands.length - 1] ?? { name: BANDS[0]!.name, learned: 0, total: 0 };
   return {
     words: count('word'),
+    wordBand,
     phrases: count('phrase'),
     learnedToday: reviews.filter((r) => Date.parse(r.created_at) >= startOfDay.getTime()).length,
     dailyGoal: profile.daily_goal,

@@ -2,6 +2,7 @@
 // passed in, so every rule in the product spec can be tested exactly.
 
 import { shuffle, type Rng } from './random';
+import { BAND_SIZES } from './vocabulary';
 
 export type Deck = 'words' | 'phrases';
 export type AnswerResult = 'got' | 'missed';
@@ -33,9 +34,12 @@ const BASE_CONFIG = {
   firstReviewDelayMs: 5 * 60 * 1000,
 } as const;
 
-/** Words: the first 100, then up to 500. Phrases: batches of 25. */
+/**
+ * Words: the vocabulary plan's bands (Common 100, 200, 500, 800, 1200, 2000), each opening once
+ * the one before is learned. Phrases: batches of 25.
+ */
 export function learnConfigFor(deck: Deck): LearnConfig {
-  return { ...BASE_CONFIG, tierSizes: deck === 'words' ? [100, 400] : [25] };
+  return { ...BASE_CONFIG, tierSizes: deck === 'words' ? BAND_SIZES : [25] };
 }
 
 export interface LearnItemRef {
