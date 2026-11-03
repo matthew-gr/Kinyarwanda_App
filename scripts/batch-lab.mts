@@ -80,6 +80,14 @@ const VARIANTS: Variant[] = [
     size: 15,
     rate: 1,
   },
+  // Bigger batches of A, the best of the first run.
+  ...[20, 30, 40].map((size, i) => ({
+    id: 'HIJ'[i]!,
+    about: `" ... ", ${size} a batch`,
+    join: (w: string[]) => w.map(sentence).join(' ... '),
+    size,
+    rate: 1,
+  })),
 ];
 
 /** 45 real course forms, short and long, the same for every variant. */
