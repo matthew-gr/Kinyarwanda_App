@@ -18,6 +18,25 @@ export interface StoryRequest {
   feedback: 'too_hard' | 'too_easy' | null;
   /** The words the learner knows, as they are written. */
   known: string[];
+  /** Which Claude model writes it, from STORY_MODELS. Left out, the first one does. */
+  model?: string;
+}
+
+/**
+ * The models a learner may pick while stories are being compared. Only these are accepted, so
+ * the app can't run up the bill on another model. Before launch this becomes a server setting.
+ */
+export const STORY_MODELS = [
+  { id: 'claude-opus-5-5', label: 'Opus 5.5' },
+  { id: 'claude-sonnet-5-5', label: 'Sonnet 5.5' },
+] as const;
+
+export const DEFAULT_STORY_MODEL = STORY_MODELS[0].id;
+
+/** The name to show for a model, from a story's source (ai:claude-sonnet-5-5), or null. */
+export function storyModelLabel(source: string): string | null {
+  const id = source.replace(/^ai:/, '');
+  return STORY_MODELS.find((m) => id.startsWith(m.id))?.label ?? null;
 }
 
 export const MAX_KNOWN = 4000;
@@ -36,6 +55,7 @@ export function requestProblem(r: StoryRequest): string | null {
     return 'feedback';
   if (!Array.isArray(r.known) || r.known.length === 0 || r.known.length > MAX_KNOWN) return 'known';
   if (r.known.some((w) => typeof w !== 'string' || w.length === 0 || w.length > 60)) return 'known';
+  if (r.model !== undefined && !STORY_MODELS.some((m) => m.id === r.model)) return 'model';
   return null;
 }
 

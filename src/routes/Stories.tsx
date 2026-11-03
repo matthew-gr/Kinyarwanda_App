@@ -5,15 +5,18 @@ import { Badge } from '../components/Badge';
 import { cx } from '../components/cx';
 import { Icon } from '../components/Icon';
 import type { StoryRow } from '../data/db';
+import { STORY_MODELS, storyModelLabel } from '../../supabase/functions/_shared/story';
 import {
   addToLearn,
   findInCourse,
   finishReading,
+  getStoryModel,
   loadStories,
   loadStory,
   newStory,
   refreshStory,
   saveFeedback,
+  setStoryModel,
   storiesOpen,
   storiesStatus,
   type StoriesStatus,
@@ -44,6 +47,7 @@ export function Stories() {
   const [stories, setStories] = useState<StoryRow[]>([]);
   const [writing, setWriting] = useState(false);
   const [problem, setProblem] = useState<'signed-out' | string | null>(null);
+  const [model, setModel] = useState(getStoryModel);
   const now = Date.now();
 
   useEffect(() => {
@@ -61,7 +65,7 @@ export function Stories() {
   const write = async () => {
     setWriting(true);
     setProblem(null);
-    const out = await newStory();
+    const out = await newStory(model);
     setWriting(false);
     if (out.type === 'story') navigate(`/stories/${out.story.id}`);
     else setProblem(out.type === 'signed-out' ? 'signed-out' : out.message);
@@ -94,6 +98,24 @@ export function Stories() {
             <p className="body">
               Written for you by AI, mostly from words you know. Tap any word for its meaning.
             </p>
+            <label className="field">
+              <span className="body-bold">Written by (while we compare them)</span>
+              <select
+                className="field-input field-select body"
+                value={model}
+                disabled={writing}
+                onChange={(e) => {
+                  setModel(e.target.value);
+                  setStoryModel(e.target.value);
+                }}
+              >
+                {STORY_MODELS.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </label>
             <button
               type="button"
               className="btn btn-primary"
@@ -254,6 +276,9 @@ export function StoryReader() {
             {story.status === 'approved' ? '✓ Checked by a native speaker' : 'AI story'}
           </Badge>
           <span className="body-small">About {story.coverage}% words you know</span>
+          {storyModelLabel(story.source) ? (
+            <span className="body-small">Written by {storyModelLabel(story.source)}</span>
+          ) : null}
         </p>
       </header>
 

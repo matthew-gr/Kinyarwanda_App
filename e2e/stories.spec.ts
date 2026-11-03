@@ -141,6 +141,13 @@ test('Stories open at 100 words; a story reads, explains words, asks questions a
   await page.reload();
   await expect(page.getByRole('button', { name: 'Read a new story' })).toBeVisible();
 
+  // The model picker starts on Opus and remembers a change on this device.
+  const picker = page.getByLabel('Written by (while we compare them)');
+  await expect(picker).toHaveValue('claude-opus-5-5');
+  await picker.selectOption('claude-sonnet-5-5');
+  await page.reload();
+  await expect(picker).toHaveValue('claude-sonnet-5-5');
+
   // Not signed in: the story can't be written, and the screen says why.
   await page.getByRole('button', { name: 'Read a new story' }).click();
   await expect(page.getByText(/Sign in on Profile to get stories/)).toBeVisible();

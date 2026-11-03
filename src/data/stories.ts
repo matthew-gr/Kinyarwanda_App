@@ -4,6 +4,7 @@
 
 import { bringForward, type Deck } from '../engine/learn';
 import { createAppRng } from '../engine/random';
+import { DEFAULT_STORY_MODEL, STORY_MODELS } from '../../supabase/functions/_shared/story';
 import { afterRead, buildRequest, STORIES_OPEN_AT, type StoryFeedback } from '../engine/stories';
 import type { Item, ItemForm } from '../engine/types';
 import { db, type KinyaDb, type StoryRow } from './db';
@@ -45,11 +46,35 @@ async function knownWords(d: KinyaDb): Promise<string[]> {
     .map((f) => f.text);
 }
 
+const MODEL_KEY = 'story-model';
+
+/** The model picked for new stories on this device, while the two are being compared. */
+export function getStoryModel(): string {
+  try {
+    const saved = localStorage.getItem(MODEL_KEY);
+    if (saved && STORY_MODELS.some((m) => m.id === saved)) return saved;
+  } catch {
+    // Storage blocked: use the default.
+  }
+  return DEFAULT_STORY_MODEL;
+}
+
+export function setStoryModel(model: string): void {
+  try {
+    localStorage.setItem(MODEL_KEY, model);
+  } catch {
+    // Storage blocked: the pick lasts until the screen closes.
+  }
+}
+
 export type NewStoryResult =
   { type: 'story'; story: StoryRow } | { type: 'signed-out' } | { type: 'error'; message: string };
 
 /** Asks the server for a new story, made from what this learner knows, and keeps it here. */
-export async function newStory(d: KinyaDb = db): Promise<NewStoryResult> {
+export async function newStory(
+  model: string = DEFAULT_STORY_MODEL,
+  d: KinyaDb = db,
+): Promise<NewStoryResult> {
   if (!supabase) return { type: 'error', message: 'Stories need a connection to the server.' };
   const { data } = await supabase.auth.getSession();
   if (!data.session) return { type: 'signed-out' };
@@ -59,13 +84,16 @@ export async function newStory(d: KinyaDb = db): Promise<NewStoryResult> {
     getProfile(d),
     d.stories.toArray(),
   ]);
-  const body = buildRequest({
-    known,
-    wordsLearned: status.wordsLearned,
-    verbLevel: profile.verb_level,
-    stories,
-    rng: createAppRng(),
-  });
+  const body = {
+    ...buildRequest({
+      known,
+      wordsLearned: status.wordsLearned,
+      verbLevel: profile.verb_level,
+      stories,
+      rng: createAppRng(),
+    }),
+    model,
+  };
   const { data: out, error } = await supabase.functions.invoke<{ story: Omit<StoryRow, 'dirty'> }>(
     'generate-story',
     { body },

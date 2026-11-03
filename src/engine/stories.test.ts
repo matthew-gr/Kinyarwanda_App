@@ -4,6 +4,7 @@ import {
   estimateCoverage,
   knownShapes,
   requestProblem,
+  storyModelLabel,
   storyProblem,
   verbFormsFor,
   wordsOf,
@@ -199,6 +200,18 @@ describe('story prompt', () => {
     expect(requestProblem({ ...request, known: [] })).toBe('known');
     expect(requestProblem({ ...request, note: 'x'.repeat(141) })).toBe('note');
     expect(requestProblem({ ...request, limit: 5000 })).toBe('limit');
+  });
+
+  it('accepts only the models on the list, or none', () => {
+    expect(requestProblem({ ...request, model: 'claude-sonnet-5-5' })).toBeNull();
+    expect(requestProblem({ ...request, model: 'claude-opus-5-5' })).toBeNull();
+    expect(requestProblem({ ...request, model: 'claude-fable-5-1' })).toBe('model');
+  });
+
+  it('names the model that wrote a story', () => {
+    expect(storyModelLabel('ai:claude-sonnet-5-5')).toBe('Sonnet 5.5');
+    expect(storyModelLabel('ai:claude-opus-5-5-20261001')).toBe('Opus 5.5');
+    expect(storyModelLabel('ai:test')).toBeNull();
   });
 
   it('checks a story has sentences and answerable questions', () => {

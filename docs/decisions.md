@@ -179,6 +179,7 @@ Prompt 2 was written from the product spec's Module 2 section; the build plan na
 135. **Reading counts when the learner taps I've read it**: the first time, or a repeat that is due. Repeats come after 1 day, 1 week, 1 month and 3 months, then the story retires (5 reads in all). Too hard and Too easy move the share by 5 points; Just right is also offered and changes nothing. The latest note goes into the next prompt.
 136. **Tap a word for its meaning, hold it to add it to Learn.** The meaning comes from the story's glossary. If the word is a form of a course item not yet learned, it can go to Learn, where it becomes the next new word, and it keeps that place when the course updates.
 137. **Checked stories aren't shared between learners yet.** The table has a status for native-speaker checks; reusing checked stories for others at the same level comes with the native review screens (Prompt 12). Story reports go into the same Reports list as card reports.
+138. **A model picker on Stories, for now** (Matt, 3 November 2026). While we compare Opus 5.5 and Sonnet 5.5 on Kinyarwanda, everyone signed in can pick which one writes their next story. The pick is kept on the device, and each story shows which model wrote it. The server accepts only those two models, so the app can't be used to call others. Both run at medium effort, so the comparison is fair. Before launch the picker comes out and the model becomes a Supabase secret.
 
 ## Planned later
 

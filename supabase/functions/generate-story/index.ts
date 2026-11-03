@@ -14,6 +14,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 import {
   buildStoryPrompt,
   COVERAGE_SLACK,
+  DEFAULT_STORY_MODEL,
   estimateCoverage,
   knownShapes,
   requestProblem,
@@ -24,7 +25,6 @@ import {
 } from '../_shared/story.ts';
 import { env, extension, speak, type Voice } from '../_shared/tts.ts';
 
-const MODEL = 'claude-opus-5-5';
 /** Stories one learner can make in 24 hours, to keep the bill bounded. */
 const DAILY_LIMIT = 10;
 /** A second try starts only if the first finished within this long. */
@@ -50,7 +50,10 @@ interface ClaudeResponse {
 }
 
 /** One request to Claude, with the answer held to the story's JSON shape. */
-async function askClaude(prompt: string): Promise<{ story: StoryText; model: string }> {
+async function askClaude(
+  prompt: string,
+  model: string,
+): Promise<{ story: StoryText; model: string }> {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -61,7 +64,7 @@ async function askClaude(prompt: string): Promise<{ story: StoryText; model: str
       'content-type': 'application/json',
     },
     body: JSON.stringify({
-      model: MODEL,
+      model,
       max_tokens: 16000,
       fallbacks: 'default',
       output_config: { effort: 'medium', format: { type: 'json_schema', schema: STORY_SCHEMA } },
@@ -142,6 +145,7 @@ Deno.serve(async (req) => {
 
   try {
     const prompt = buildStoryPrompt(request);
+    const chosen = request.model ?? DEFAULT_STORY_MODEL;
     const known = knownShapes(request.known);
     const started = Date.now();
     let best: { story: StoryText; model: string; coverage: number } | null = null;
@@ -149,7 +153,7 @@ Deno.serve(async (req) => {
     while (attempts < 2) {
       if (attempts > 0 && Date.now() - started > RETRY_WITHIN_MS) break;
       attempts++;
-      const got = await askClaude(prompt);
+      const got = await askClaude(prompt, chosen);
       const coverage = estimateCoverage(
         got.story.sentences.map((s) => s.rw),
         known,
@@ -177,6 +181,7 @@ Deno.serve(async (req) => {
         note: request.note,
         feedback: request.feedback,
         known_count: request.known.length,
+        model: chosen,
         attempts,
       },
       coverage,
