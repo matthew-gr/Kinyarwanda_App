@@ -4,7 +4,8 @@
 // Gemini, IjwiLab and Proto were tried and dropped (decision 156).
 
 import { spokenSpelling } from './spoken.ts';
-import { readWav, splitAtPauses, writeWav } from './split.ts';
+import { agreeing, fitCuts } from './fit.ts';
+import { readWav, writeWav, type Pcm } from './split.ts';
 
 export type Voice =
   | {
@@ -170,9 +171,9 @@ const one = (voice: Voice, text: string, count: Count): Promise<Spoken> =>
   });
 
 /**
- * Voices several items. A voice that charges per request is sent them together and the
- * recording is cut at the pauses; if the pauses aren't clear, that batch's items are voiced
- * one at a time, so a clip never holds half a neighbour. If the voice runs out of credit, the
+ * Voices several items. A voice that charges per request is sent them together, twice, and
+ * an item is kept only where the two recordings agree (see together), so a clip never holds
+ * half a neighbour. If the voice runs out of credit, the
  * rest are left unvoiced and `stopped` says why.
  */
 export async function speakMany(
@@ -186,7 +187,7 @@ export async function speakMany(
     if (size <= 1) for (const t of texts) out.push(await one(voice, t, count));
     else
       for (let i = 0; i < texts.length; i += size)
-        await together(voice, texts.slice(i, i + size), count, out);
+        out.push(...(await together(voice, texts.slice(i, i + size), count)));
   } catch (e) {
     if (!(e instanceof OutOfCredit)) throw e;
     while (out.length < texts.length) out.push({ error: e.message });
@@ -202,49 +203,103 @@ export async function speakMany(
  */
 const SEPARATOR = ' ... ';
 
-/**
- * Voices a batch into `out`. A batch that can't be cut goes one item at a time rather than in
- * halves: halving cost up to 29 billed requests for 15 words, one at a time costs 16.
- */
-async function together(voice: Voice, texts: string[], count: Count, out: Spoken[]) {
-  if (texts.length === 1) {
-    out.push(await one(voice, texts[0]!, count));
-    return;
-  }
-  const script = texts
-    .map((t) =>
-      t
-        .replace(/.{3}|…/g, '')
-        .trim()
-        .replace(/[.?!]*$/, (m) => m || '.'),
-    )
-    .join(SEPARATOR);
-  const label = `${texts.length} items (${texts[0]} … ${texts.at(-1)})`;
+/** Items voiced one after another, so the voice isn't sent a dozen requests at once. */
+async function oneByOne(voice: Voice, texts: readonly string[], count: Count): Promise<Spoken[]> {
+  const out: Spoken[] = [];
+  for (const t of texts) out.push(await one(voice, t, count));
+  return out;
+}
+
+/** An item as said in a batch: no gap marks, and a full stop if it has no end mark. */
+const sayable = (t: string) =>
+  t
+    .replace(/\.{3}|…/g, '')
+    .trim()
+    .replace(/[.?!]*$/, (m) => m || '.');
+
+/** A batch's recording, or null when there is none to cut. Running out of credit ends the run. */
+async function take(
+  voice: Voice,
+  texts: readonly string[],
+  count: Count,
+  label: string,
+): Promise<Pcm | null> {
   try {
-    const { bytes } = await speak(voice, script, true, count);
+    const { bytes } = await speak(voice, texts.map(sayable).join(SEPARATOR), true, count);
     const pcm = readWav(bytes);
     if (!pcm) {
       const head = String.fromCharCode(...bytes.subarray(0, 4));
-      count.notes.push(`${label}: not a WAV we can read (starts "${head}"), made one at a time`);
-    } else {
-      const cut = splitAtPauses(
-        pcm,
-        texts.map((t) => t.replace(/[^a-zA-Z]/g, '').length),
-      );
-      if (Array.isArray(cut)) {
-        count.notes.push(`${label}: cut cleanly`);
-        out.push(...cut.map((c) => ({ bytes: writeWav(c), type: 'audio/wav' })));
-        return;
-      }
-      count.notes.push(`${label}: ${cut.reason}, made one at a time`);
+      count.notes.push(`${label}: not a WAV we can read (starts "${head}")`);
     }
+    return pcm;
   } catch (e) {
     if (e instanceof OutOfCredit) throw e;
-    count.notes.push(
-      `${label}: ${e instanceof Error ? e.message.slice(0, 120) : e}, made one at a time`,
-    );
+    count.notes.push(`${label}: ${e instanceof Error ? e.message.slice(0, 120) : e}`);
+    return null;
   }
-  for (const t of texts) out.push(await one(voice, t, count));
+}
+
+const letters = (texts: readonly string[]) => texts.map((t) => t.replace(/[^a-zA-Z]/g, '').length);
+
+/** Fewer items than this left over are voiced one at a time rather than in another pair of takes. */
+const MIN_BATCH = 5;
+
+/**
+ * Voices a batch (decision 171). Pindo's pauses between words are too uneven to cut at alone,
+ * so the batch is said twice, the second time in reverse order, and each recording is cut to
+ * fit the items' expected lengths (fit.ts). An item is kept only when its clips from the two
+ * takes agree; the rest get one more pair of takes, or are voiced one at a time. Two requests
+ * per 15 items, plus the redone ones, against 15 one at a time.
+ */
+async function together(
+  voice: Voice,
+  texts: readonly string[],
+  count: Count,
+  round = 0,
+): Promise<Spoken[]> {
+  if (texts.length < MIN_BATCH) return oneByOne(voice, texts, count);
+  const label = `${texts.length} items (${texts[0]} … ${texts.at(-1)})`;
+  const order = texts.map((_, i) => texts.length - 1 - i);
+  const backwards = order.map((i) => texts[i]!);
+  const [a, b] = await Promise.all([
+    take(voice, texts, count, `${label}, first take`),
+    take(voice, backwards, count, `${label}, second take`),
+  ]);
+  const fa = a ? fitCuts(a, letters(texts)) : null;
+  const fb = b ? fitCuts(b, letters(backwards)) : null;
+  const first = fa && !('reason' in fa) ? fa : null;
+  const second = fb && !('reason' in fb) ? fb : null;
+  const kept = new Set(first && second ? agreeing(first, second, order) : []);
+
+  const spoken: Spoken[] = texts.map((_, i) =>
+    kept.has(i) ? { bytes: writeWav(first!.clips[i]!), type: 'audio/wav' } : { error: '' },
+  );
+  const rest = texts.map((_, i) => i).filter((i) => !kept.has(i));
+  count.notes.push(
+    `${label}: ${kept.size} of ${texts.length} agreed in both takes` +
+      (rest.length === 0
+        ? ''
+        : round === 0 && rest.length >= MIN_BATCH
+          ? `, ${rest.length} said again together`
+          : `, ${rest.length} made one at a time`),
+  );
+  if (rest.length > 0) {
+    const again =
+      round === 0 && rest.length >= MIN_BATCH
+        ? await together(
+            voice,
+            rest.map((i) => texts[i]!),
+            count,
+            1,
+          )
+        : await oneByOne(
+            voice,
+            rest.map((i) => texts[i]!),
+            count,
+          );
+    rest.forEach((i, k) => (spoken[i] = again[k]!));
+  }
+  return spoken;
 }
 
 export const extension = (type: string) =>

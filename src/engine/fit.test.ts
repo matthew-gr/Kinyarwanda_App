@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fitCuts } from '../../supabase/functions/_shared/fit';
+import { agreeing, fitCuts } from '../../supabase/functions/_shared/fit';
 import type { Pcm } from '../../supabase/functions/_shared/split';
 
 const RATE = 16000;
@@ -38,5 +38,26 @@ describe('fitting cuts to the expected word lengths', () => {
 
   it('gives up when there are fewer pauses than words', () => {
     expect('reason' in fitCuts(recording([400, 100, 400]), [4, 4, 4])).toBe(true);
+  });
+});
+
+describe('checking two takes against each other', () => {
+  const fit = (ratios: number[], doubtful: number[] = []) => ({
+    bounds: [],
+    clips: [],
+    ratios,
+    doubtful,
+  });
+
+  it('keeps the items whose clips are about as long in both takes', () => {
+    // The second take says the items in reverse: its k-th clip is item 2 - k.
+    const first = fit([1, 1.1, 0.9]);
+    const second = fit([0.92, 1.6, 1]);
+    expect(agreeing(first, second, [2, 1, 0])).toEqual([0, 2]);
+  });
+
+  it('drops an item either take doubts', () => {
+    expect(agreeing(fit([1, 1, 1], [1]), fit([1, 1, 1]), [0, 1, 2])).toEqual([0, 2]);
+    expect(agreeing(fit([1, 1, 1]), fit([1, 1, 1], [0]), [2, 1, 0])).toEqual([0, 1]);
   });
 });

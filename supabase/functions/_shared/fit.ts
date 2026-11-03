@@ -141,3 +141,25 @@ export function fitCuts(
   }));
   return { bounds, clips, ratios, doubtful };
 }
+
+/** Two takes' clips of one item agree when their lengths are within this ratio. */
+const AGREE_RATIO = 1.3;
+
+/**
+ * Which items two takes of the same batch agree on. The second take says the items in another
+ * order (`order[k]` is the item it said k-th). A cut in the wrong place shifts clip lengths,
+ * and two takes in different orders are unlikely to go wrong the same way, so an item whose
+ * clips are about as long in both, and doubtful in neither, is taken to be cut right.
+ */
+export function agreeing(first: Fit, second: Fit, order: readonly number[]): number[] {
+  const at = new Map(order.map((item, k) => [item, k]));
+  const ok: number[] = [];
+  for (let i = 0; i < first.ratios.length; i++) {
+    const k = at.get(i);
+    if (k === undefined || first.doubtful.includes(i) || second.doubtful.includes(k)) continue;
+    const a = first.ratios[i]!;
+    const b = second.ratios[k]!;
+    if (Math.abs(Math.log(a / b)) < Math.log(AGREE_RATIO)) ok.push(i);
+  }
+  return ok;
+}
