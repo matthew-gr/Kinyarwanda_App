@@ -229,11 +229,16 @@ export interface AudioBatch {
   /** Set when the voice ran out of credit; nothing more is sent. */
   stopped?: string;
   provider?: string;
+  /** Items whose two takes disagreed, to go in the next call's batch. */
+  pending?: { id: string; tried: boolean }[];
 }
 
 /**
- * Sends ids to the audio function 25 at a time. Ends early, with the reason, when the voice
- * runs out of credit or `stop` says so; either way the clips made so far are kept.
+ * Sends ids to the audio function 25 at a time. Items whose two takes disagreed come back
+ * pending and go at the front of the next call, so they ride in a batch with new items rather
+ * than being voiced alone (decision 173); the last call voices any still left. Ends early,
+ * with the reason, when the voice runs out of credit or `stop` says so; either way the
+ * clips made so far are kept.
  */
 async function voiceInGroups(
   action: 'forms' | 'numbers',
@@ -242,17 +247,28 @@ async function voiceInGroups(
   stop?: () => boolean,
 ): Promise<string | null> {
   let why: string | null = null;
-  for (let i = 0; i < ids.length; i += 25) {
+  const todo = [...ids];
+  const tried = new Set<string>();
+  let settled = 0;
+  while (todo.length > 0) {
     if (stop?.()) {
       why = 'Stopped.';
       break;
     }
-    const slice = ids.slice(i, i + 25);
-    const batch = await callAudio<AudioBatch>(
-      action === 'forms' ? { action, form_ids: slice } : { action, number_ids: slice },
-    );
-    onProgress?.(Math.min(ids.length, i + 25), batch ?? {});
-    if (batch?.stopped) {
+    const slice = todo.splice(0, 25);
+    const call = {
+      action,
+      [action === 'forms' ? 'form_ids' : 'number_ids']: slice,
+      tried_ids: slice.filter((id) => tried.has(id)),
+      last: todo.length === 0,
+    };
+    const batch = (await callAudio<AudioBatch>(call)) ?? {};
+    const pending = batch.pending ?? [];
+    for (const p of pending) if (p.tried) tried.add(p.id);
+    todo.unshift(...pending.map((p) => p.id));
+    settled += slice.length - pending.length;
+    onProgress?.(Math.min(ids.length, settled), batch);
+    if (batch.stopped) {
       why = batch.stopped;
       break;
     }

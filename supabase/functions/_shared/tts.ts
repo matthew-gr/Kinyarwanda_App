@@ -161,7 +161,11 @@ async function speakPindo(
   };
 }
 
-export type Spoken = { bytes: Uint8Array; type: string } | { error: string };
+/**
+ * What happened to an item: its clip, an error, or `pending`, meaning its takes didn't agree
+ * and it should ride in the caller's next batch (decision 173).
+ */
+export type Spoken = { bytes: Uint8Array; type: string } | { error: string } | { pending: true };
 
 /** One item on its own. Running out of credit isn't a failed item: it ends the run. */
 const one = (voice: Voice, text: string, count: Count): Promise<Spoken> =>
@@ -171,29 +175,71 @@ const one = (voice: Voice, text: string, count: Count): Promise<Spoken> =>
   });
 
 /**
- * Voices several items. A voice that charges per request is sent them together, twice, and
- * an item is kept only where the two recordings agree (see together), so a clip never holds
- * half a neighbour. If the voice runs out of credit, the
- * rest are left unvoiced and `stopped` says why.
+ * Voices several items. A voice that charges per request is sent them in batches, each said
+ * twice, and an item is kept only where the two recordings agree (see pairOfTakes). An item
+ * that doesn't agree goes to the back of the queue and rides in a later batch; one that has
+ * failed twice is voiced on its own. Items left when too few remain for a batch come back
+ * `pending`, for the caller's next call, unless `last` is set, when they are voiced alone.
+ * `tried[i]` marks an item that already failed once in an earlier call. If the voice runs out
+ * of credit, the rest are left unvoiced and `stopped` says why.
  */
 export async function speakMany(
   voice: Voice,
   texts: string[],
-): Promise<{ spoken: Spoken[]; requests: number; notes: string[]; stopped?: string }> {
+  opts: { tried?: readonly boolean[]; last?: boolean } = {},
+): Promise<{
+  spoken: Spoken[];
+  /** For each item, whether it has now failed a pair of takes at least once. */
+  tried: boolean[];
+  requests: number;
+  notes: string[];
+  stopped?: string;
+}> {
   const size = batchSize(voice);
   const count: Count = { requests: 0, notes: [] };
-  const out: Spoken[] = [];
+  const spoken: Spoken[] = texts.map(() => ({ error: 'not voiced' }));
+  const tried = texts.map((_, i) => opts.tried?.[i] ?? false);
+  const done = () => ({ spoken, tried, requests: count.requests, notes: count.notes });
   try {
-    if (size <= 1) for (const t of texts) out.push(await one(voice, t, count));
-    else
-      for (let i = 0; i < texts.length; i += size)
-        out.push(...(await together(voice, texts.slice(i, i + size), count)));
+    if (size <= 1) {
+      for (const [i, t] of texts.entries()) spoken[i] = await one(voice, t, count);
+      return done();
+    }
+    const queue = texts.map((_, i) => i);
+    const alone: number[] = [];
+    while (queue.length >= MIN_BATCH) {
+      const batch = queue.splice(0, size);
+      const kept = await pairOfTakes(
+        voice,
+        batch.map((i) => texts[i]!),
+        count,
+      );
+      batch.forEach((i, k) => {
+        const clip = kept[k];
+        if (clip) spoken[i] = clip;
+        else if (tried[i]) alone.push(i);
+        else {
+          tried[i] = true;
+          queue.push(i);
+        }
+      });
+    }
+    // Twice failed: likely a word the cutter can't place (a very short one), so said alone.
+    for (const i of alone) spoken[i] = await one(voice, texts[i]!, count);
+    for (const i of queue)
+      spoken[i] = opts.last ? await one(voice, texts[i]!, count) : { pending: true };
+    if (queue.length > 0)
+      count.notes.push(
+        opts.last
+          ? `${queue.length} left over, made one at a time`
+          : `${queue.length} left over, carried into the next batch`,
+      );
   } catch (e) {
     if (!(e instanceof OutOfCredit)) throw e;
-    while (out.length < texts.length) out.push({ error: e.message });
-    return { spoken: out, requests: count.requests, notes: count.notes, stopped: e.message };
+    for (const [i, s] of spoken.entries()) if (!('bytes' in s)) spoken[i] = { error: e.message };
+    return { ...done(), stopped: e.message };
   }
-  return { spoken: out, requests: count.requests, notes: count.notes };
+  return done();
 }
 
 /**
@@ -202,13 +248,6 @@ export async function speakMany(
  * almost none.
  */
 const SEPARATOR = ' ... ';
-
-/** Items voiced one after another, so the voice isn't sent a dozen requests at once. */
-async function oneByOne(voice: Voice, texts: readonly string[], count: Count): Promise<Spoken[]> {
-  const out: Spoken[] = [];
-  for (const t of texts) out.push(await one(voice, t, count));
-  return out;
-}
 
 /** An item as said in a batch: no gap marks, and a full stop if it has no end mark. */
 const sayable = (t: string) =>
@@ -241,23 +280,20 @@ async function take(
 
 const letters = (texts: readonly string[]) => texts.map((t) => t.replace(/[^a-zA-Z]/g, '').length);
 
-/** Fewer items than this left over are voiced one at a time rather than in another pair of takes. */
+/** Fewer items than this aren't worth a pair of takes; they wait for more, or go alone. */
 const MIN_BATCH = 5;
 
 /**
- * Voices a batch (decision 171). Pindo's pauses between words are too uneven to cut at alone,
- * so the batch is said twice, the second time in reverse order, and each recording is cut to
- * fit the items' expected lengths (fit.ts). An item is kept only when its clips from the two
- * takes agree; the rest get one more pair of takes, or are voiced one at a time. Two requests
- * per 15 items, plus the redone ones, against 15 one at a time.
+ * Says a batch twice (decision 171). Pindo's pauses between words are too uneven to cut at
+ * alone, so the second take says the items in reverse order, and each recording is cut to fit
+ * the items' expected lengths (fit.ts). Returns a clip for each item whose two takes agree,
+ * and null for the others.
  */
-async function together(
+async function pairOfTakes(
   voice: Voice,
   texts: readonly string[],
   count: Count,
-  round = 0,
-): Promise<Spoken[]> {
-  if (texts.length < MIN_BATCH) return oneByOne(voice, texts, count);
+): Promise<(Spoken | null)[]> {
   const label = `${texts.length} items (${texts[0]} … ${texts.at(-1)})`;
   const order = texts.map((_, i) => texts.length - 1 - i);
   const backwards = order.map((i) => texts[i]!);
@@ -270,36 +306,10 @@ async function together(
   const first = fa && !('reason' in fa) ? fa : null;
   const second = fb && !('reason' in fb) ? fb : null;
   const kept = new Set(first && second ? agreeing(first, second, order) : []);
-
-  const spoken: Spoken[] = texts.map((_, i) =>
-    kept.has(i) ? { bytes: writeWav(first!.clips[i]!), type: 'audio/wav' } : { error: '' },
+  count.notes.push(`${label}: ${kept.size} of ${texts.length} agreed in both takes`);
+  return texts.map((_, i) =>
+    kept.has(i) ? { bytes: writeWav(first!.clips[i]!), type: 'audio/wav' } : null,
   );
-  const rest = texts.map((_, i) => i).filter((i) => !kept.has(i));
-  count.notes.push(
-    `${label}: ${kept.size} of ${texts.length} agreed in both takes` +
-      (rest.length === 0
-        ? ''
-        : round === 0 && rest.length >= MIN_BATCH
-          ? `, ${rest.length} said again together`
-          : `, ${rest.length} made one at a time`),
-  );
-  if (rest.length > 0) {
-    const again =
-      round === 0 && rest.length >= MIN_BATCH
-        ? await together(
-            voice,
-            rest.map((i) => texts[i]!),
-            count,
-            1,
-          )
-        : await oneByOne(
-            voice,
-            rest.map((i) => texts[i]!),
-            count,
-          );
-    rest.forEach((i, k) => (spoken[i] = again[k]!));
-  }
-  return spoken;
 }
 
 export const extension = (type: string) =>

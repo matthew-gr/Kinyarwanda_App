@@ -1,8 +1,11 @@
 // Makes AI audio, for admins only. Audio is never made while a learner waits: an admin makes
 // it once, it is stored as a file, and every device caches it.
 //
-//   { action: "forms", form_ids: [...] }   voices each form with the chosen voice, keeps the
-//                                          clip in audio_clips, and points the form at it
+//   { action: "forms", form_ids: [...], tried_ids?, last? }
+//                                          voices each form with the chosen voice, keeps the
+//                                          clip in audio_clips, and points the form at it;
+//                                          forms whose two takes disagreed come back in
+//                                          `pending` for the next call, unless `last`
 //   { action: "numbers", number_ids: [...] }
 //                                          the same for the drills' numbers (number_phrases)
 //   { action: "sample", voice, items }     the listening test: voices the same items with any
@@ -73,11 +76,12 @@ Deno.serve(async (req) => {
       const { spoken, requests, notes, stopped } = await speakMany(
         voice,
         items.map((it) => it.text),
+        { last: true },
       );
       for (const [i, it] of items.entries()) {
         try {
           const said = spoken[i]!;
-          if ('error' in said) throw new Error(said.error);
+          if (!('bytes' in said)) throw new Error('error' in said ? said.error : 'not voiced');
           const { bytes, type } = said;
           const path = `voice-test/${label}/${cleanLabel(it.key)}.${extension(type)}`;
           const up = await service.storage
@@ -111,18 +115,28 @@ Deno.serve(async (req) => {
       const done = [];
       const failed: { id: string; error: string }[] = [];
       const list = rows ?? [];
-      const { spoken, requests, notes, stopped } = await speakMany(
+      // Forms whose takes disagreed in an earlier call get one more try in a batch, then go
+      // alone; on the run's last call, nothing is carried over.
+      const triedIds = new Set((body.tried_ids as string[] | undefined) ?? []);
+      const pending: { id: string; tried: boolean }[] = [];
+      const said = await speakMany(
         voice,
         list.map((r) => r.text),
+        { tried: list.map((r) => triedIds.has(r.id)), last: body.last === true },
       );
+      const { spoken, requests, notes, stopped } = said;
       for (const [i, r] of list.entries()) {
-        const said = spoken[i]!;
-        // A form the voice couldn't say stays silent, for the next Make missing audio.
-        if ('error' in said) {
-          failed.push({ id: r.id, error: said.error });
+        const one = spoken[i]!;
+        if ('pending' in one) {
+          pending.push({ id: r.id, tried: said.tried[i]! });
           continue;
         }
-        const { bytes, type } = said;
+        // A form the voice couldn't say stays silent, for the next Make missing audio.
+        if ('error' in one) {
+          failed.push({ id: r.id, error: one.error });
+          continue;
+        }
+        const { bytes, type } = one;
         const clipId = crypto.randomUUID();
         const path = `${folder}/${r.id}/${clipId}.${extension(type)}`;
         const up = await service.storage.from('audio').upload(path, bytes, { contentType: type });
@@ -145,7 +159,8 @@ Deno.serve(async (req) => {
         done.push({ [owner]: r.id, audio_path: url, audio_source: source });
       }
       // `stopped` tells the admin screen not to send the next group.
-      return json({ done, failed, requests, notes, stopped, provider: voice.provider });
+      // `pending` forms go in the next call's batch; `stopped` says not to send one.
+      return json({ done, failed, pending, requests, notes, stopped, provider: voice.provider });
     }
 
     return json({ error: 'Unknown action' }, 400);
