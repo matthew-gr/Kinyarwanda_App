@@ -273,7 +273,14 @@ function ReviewCardArea({
             </button>
           </div>
         ) : (
-          <p className="learn-tip body-small">Tap the card, or press Space, to see the meaning.</p>
+          // As in Learn, Turn sits where "I knew it" appears, so two taps in one place turn
+          // and mark it.
+          <div className="grade">
+            <p className="learn-tip body-small">Tap the card or Turn, or press Space.</p>
+            <button type="button" className="btn btn-primary" onClick={onFlip}>
+              Turn
+            </button>
+          </div>
         )}
         {flipped ? <ReportMistake item={item} form={form} module="review" /> : null}
       </div>
