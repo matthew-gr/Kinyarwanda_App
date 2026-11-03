@@ -31,15 +31,11 @@ export interface Clip {
 }
 
 export interface SampleVoice {
-  provider: 'elevenlabs' | 'http' | 'gemini' | 'pindo' | 'ijwi' | 'proto';
+  provider: 'elevenlabs' | 'pindo';
   voice_id?: string;
   model_id?: string;
-  /** Gemini's prebuilt voice, such as Kore. */
-  voice_name?: string;
   /** Pindo's speech rate, 0.5 to 2. */
   speech_rate?: number;
-  /** What goes between words sent in one batch (Pindo, IjwiLab, Proto). */
-  separator?: 'ellipsis' | 'lines' | 'long' | 'commas';
   label: string;
   /** Write each word's stressed syllable in capitals for the voice. */
   stress?: boolean;

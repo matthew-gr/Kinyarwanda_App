@@ -10,12 +10,11 @@
 //   { action: "voices" }                   lists the ElevenLabs voices on the account
 //
 // Secrets (set with `supabase secrets set`), only those for the providers in use:
-//   ELEVENLABS_API_KEY
-//   TTS_HTTP_URL, TTS_HTTP_TOKEN   any endpoint that takes {"inputs": text} and returns audio,
-//                                  such as a Hugging Face endpoint running Meta's MMS model
-//   TTS_VOICE                      the chosen voice, as JSON: {"provider": "elevenlabs",
-//                                  "voice_id": "...", "model_id": "...", "label": "..."} or
-//                                  {"provider": "http", "label": "mms-kin"}
+//   PINDO_TOKEN                    Pindo, the chosen voice
+//   ELEVENLABS_API_KEY             ElevenLabs, the backup
+//   TTS_VOICE                      the chosen voice, as JSON: {"provider": "pindo",
+//                                  "speech_rate": 1, "label": "..."} or {"provider":
+//                                  "elevenlabs", "voice_id": "...", "model_id": "...", "label": "..."}
 // SUPABASE_URL, SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY are provided.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';

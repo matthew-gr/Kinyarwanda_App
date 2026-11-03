@@ -9,60 +9,13 @@ import { playAudio } from '../cardText';
 import { AdminShell, ErrorLine } from './AdminShell';
 
 const STORE = 'kinyarwanda.voice-test';
-/**
- * Items voiced per server call: few for Gemini, which allows 10 requests a minute, and all of
- * them for voices that charge per request, which get them as one batch.
- */
-const sampleBatch = (p: SampleVoice['provider']) => (p === 'gemini' ? 6 : 25);
+/** Items voiced per server call; Pindo gets them in batches of 15, cut apart. */
+const SAMPLE_BATCH = 25;
 const LINES_STORE = 'kinyarwanda.voice-test-lines';
 const DEFAULT_LINES = 'ku isoko\nibiryo\narateka';
 const MODELS = ['eleven_v3', 'eleven_multilingual_v2', 'eleven_flash_v2_5'];
-const GEMINI_MODELS = ['gemini-3.8-flash-tts', 'gemini-3.8-flash-lite-tts'];
-/** Gemini's 30 prebuilt voices, with Google's one-word description. */
-const GEMINI_VOICES = [
-  'Kore (firm)',
-  'Puck (upbeat)',
-  'Charon (informative)',
-  'Zephyr (bright)',
-  'Fenrir (excitable)',
-  'Leda (youthful)',
-  'Orus (firm)',
-  'Aoede (breezy)',
-  'Callirrhoe (easy-going)',
-  'Autonoe (bright)',
-  'Enceladus (breathy)',
-  'Iapetus (clear)',
-  'Umbriel (easy-going)',
-  'Algieba (smooth)',
-  'Despina (smooth)',
-  'Erinome (clear)',
-  'Algenib (gravelly)',
-  'Rasalgethi (informative)',
-  'Laomedeia (upbeat)',
-  'Achernar (soft)',
-  'Alnilam (firm)',
-  'Schedar (even)',
-  'Gacrux (mature)',
-  'Pulcherrima (forward)',
-  'Achird (friendly)',
-  'Zubenelgenubi (casual)',
-  'Vindemiatrix (gentle)',
-  'Sadachbia (lively)',
-  'Sadaltager (knowledgeable)',
-  'Sulafat (warm)',
-];
-/** Gemini and Pindo read Kinyarwanda, so they get the real spelling, not the respelling. */
-/** Voices that get the words in one batch and have them cut apart. */
-const batched = (p: SampleVoice['provider']) => p === 'pindo' || p === 'ijwi' || p === 'proto';
-const SEPARATORS: { value: NonNullable<SampleVoice['separator']>; label: string }[] = [
-  { value: 'ellipsis', label: 'Full stop, then “...” (Pindo pauses best on this)' },
-  { value: 'lines', label: 'Full stop, then a blank line' },
-  { value: 'long', label: 'Full stop, then “... ...”' },
-  { value: 'commas', label: 'Full stop, then “, , ,”' },
-];
-
-const readsKinyarwanda = (p: SampleVoice['provider']) =>
-  p === 'gemini' || p === 'pindo' || p === 'ijwi' || p === 'proto';
+/** Pindo reads Kinyarwanda, so it gets the real spelling, not the respelling. */
+const readsKinyarwanda = (p: SampleVoice['provider']) => p === 'pindo';
 
 /** The 20 test items: the first 14 words, a plural, a verb form, and the first 4 phrases. */
 const SAMPLE = (() => {
@@ -113,13 +66,10 @@ function saveTrials(trials: Trial[]): void {
 
 export function VoiceTest() {
   const [trials, setTrials] = useState<Trial[]>(loadTrials);
-  const [provider, setProvider] = useState<SampleVoice['provider']>('elevenlabs');
+  const [provider, setProvider] = useState<SampleVoice['provider']>('pindo');
   const [voices, setVoices] = useState<{ voice_id: string; name: string }[]>([]);
   const [voiceId, setVoiceId] = useState('');
   const [model, setModel] = useState(MODELS[0]!);
-  const [httpLabel, setHttpLabel] = useState('mms-kin');
-  const [geminiModel, setGeminiModel] = useState(GEMINI_MODELS[0]!);
-  const [geminiVoice, setGeminiVoice] = useState('Kore');
   const [rate, setRate] = useState(1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -127,7 +77,6 @@ export function VoiceTest() {
   const [progress, setProgress] = useState('');
   const [failed, setFailed] = useState<{ key: string; error: string }[]>([]);
   const [requests, setRequests] = useState<number | null>(null);
-  const [separator, setSeparator] = useState<NonNullable<SampleVoice['separator']>>('ellipsis');
   const [notes, setNotes] = useState<string[]>([]);
   const [stress, setStress] = useState(true);
   const [lines, setLines] = useState(loadLines);
@@ -151,24 +100,10 @@ export function VoiceTest() {
     const voice: SampleVoice =
       provider === 'elevenlabs'
         ? { provider, voice_id: voiceId, model_id: model, label: `${name}-${model}${tag}`, stress }
-        : provider === 'gemini'
-          ? {
-              provider,
-              voice_name: geminiVoice,
-              model_id: geminiModel,
-              label: `${geminiVoice}-${geminiModel}`,
-            }
-          : provider === 'pindo'
-            ? { provider, speech_rate: rate, separator, label: `pindo-${rate}-${separator}` }
-            : provider === 'ijwi'
-              ? { provider, separator, label: `ijwilab-keza-${separator}` }
-              : provider === 'proto'
-                ? { provider, speech_rate: rate, separator, label: `proto-${rate}-${separator}` }
-                : { provider, label: `${httpLabel}${tag}`, stress };
+        : { provider, speech_rate: rate, label: `pindo-${rate}` };
     setBusy(true);
     setFailed([]);
-    // In batches, so a slow voice (Gemini allows 10 requests a minute) never runs past the
-    // server function's time limit.
+    // In batches, so a run never goes past the server function's time limit.
     const all = items.map(({ key, text }) => ({ key, text }));
     const clips: Record<string, string> = {};
     const lost: { key: string; error: string }[] = [];
@@ -178,7 +113,7 @@ export function VoiceTest() {
     setRequests(null);
     setNotes([]);
     try {
-      const batch = sampleBatch(provider);
+      const batch = SAMPLE_BATCH;
       for (let i = 0; i < all.length; i += batch) {
         setProgress(`${i} of ${all.length}`);
         const res = await makeSample(voice, all.slice(i, i + batch));
@@ -219,8 +154,8 @@ export function VoiceTest() {
         </h2>
         <p className="body-small">
           Each try voices the same {SAMPLE.length} items, and your own lines. ElevenLabs doesn't
-          know Kinyarwanda, so it gets the words respelled; Gemini and Pindo read Kinyarwanda and
-          get them as written.
+          know Kinyarwanda, so it gets the words respelled; Pindo reads Kinyarwanda and gets them as
+          written.
         </p>
         <label className="field">
           <span className="body-small-bold">Provider</span>
@@ -229,12 +164,8 @@ export function VoiceTest() {
             value={provider}
             onChange={(e) => setProvider(e.target.value as SampleVoice['provider'])}
           >
-            <option value="elevenlabs">ElevenLabs</option>
-            <option value="gemini">Gemini (the GEMINI_API_KEY secret)</option>
             <option value="pindo">Pindo (Kinyarwanda)</option>
-            <option value="ijwi">IjwiLab: Keza (the IJWI_API_KEY secret)</option>
-            <option value="proto">Proto (PROTO_TEAMSPACE_ID and PROTO_SECRET)</option>
-            <option value="http">Other endpoint (the TTS_HTTP_URL secret)</option>
+            <option value="elevenlabs">ElevenLabs (backup)</option>
           </select>
         </label>
         {provider === 'elevenlabs' ? (
@@ -272,40 +203,7 @@ export function VoiceTest() {
               </select>
             </label>
           </>
-        ) : provider === 'gemini' ? (
-          <>
-            <label className="field">
-              <span className="body-small-bold">Voice</span>
-              <select
-                className="field-input field-select"
-                value={geminiVoice}
-                onChange={(e) => setGeminiVoice(e.target.value)}
-              >
-                {GEMINI_VOICES.map((v) => (
-                  <option key={v} value={v.split(' ')[0]}>
-                    {v}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="field">
-              <span className="body-small-bold">Model</span>
-              <select
-                className="field-input field-select"
-                value={geminiModel}
-                onChange={(e) => setGeminiModel(e.target.value)}
-              >
-                {GEMINI_MODELS.map((m) => (
-                  <option key={m}>{m}</option>
-                ))}
-              </select>
-            </label>
-          </>
-        ) : provider === 'ijwi' ? (
-          <p className="body-small">
-            IjwiLab has one Kinyarwanda voice, Keza. The whole sample run is one request.
-          </p>
-        ) : provider === 'pindo' || provider === 'proto' ? (
+        ) : (
           <label className="field">
             <span className="body-small-bold">Speech rate (0.5 to 2)</span>
             <input
@@ -318,32 +216,7 @@ export function VoiceTest() {
               onChange={(e) => setRate(Number(e.target.value) || 1)}
             />
           </label>
-        ) : (
-          <label className="field">
-            <span className="body-small-bold">Name for this voice</span>
-            <input
-              className="field-input"
-              value={httpLabel}
-              onChange={(e) => setHttpLabel(e.target.value)}
-            />
-          </label>
         )}
-        {batched(provider) ? (
-          <label className="field">
-            <span className="body-small-bold">Between words in a batch</span>
-            <select
-              className="field-input field-select"
-              value={separator}
-              onChange={(e) => setSeparator(e.target.value as typeof separator)}
-            >
-              {SEPARATORS.map((s) => (
-                <option key={s.value} value={s.value}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
         {readsKinyarwanda(provider) ? null : (
           <label className="field">
             <input type="checkbox" checked={stress} onChange={(e) => setStress(e.target.checked)} />{' '}
@@ -387,7 +260,7 @@ export function VoiceTest() {
         {requests !== null ? (
           <p className="body-small" role="status">
             The last run sent {requests} {requests === 1 ? 'request' : 'requests'} to the voice.
-            {readsKinyarwanda(provider) && provider !== 'gemini'
+            {readsKinyarwanda(provider)
               ? ' Items are sent together and cut apart; more than one request per batch means some had to be split smaller.'
               : ''}
           </p>
@@ -494,10 +367,8 @@ export function VoiceTest() {
                 {JSON.stringify({
                   provider: chosen.provider,
                   ...(chosen.voice_id ? { voice_id: chosen.voice_id } : {}),
-                  ...(chosen.voice_name ? { voice_name: chosen.voice_name } : {}),
                   ...(chosen.model_id ? { model_id: chosen.model_id } : {}),
                   ...(chosen.speech_rate ? { speech_rate: chosen.speech_rate } : {}),
-                  ...(chosen.separator ? { separator: chosen.separator } : {}),
                   label: chosen.label,
                   ...(chosen.stress === false ? { stress: false } : {}),
                 })}

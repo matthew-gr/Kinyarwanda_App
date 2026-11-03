@@ -235,6 +235,8 @@ Prompt 2 was written from the product spec's Module 2 section; the build plan na
     - WAV files of 8, 24 and 32-bit PCM and 32-bit float are now read, not just 16-bit.
     - Quiet is judged against the recording's background hiss as well as its loudest moment.
     - Proto's reply is read as an audio file, base64, base64url, a data: URL, or the longest string in a JSON reply. If none of those works, the error shows the start of what came back.
+155. **A breath or click in a pause stays part of the pause.** A sound under 40 ms, or one that never gets near a word's loudness, no longer becomes its own clip.
+156. **Pindo is the voice, with "..." between batched words; ElevenLabs is the backup** (Matt, 3 November 2026). IjwiLab's audio was too garbled to cut into words, Proto had the same trouble with every separator, and Gemini sounded poor. All three are removed, as are the plain endpoint and the separator choice. A `TTS_VOICE` or `STORY_VOICE` naming a removed provider now fails with a message saying so. The GEMINI_API_KEY, IJWI_API_KEY, PROTO_SECRET and PROTO_TEAMSPACE_ID secrets are no longer used.
 
 ## Planned later
 

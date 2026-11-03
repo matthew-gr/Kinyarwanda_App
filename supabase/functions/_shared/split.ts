@@ -1,6 +1,6 @@
-// Cutting one recording of several items into a clip per item. Voices that charge per request
-// (Pindo, IjwiLab, Proto) are sent a batch of words, one per line, so they pause between
-// them; the pauses are found here and the recording is cut there. No imports, so Deno and
+// Cutting one recording of several items into a clip per item. Pindo charges per request, so
+// it is sent a batch of words with "..." between them, so it pauses between them; the pauses
+// are found here and the recording is cut there. No imports, so Deno and
 // Vite both load it, and it is tested from src/engine/split.test.ts.
 
 export interface Pcm {
