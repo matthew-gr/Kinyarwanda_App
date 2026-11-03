@@ -114,6 +114,15 @@ describe('the fixture', () => {
   });
 });
 
+describe('the level’s own forms', () => {
+  it('uses an object form in about two rounds of three at level 3', () => {
+    const { rounds } = playRounds(createVerbState(3), 5, 30);
+    const objects = rounds.filter((r) => formById.get(r.formId)!.whom !== null).length;
+    // Only laugh takes an object here, yet it gets two rounds in three, not one in five.
+    expect(objects).toBeGreaterThanOrEqual(18);
+  });
+});
+
 describe('levels', () => {
   it('asks for who and the action at level 1, adds when at 2 and whom at 3', () => {
     expect(slotsForLevel(1)).toEqual(['who', 'action']);

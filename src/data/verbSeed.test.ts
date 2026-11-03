@@ -14,7 +14,7 @@ describe('the drafted verb table', () => {
     expect(checkVerbs(verbs, forms)).toEqual([]);
   });
 
-  it('has the 13 starter verbs, every form an AI draft with a confidence', () => {
+  it('has the 18 course verbs, every form an AI draft with a confidence', () => {
     expect(verbs.map((v) => v.infinitive)).toEqual([
       'kurira',
       'guseka',
@@ -29,8 +29,13 @@ describe('the drafted verb table', () => {
       'kwiruka',
       'guhagarara',
       'kwicara',
+      'gukunda',
+      'kubona',
+      'gufasha',
+      'kureba',
+      'guhamagara',
     ]);
-    expect(forms).toHaveLength(324);
+    expect(forms).toHaveLength(534);
     expect(forms.every((f) => f.status === 'ai_draft')).toBe(true);
     expect(forms.every((f) => ['high', 'medium', 'low'].includes(f.confidence))).toBe(true);
   });
@@ -49,5 +54,11 @@ describe('the drafted verb table', () => {
     expect(word('kuza', '1pl', 'narrative')).toBe('dukaza');
     expect(word('guseka', '1sg', 'now', '2sg')).toBe('ndaguseka');
     expect(word('gusoma', '3sg', 'now', '1pl')).toBe('aradusoma');
+    // The object me joins the stem's first sound.
+    expect(word('kubona', '2sg', 'now', '1sg')).toBe('urambona');
+    expect(word('gufasha', '3sg', 'now', '1sg')).toBe('aramfasha');
+    expect(word('guhamagara', '3pl', 'now', '1sg')).toBe('barampamagara');
+    expect(word('kureba', '3sg', 'now', '1sg')).toBe('arandeba');
+    expect(word('gukunda', '2pl', 'now', '1sg')).toBe('murankunda');
   });
 });

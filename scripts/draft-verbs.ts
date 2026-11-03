@@ -1,4 +1,4 @@
-// Builds src/data/seed/verbs.json: the 13 starter verbs and every level 1 to 3 form.
+// Builds src/data/seed/verbs.json: the 18 course verbs and every level 1 to 3 form.
 //
 // AI DRAFT. Written by Claude, not yet checked by a native speaker. Every form is marked
 // status "ai_draft" with a confidence, so reviewers can check the weakest first. The app grades
@@ -181,6 +181,58 @@ const VERBS: Draft[] = [
     past: ['icaye', 'medium'],
     it: true,
   },
+  // Verbs that take a person as object, so level 3 has more than laugh at and kiss
+  // (decision 170).
+  {
+    infinitive: 'gukunda',
+    root: 'kund',
+    en: 'to love, to like',
+    plain: 'love',
+    third: 'loves',
+    past: ['kunze', 'medium'],
+    it: false,
+    object: { plain: 'love', third: 'loves' },
+  },
+  {
+    infinitive: 'kubona',
+    root: 'bon',
+    en: 'to see',
+    plain: 'see',
+    third: 'sees',
+    past: ['bonye', 'medium'],
+    it: false,
+    object: { plain: 'see', third: 'sees' },
+  },
+  {
+    infinitive: 'gufasha',
+    root: 'fash',
+    en: 'to help',
+    plain: 'help',
+    third: 'helps',
+    past: ['fashije', 'medium'],
+    it: false,
+    object: { plain: 'help', third: 'helps' },
+  },
+  {
+    infinitive: 'kureba',
+    root: 'reb',
+    en: 'to look at, to watch',
+    plain: 'look',
+    third: 'looks',
+    past: ['rebye', 'medium'],
+    it: false,
+    object: { plain: 'look at', third: 'looks at' },
+  },
+  {
+    infinitive: 'guhamagara',
+    root: 'hamagar',
+    en: 'to call',
+    plain: 'call',
+    third: 'calls',
+    past: ['hamagaye', 'low'],
+    it: false,
+    object: { plain: 'call', third: 'calls' },
+  },
 ];
 
 const SUBJECT: Record<WhoKey, string> = {
@@ -237,6 +289,17 @@ function dahl(piece: string, next: string): string {
   return piece.replace(/^k/, 'g').replace(/^t/, 'd');
 }
 
+/**
+ * The object "me" (n) joins the stem's first sound: n + b is mb (arambona), n + f is mf
+ * (aramfasha), n + h is mp (arampamagara), n + r is nd (arandeba).
+ */
+function me(stem: string): string {
+  if (/^[bpfv]/.test(stem)) return `m${stem}`;
+  if (stem.startsWith('h')) return `mp${stem.slice(1)}`;
+  if (stem.startsWith('r')) return `nd${stem.slice(1)}`;
+  return `n${stem}`;
+}
+
 /** A marker or object piece before a stem. A final vowel drops before a vowel: ra + iruka = riruka. */
 function join(piece: string, rest: string): string {
   if (VOWEL.test(rest)) return piece.replace(/[aeiou]$/, '') + rest;
@@ -268,7 +331,7 @@ function build(v: Draft, who: WhoKey, when: WhenKey, whom: WhomKey | null): Buil
   if (whom) {
     const obj = OBJECT[whom];
     // ku and tu voice before a voiceless stem (ndagukunda); n stays n before s.
-    rest = (obj === 'ku' || obj === 'tu' ? dahl(obj, stem) : obj) + stem;
+    rest = obj === 'n' ? me(stem) : (obj === 'ku' || obj === 'tu' ? dahl(obj, stem) : obj) + stem;
     confidence = whom === '1sg' ? 'low' : 'medium';
   }
 

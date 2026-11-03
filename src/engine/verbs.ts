@@ -298,7 +298,13 @@ export function nextRound(
     comeBack = state.comeBack.filter((c) => c !== due);
   } else {
     const learning = fresh.filter((f) => !isMastered(state, f, levelSlots));
-    target = pickOne(learning.length > 0 ? learning : fresh, rng);
+    const choices = learning.length > 0 ? learning : fresh;
+    // From level 2, two rounds in three use a form the level itself adds (another time at 2,
+    // an object at 3), so its new idea isn't lost among the easier forms that come with it.
+    const own = (list: readonly VerbForm[]) => list.filter((f) => f.level === state.level);
+    const wantOwn = state.level >= 2 && state.roundsIssued % 3 !== 2;
+    const ownChoices = own(choices).length > 0 ? own(choices) : own(fresh);
+    target = pickOne(wantOwn && ownChoices.length > 0 ? ownChoices : choices, rng);
   }
   if (!target) return { round: null, state };
 

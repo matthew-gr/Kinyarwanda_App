@@ -43,6 +43,11 @@ const VERB: Record<string, string> = {
   kwiruka: '🏃',
   guhagarara: '🛑',
   kwicara: '🪑',
+  gukunda: '❤️',
+  kubona: '👀',
+  gufasha: '🤝',
+  kureba: '📺',
+  guhamagara: '📞',
 };
 
 /** The picture for a tile's value in a slot. */
