@@ -204,14 +204,23 @@ async function callAudio<T>(body: object): Promise<T> {
   return data as T;
 }
 
+/** What one call to the audio function did: its requests to the voice, and what failed. */
+export interface AudioBatch {
+  requests?: number;
+  failed?: { id: string; error: string }[];
+}
+
 /** Voices forms with the chosen voice, a few per call so no call runs too long. */
 export async function makeAudio(
   formIds: string[],
-  onProgress?: (done: number) => void,
+  onProgress?: (done: number, batch: AudioBatch) => void,
 ): Promise<void> {
   for (let i = 0; i < formIds.length; i += 25) {
-    await callAudio({ action: 'forms', form_ids: formIds.slice(i, i + 25) });
-    onProgress?.(Math.min(formIds.length, i + 25));
+    const batch = await callAudio<AudioBatch>({
+      action: 'forms',
+      form_ids: formIds.slice(i, i + 25),
+    });
+    onProgress?.(Math.min(formIds.length, i + 25), batch ?? {});
   }
   await pullContent(undefined, true);
 }
@@ -231,11 +240,14 @@ export async function listNumberAudio(): Promise<
 /** Voices the drills' numbers, like makeAudio does for course forms. */
 export async function makeNumberAudio(
   ids: string[],
-  onProgress?: (done: number) => void,
+  onProgress?: (done: number, batch: AudioBatch) => void,
 ): Promise<void> {
   for (let i = 0; i < ids.length; i += 25) {
-    await callAudio({ action: 'numbers', number_ids: ids.slice(i, i + 25) });
-    onProgress?.(Math.min(ids.length, i + 25));
+    const batch = await callAudio<AudioBatch>({
+      action: 'numbers',
+      number_ids: ids.slice(i, i + 25),
+    });
+    onProgress?.(Math.min(ids.length, i + 25), batch ?? {});
   }
   await pullContent(undefined, true);
 }

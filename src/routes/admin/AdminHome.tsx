@@ -7,6 +7,7 @@ import {
   listItems,
   listReports,
   makeAudio,
+  type AudioBatch,
   makeNumberAudio,
   resolveReport,
   type ReportView,
@@ -24,6 +25,21 @@ const WHEN = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle
 
 type FormAudio = Pick<ItemForm, 'id' | 'item_id' | 'audio_path' | 'retired'>;
 type NumberAudio = { id: string; audio_path: string | null; retired: boolean };
+
+/** A run of Make missing audio or Remake all audio, as far as it has got. */
+interface AudioRun {
+  done: number;
+  all: number;
+  requests: number;
+  failed: number;
+  started: number;
+}
+
+/** "45 s" or "3 min 10 s". */
+function minutes(ms: number): string {
+  const s = Math.max(0, Math.round(ms / 1000));
+  return s < 60 ? `${s} s` : `${Math.floor(s / 60)} min ${s % 60} s`;
+}
 
 export function AdminHome() {
   const [params] = useSearchParams();
@@ -55,7 +71,15 @@ function Course() {
   const [kind, setKind] = useState<Item['kind']>('word');
   const [query, setQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [making, setMaking] = useState<string | null>(null);
+  const [making, setMaking] = useState<AudioRun | null>(null);
+  const [finished, setFinished] = useState<AudioRun | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  // A clock while audio is made, so the status line visibly moves between groups.
+  useEffect(() => {
+    if (!making) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [making]);
   const [reload, setReload] = useState(0);
 
   useEffect(() => {
@@ -99,14 +123,33 @@ function Course() {
   /** Voices the given forms and numbers; every earlier clip is kept in audio_clips. */
   const voice = async (formIds: string[], numberIds: string[]) => {
     setError(null);
-    const all = formIds.length + numberIds.length;
+    setFinished(null);
+    let run: AudioRun = {
+      done: 0,
+      all: formIds.length + numberIds.length,
+      requests: 0,
+      failed: 0,
+      started: Date.now(),
+    };
+    setMaking(run);
+    setNow(run.started);
+    const step = (offset: number) => (done: number, batch: AudioBatch) => {
+      run = {
+        ...run,
+        done: offset + done,
+        requests: run.requests + (batch.requests ?? 0),
+        failed: run.failed + (batch.failed?.length ?? 0),
+      };
+      setMaking(run);
+    };
     try {
-      await makeAudio(formIds, (done) => setMaking(`${done} of ${all}`));
-      await makeNumberAudio(numberIds, (done) => setMaking(`${formIds.length + done} of ${all}`));
+      await makeAudio(formIds, step(0));
+      await makeNumberAudio(numberIds, step(formIds.length));
       setReload((r) => r + 1);
     } catch (e) {
       setError(errorText(e));
     } finally {
+      setFinished(run);
       setMaking(null);
     }
   };
@@ -151,7 +194,7 @@ function Course() {
             disabled={missing === 0 || making !== null}
             onClick={() => void makeMissing()}
           >
-            {making ? `Making audio: ${making}` : 'Make missing audio'}
+            {making ? 'Making audio…' : 'Make missing audio'}
           </button>
           <button
             type="button"
@@ -162,6 +205,23 @@ function Course() {
             Remake all audio
           </button>
         </div>
+        {making ? (
+          <p className="body-small" role="status">
+            Working, {minutes(now - making.started)}: {making.done} of {making.all} clips done
+            {making.requests ? `, ${making.requests} requests to the voice` : ''}
+            {making.failed ? `, ${making.failed} couldn't be voiced` : ''}. Each group of 25 can
+            take a minute or two; keep this page open.
+          </p>
+        ) : finished ? (
+          <p className="body-small" role="status">
+            Finished in {minutes(Date.now() - finished.started)}: {finished.done} of {finished.all}{' '}
+            clips
+            {finished.requests ? `, ${finished.requests} requests to the voice` : ''}.
+            {finished.failed
+              ? ` ${finished.failed} couldn't be voiced; Make missing audio tries them again.`
+              : ''}
+          </p>
+        ) : null}
         <ErrorLine error={error} />
       </section>
 

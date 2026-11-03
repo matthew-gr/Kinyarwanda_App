@@ -1,6 +1,6 @@
 # Vocabulary plan (agreed 3 November 2026; being built)
 
-**Progress:** frequency counts done (`docs/data/word-frequency.tsv`); bands in Learn, tags and the new-card label done; Common 200 drafted (`scripts/vocabulary/common-200.ts`). Next: Common 500, the Topics screen, then the placement check. Phrases are not yet tagged.
+**Progress:** frequency counts done (`docs/data/word-frequency.tsv`); bands in Learn, tags and the new-card label done; Common 200 and Common 500 drafted (`scripts/vocabulary/`). Next: the Topics screen, the placement check, then Common 800. Phrases are not yet tagged.
 
 The plan below was a proposal for review. It covers the 2,000-word list, its tags and order, how Learn draws from it, the placement check, and pre-learned words. Section 7 lists the questions to settle before building.
 

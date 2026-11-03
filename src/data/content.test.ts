@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { checkContent } from '../engine/contentCheck';
-import { TOPICS } from '../engine/vocabulary';
+import { bandFor, TOPICS } from '../engine/vocabulary';
 import { bundledForms as forms, bundledItems as items } from './content';
 
 describe('the drafted course', () => {
@@ -8,15 +8,15 @@ describe('the drafted course', () => {
     expect(checkContent(items, forms)).toEqual([]);
   });
 
-  it('has Common 100 and Common 200 and 50 phrases, all marked as AI drafts', () => {
+  it('has Common 100 to Common 500 and 50 phrases, all marked as AI drafts', () => {
     const words = items.filter((i) => i.kind === 'word');
     const phrases = items.filter((i) => i.kind === 'phrase');
-    expect(words).toHaveLength(200);
+    expect(words).toHaveLength(500);
     expect(phrases).toHaveLength(50);
     expect(words.map((w) => w.rank).sort((a, b) => a - b)).toEqual(
-      Array.from({ length: 200 }, (_, i) => i + 1),
+      Array.from({ length: 500 }, (_, i) => i + 1),
     );
-    expect(words.every((w) => w.tier === (w.rank <= 100 ? 1 : 2))).toBe(true);
+    expect(words.every((w) => w.tier === bandFor(w.rank).number)).toBe(true);
     expect(phrases.filter((p) => p.tier === 1)).toHaveLength(25);
     expect([...items, ...forms].every((r) => r.status === 'ai_draft')).toBe(true);
   });
