@@ -97,22 +97,54 @@ describe('Learn engine', () => {
     expect(s.intros).toEqual(['a', 'b']);
   });
 
-  it('grows the pool by 1 per round and never past 8', () => {
+  const roundSizes = (shown: Shown[]) => shown.filter((s) => s.roundStart).map((s) => s.pool);
+
+  it('adds 2 cards after a round with every card right, settling at 6 in play', () => {
+    const { shown } = play(
+      createLearnState('words', items(60), config()),
+      createSeededRng(2),
+      always('got'),
+      300,
+    );
+    expect(roundSizes(shown).slice(0, 8)).toEqual([2, 4, 6, 6, 6, 6, 6, 6]);
+  });
+
+  it('adds nothing after a round with half or more missed', () => {
     const { shown } = play(
       createLearnState('words', items(30), config()),
       createSeededRng(2),
       always('missed'),
       300,
     );
-    const roundSizes = shown.filter((s) => s.roundStart).map((s) => s.pool);
-    expect(roundSizes.slice(0, 10)).toEqual([2, 3, 4, 5, 6, 7, 8, 8, 8, 8]);
+    expect(new Set(roundSizes(shown))).toEqual(new Set([2]));
+  });
+
+  it('adds 1 card after a round with a miss or two, only while fewer than 6 are in play', () => {
+    const { shown } = play(
+      createLearnState('words', items(60), { ...config(), startPool: 4 }),
+      createSeededRng(2),
+      (id) => (id === 'w1' ? 'missed' : 'got'),
+      300,
+    );
+    expect(roundSizes(shown).slice(0, 3)).toEqual([4, 5, 6]);
+    expect(Math.max(...shown.map((s) => s.pool))).toBe(6);
+  });
+
+  it('never puts more than 8 cards in play', () => {
+    const { shown } = play(
+      createLearnState('words', items(60), { ...config(), startPool: 7 }),
+      createSeededRng(2),
+      always('got'),
+      300,
+    );
+    expect(roundSizes(shown).slice(0, 3)).toEqual([7, 8, 8]);
     expect(Math.max(...shown.map((s) => s.pool))).toBe(8);
   });
 
   it('tests every item in the pool exactly once per round', () => {
     let state = createLearnState('words', items(30), config());
     const rng = createSeededRng(3);
-    const { state: after } = play(state, rng, always('missed'), 2 + 2 + 1); // intros, round 1, the new intro
+    const { state: after } = play(state, rng, always('got'), 2 + 2 + 2); // intros, round 1, 2 new intros
     state = after;
     const pool = state.pool.map((c) => c.itemId).sort();
     const tested: string[] = [];
@@ -167,12 +199,13 @@ describe('Learn engine', () => {
     while (state.queue.length > 0) {
       const r = nextStep(state, rng);
       if (r.step.type !== 'test') throw new Error('expected a test');
-      state = applyAnswer(r.state, { cardViewId: r.step.cardViewId, result: 'missed' }, 0).state;
+      state = applyAnswer(r.state, { cardViewId: r.step.cardViewId, result: 'got' }, 0).state;
     }
     const intro = nextStep(state, rng).step;
     expect(intro.type).toBe('intro');
     const introduced = intro.type === 'intro' ? intro.itemId : '';
-    expect(state.order.indexOf(introduced)).toBe(state.nextIndex - 1);
+    expect(state.order.slice(0, state.nextIndex)).toContain(introduced);
+    expect(state.graduated).not.toContain(introduced);
   });
 
   it('never shows the same item twice in a row while another is in the pool (1,000 seeded sessions)', () => {

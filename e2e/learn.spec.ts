@@ -75,7 +75,8 @@ test('Keyboard: Space flips, arrows grade', async ({ page }) => {
   await expect(page.getByText(/^Streak [01] of 3$/)).toBeVisible();
   await page.keyboard.press('Space');
   await expect(page.getByRole('button', { name: /I didn't/ })).toBeVisible();
-  await toNextCard(page, () => page.keyboard.press('ArrowLeft'));
-  // That ends the round of two, so the pool grows and a new phrase is introduced.
+  await toNextCard(page, () => page.keyboard.press('ArrowRight'));
+  // Both right ends the round of two, so 2 new phrases are introduced.
   await expect(next).toBeVisible();
+  await expect(page.getByText('4 of 8 in play')).toBeVisible();
 });

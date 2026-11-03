@@ -12,8 +12,13 @@ export interface LearnConfig {
   maxPool: number;
   /** `got` answers in a row that graduate an item. */
   graduateStreak: number;
-  /** New items introduced after each round while the pool is below `maxPool`. */
-  newPerRound: number;
+  /** New items introduced after a round answered without a miss, up to `maxPool`. */
+  fastPerRound: number;
+  /**
+   * After a round with a miss or two, 1 new item comes only while the pool is below this. After
+   * a round with half or more missed, none comes.
+   */
+  steadyPool: number;
   firstReviewDelayMs: number;
   /** Tier sizes in rank order. The last size repeats for any items beyond the listed tiers. */
   tierSizes: number[];
@@ -23,7 +28,8 @@ const BASE_CONFIG = {
   startPool: 2,
   maxPool: 8,
   graduateStreak: 3,
-  newPerRound: 1,
+  fastPerRound: 2,
+  steadyPool: 6,
   firstReviewDelayMs: 5 * 60 * 1000,
 } as const;
 
@@ -72,6 +78,9 @@ export interface LearnState {
   /** The item on the last step shown, intro or test. Guards against repeats across rounds. */
   lastShownId: string | null;
   graduated: string[];
+  /** Cards in the round under way, and how many of them were missed. */
+  roundSize?: number;
+  roundMissed?: number;
   /** Items a learner moved to the front (from a story), newest first, until introduced. */
   ahead?: string[];
 }
@@ -92,6 +101,20 @@ function tierEndsFor(count: number, tierSizes: readonly number[]): number[] {
     ends.push(end);
   }
   return ends;
+}
+
+/**
+ * How many new items the round just finished earns. All right: `fastPerRound`, which keeps a
+ * learner who knows every card at about 6 in play, as about 2 graduate each round. A miss or
+ * two: 1, until `steadyPool` are in play. Half or more missed: none, until they settle.
+ */
+function newAfterRound(state: LearnState, poolSize: number): number {
+  const { config } = state;
+  const size = state.roundSize ?? 0;
+  const missed = state.roundMissed ?? 0;
+  if (size > 0 && missed === 0) return Math.min(config.fastPerRound, config.maxPool - poolSize);
+  if (size > 0 && missed * 2 >= size) return 0;
+  return poolSize < config.steadyPool ? 1 : 0;
 }
 
 /**
@@ -119,9 +142,8 @@ function refill(state: LearnState, afterRound: boolean): LearnState {
   };
 
   if (afterRound) {
-    for (let n = 0; n < config.newPerRound && pool.length < config.maxPool && available(); n++) {
-      introduce();
-    }
+    const earned = newAfterRound(state, pool.length);
+    for (let n = 0; n < earned && available(); n++) introduce();
   }
   while (pool.length < config.startPool && available()) introduce();
 
@@ -186,7 +208,7 @@ export function nextStep(state: LearnState, rng: Rng): { step: LearnStep; state:
       const j = 1 + Math.floor(rng.next() * (round.length - 1));
       [round[0], round[j]] = [round[j]!, round[0]!];
     }
-    s = { ...s, queue: round };
+    s = { ...s, queue: round, roundSize: round.length, roundMissed: 0 };
   }
 
   const [itemId, ...rest] = s.queue;
@@ -232,6 +254,7 @@ export function applyAnswer(
       pool: state.pool.map((c) => (c.itemId === card.itemId ? { ...c, streak } : c)),
     };
   }
+  if (answer.result === 'missed') next = { ...next, roundMissed: (next.roundMissed ?? 0) + 1 };
 
   if (next.queue.length === 0) next = refill(next, true);
   return graduated ? { state: next, graduated } : { state: next };
