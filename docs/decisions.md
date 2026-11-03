@@ -229,6 +229,12 @@ Prompt 2 was written from the product spec's Module 2 section; the build plan na
     - WAVs are kept, so a phone that saved one keeps playing it. A clip that fails is tried again next run.
     - ElevenLabs clips are now 64 kbps MP3 rather than 128.
 153. **The Voice test shows how many requests a run sent.** For a batched voice (Pindo, IjwiLab, Proto), 1 means the batch cut cleanly; more means some of it was halved.
+154. **Batches report how they went, and the separator can be chosen** (Matt, 3 November 2026: Pindo batches worked well, IjwiLab's didn't, and Proto's audio wouldn't decode).
+    - Each batch reports one of: cut cleanly; how many pauses were found for how many items; how long the shortest pause between items was against the longest inside one; which clip didn't fit its word; or that the reply wasn't a readable WAV.
+    - The Voice test can try four separators between words: "...", a blank line, "... ...", or ", , ,". The chosen one is stored in `TTS_VOICE` as `separator`.
+    - WAV files of 8, 24 and 32-bit PCM and 32-bit float are now read, not just 16-bit.
+    - Quiet is judged against the recording's background hiss as well as its loudest moment.
+    - Proto's reply is read as an audio file, base64, base64url, a data: URL, or the longest string in a JSON reply. If none of those works, the error shows the start of what came back.
 
 ## Planned later
 

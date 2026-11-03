@@ -52,6 +52,15 @@ const GEMINI_VOICES = [
   'Sulafat (warm)',
 ];
 /** Gemini and Pindo read Kinyarwanda, so they get the real spelling, not the respelling. */
+/** Voices that get the words in one batch and have them cut apart. */
+const batched = (p: SampleVoice['provider']) => p === 'pindo' || p === 'ijwi' || p === 'proto';
+const SEPARATORS: { value: NonNullable<SampleVoice['separator']>; label: string }[] = [
+  { value: 'ellipsis', label: 'Full stop, then “...” (Pindo pauses best on this)' },
+  { value: 'lines', label: 'Full stop, then a blank line' },
+  { value: 'long', label: 'Full stop, then “... ...”' },
+  { value: 'commas', label: 'Full stop, then “, , ,”' },
+];
+
 const readsKinyarwanda = (p: SampleVoice['provider']) =>
   p === 'gemini' || p === 'pindo' || p === 'ijwi' || p === 'proto';
 
@@ -118,6 +127,8 @@ export function VoiceTest() {
   const [progress, setProgress] = useState('');
   const [failed, setFailed] = useState<{ key: string; error: string }[]>([]);
   const [requests, setRequests] = useState<number | null>(null);
+  const [separator, setSeparator] = useState<NonNullable<SampleVoice['separator']>>('ellipsis');
+  const [notes, setNotes] = useState<string[]>([]);
   const [stress, setStress] = useState(true);
   const [lines, setLines] = useState(loadLines);
   const items = [...SAMPLE, ...ownItems(lines)];
@@ -148,11 +159,11 @@ export function VoiceTest() {
               label: `${geminiVoice}-${geminiModel}`,
             }
           : provider === 'pindo'
-            ? { provider, speech_rate: rate, label: `pindo-${rate}` }
+            ? { provider, speech_rate: rate, separator, label: `pindo-${rate}-${separator}` }
             : provider === 'ijwi'
-              ? { provider, label: 'ijwilab-keza' }
+              ? { provider, separator, label: `ijwilab-keza-${separator}` }
               : provider === 'proto'
-                ? { provider, label: `proto-${rate}`, speech_rate: rate }
+                ? { provider, speech_rate: rate, separator, label: `proto-${rate}-${separator}` }
                 : { provider, label: `${httpLabel}${tag}`, stress };
     setBusy(true);
     setFailed([]);
@@ -163,7 +174,9 @@ export function VoiceTest() {
     const lost: { key: string; error: string }[] = [];
     let label = voice.label;
     let sent = 0;
+    const said: string[] = [];
     setRequests(null);
+    setNotes([]);
     try {
       const batch = sampleBatch(provider);
       for (let i = 0; i < all.length; i += batch) {
@@ -173,6 +186,7 @@ export function VoiceTest() {
         for (const c of res.clips) clips[c.key] = `${c.url}?v=${Date.now()}`;
         lost.push(...(res.failed ?? []));
         sent += res.requests ?? 0;
+        said.push(...(res.notes ?? []));
       }
     } catch (e) {
       setError(errorText(e));
@@ -185,6 +199,7 @@ export function VoiceTest() {
       }
       setFailed(lost);
       setRequests(sent || null);
+      setNotes(said);
       setProgress('');
       setBusy(false);
     }
@@ -313,6 +328,22 @@ export function VoiceTest() {
             />
           </label>
         )}
+        {batched(provider) ? (
+          <label className="field">
+            <span className="body-small-bold">Between words in a batch</span>
+            <select
+              className="field-input field-select"
+              value={separator}
+              onChange={(e) => setSeparator(e.target.value as typeof separator)}
+            >
+              {SEPARATORS.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
         {readsKinyarwanda(provider) ? null : (
           <label className="field">
             <input type="checkbox" checked={stress} onChange={(e) => setStress(e.target.checked)} />{' '}
@@ -360,6 +391,15 @@ export function VoiceTest() {
               ? ' Items are sent together and cut apart; more than one request per batch means some had to be split smaller.'
               : ''}
           </p>
+        ) : null}
+        {notes.length > 0 ? (
+          <ul className="body-small">
+            {notes.map((n, i) => (
+              <li key={i} lang="rw">
+                {n}
+              </li>
+            ))}
+          </ul>
         ) : null}
         {failed.length > 0 ? (
           <div className="stack" role="alert">
@@ -457,6 +497,7 @@ export function VoiceTest() {
                   ...(chosen.voice_name ? { voice_name: chosen.voice_name } : {}),
                   ...(chosen.model_id ? { model_id: chosen.model_id } : {}),
                   ...(chosen.speech_rate ? { speech_rate: chosen.speech_rate } : {}),
+                  ...(chosen.separator ? { separator: chosen.separator } : {}),
                   label: chosen.label,
                   ...(chosen.stress === false ? { stress: false } : {}),
                 })}

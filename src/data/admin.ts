@@ -38,6 +38,8 @@ export interface SampleVoice {
   voice_name?: string;
   /** Pindo's speech rate, 0.5 to 2. */
   speech_rate?: number;
+  /** What goes between words sent in one batch (Pindo, IjwiLab, Proto). */
+  separator?: 'ellipsis' | 'lines' | 'long' | 'commas';
   label: string;
   /** Write each word's stressed syllable in capitals for the voice. */
   stress?: boolean;
@@ -255,6 +257,8 @@ export function makeSample(voice: SampleVoice, items: { key: string; text: strin
     failed?: { key: string; error: string }[];
     /** Requests the voice was sent; for a batched voice, 1 means the batch cut cleanly. */
     requests?: number;
+    /** For a batched voice, how each batch went. */
+    notes?: string[];
   }>({
     action: 'sample',
     voice,

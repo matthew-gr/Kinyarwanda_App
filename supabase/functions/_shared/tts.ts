@@ -21,7 +21,11 @@ export type Voice = (
   | { provider: 'ijwi'; speaker_id?: number; label: string }
   /** Proto's Kinyarwanda voice. Secrets: PROTO_TEAMSPACE_ID and PROTO_SECRET. */
   | { provider: 'proto'; speech_rate?: number; label: string }
-) & { stress?: boolean };
+) & {
+  stress?: boolean;
+  /** For voices that get words in batches: what goes between them (see SEPARATORS). */
+  separator?: 'ellipsis' | 'lines' | 'long' | 'commas';
+};
 
 /** Voices that read Kinyarwanda as written. */
 export const readsKinyarwanda = (v: Pick<Voice, 'provider'>) =>
@@ -231,16 +235,57 @@ async function speakProto(
     }),
   });
   if (!res.ok) throw new Error(`proto said ${res.status}: ${(await res.text()).slice(0, 300)}`);
-  // The audio comes back as base64, bare or as a JSON string.
-  let body = (await res.text()).trim();
-  if (body.startsWith('"')) body = JSON.parse(body) as string;
-  else if (body.startsWith('{')) {
-    const o = JSON.parse(body) as Record<string, unknown>;
-    body = String(o.audio ?? o.data ?? o.audio_base64 ?? '');
+  const type = (res.headers.get('content-type') ?? '').split(';')[0]!.trim();
+  // The docs say base64 text, but the audio may come as the file itself.
+  if (type.startsWith('audio/') || type === 'application/octet-stream') {
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    if (bytes.length === 0) throw new Error('proto returned no audio');
+    return { bytes, type: 'audio/wav' };
   }
-  const bytes = Uint8Array.from(atob(body.replace(/\s/g, '')), (c) => c.charCodeAt(0));
-  if (bytes.length === 0) throw new Error('proto returned no audio');
+  const body = (await res.text()).trim();
+  const bytes = decodeAudio(body);
+  if (!bytes)
+    throw new Error(
+      `proto's reply wasn't audio we could read (${type || 'no type'}): ${body.slice(0, 120)}`,
+    );
   return { bytes, type: 'audio/wav' };
+}
+
+/**
+ * Audio in a text reply: base64 or base64url, bare, quoted, as a data: URL, or as the longest
+ * string anywhere in a JSON object. Returns null if none of those decodes to a WAV or MP3.
+ */
+function decodeAudio(body: string): Uint8Array | null {
+  const candidates: string[] = [];
+  const collect = (x: unknown) => {
+    if (typeof x === 'string') candidates.push(x);
+    else if (x && typeof x === 'object') Object.values(x).forEach(collect);
+  };
+  if (body.startsWith('"') || body.startsWith('{') || body.startsWith('[')) {
+    try {
+      collect(JSON.parse(body));
+    } catch {
+      candidates.push(body);
+    }
+  } else candidates.push(body);
+  candidates.sort((a, b) => b.length - a.length);
+  for (const c of candidates.slice(0, 3)) {
+    const b64 = c
+      .replace(/^data:[^,]*,/, '')
+      .replace(/\s/g, '')
+      .replace(/-/g, '+')
+      .replace(/_/g, '/');
+    try {
+      const bytes = Uint8Array.from(atob(b64 + '='.repeat((4 - (b64.length % 4)) % 4)), (ch) =>
+        ch.charCodeAt(0),
+      );
+      const head = String.fromCharCode(...bytes.subarray(0, 4));
+      if (head === 'RIFF' || head.startsWith('ID3') || bytes[0] === 0xff) return bytes;
+    } catch {
+      // Not base64; try the next.
+    }
+  }
+  return null;
 }
 
 export type Spoken = { bytes: Uint8Array; type: string } | { error: string };
@@ -255,9 +300,9 @@ const failed = (e: unknown): Spoken => ({ error: e instanceof Error ? e.message 
 export async function speakMany(
   voice: Voice,
   texts: string[],
-): Promise<{ spoken: Spoken[]; requests: number }> {
+): Promise<{ spoken: Spoken[]; requests: number; notes: string[] }> {
   const size = batchSize(voice);
-  const count = { requests: 0 };
+  const count = { requests: 0, notes: [] as string[] };
   const out: Spoken[] = [];
   if (size <= 1) {
     for (const t of texts) {
@@ -268,18 +313,30 @@ export async function speakMany(
     for (let i = 0; i < texts.length; i += size)
       out.push(...(await together(voice, texts.slice(i, i + size), count)));
   }
-  return { spoken: out, requests: count.requests };
+  return { spoken: out, requests: count.requests, notes: count.notes };
 }
+
+/**
+ * What goes between items in a batch. Each item also ends with a full stop. With Pindo the
+ * ellipsis left pauses of 230 to 420 ms between words, where a full stop or a line break left
+ * almost none; other voices may pause best on something else, so the Voice test can try each.
+ */
+export const SEPARATORS = {
+  ellipsis: ' ... ',
+  lines: '\n\n',
+  long: ' ... ... ',
+  commas: ', , , ',
+} as const;
+export type Separator = keyof typeof SEPARATORS;
 
 async function together(
   voice: Voice,
   texts: string[],
-  count: { requests: number },
+  count: { requests: number; notes: string[] },
 ): Promise<Spoken[]> {
   count.requests++;
   if (texts.length === 1) return [await speak(voice, texts[0]!).catch(failed)];
-  // Each item ends a sentence, then an ellipsis: with Pindo that left pauses of 230 to 420 ms
-  // between words, where a full stop or a line break left almost none.
+  const separator = SEPARATORS[voice.separator ?? 'ellipsis'] ?? SEPARATORS.ellipsis;
   const script = texts
     .map((t) =>
       t
@@ -287,20 +344,28 @@ async function together(
         .trim()
         .replace(/[.?!]*$/, (m) => m || '.'),
     )
-    .join(' ... ');
+    .join(separator);
+  const label = `${texts.length} items (${texts[0]} … ${texts.at(-1)})`;
   try {
     const { bytes } = await speak(voice, script, true);
     const pcm = readWav(bytes);
-    const clips = pcm
-      ? splitAtPauses(
-          pcm,
-          texts.map((t) => t.replace(/[^a-zA-Z]/g, '').length),
-        )
-      : null;
-    if (clips) return clips.map((c) => ({ bytes: writeWav(c), type: 'audio/wav' }));
+    if (!pcm) {
+      const head = String.fromCharCode(...bytes.subarray(0, 4));
+      count.notes.push(`${label}: not a WAV we can read (starts "${head}"), halved`);
+    } else {
+      const cut = splitAtPauses(
+        pcm,
+        texts.map((t) => t.replace(/[^a-zA-Z]/g, '').length),
+      );
+      if (Array.isArray(cut)) {
+        count.notes.push(`${label}: cut cleanly`);
+        return cut.map((c) => ({ bytes: writeWav(c), type: 'audio/wav' }));
+      }
+      count.notes.push(`${label}: ${cut.reason}, halved`);
+    }
   } catch (e) {
     // A failed batch is tried in halves too.
-    console.error('batch', voice.provider, texts.length, e);
+    count.notes.push(`${label}: ${e instanceof Error ? e.message.slice(0, 120) : e}, halved`);
   }
   const half = Math.ceil(texts.length / 2);
   return [

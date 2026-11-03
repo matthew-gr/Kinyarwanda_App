@@ -9,7 +9,10 @@ export interface Pcm {
   samples: Int16Array;
 }
 
-/** Reads a 16-bit PCM WAV file (stereo is mixed down). Returns null for anything else. */
+/**
+ * Reads a WAV file of 8, 16, 24 or 32-bit PCM, or 32-bit float, as mono 16-bit (stereo is
+ * mixed down). Returns null for anything else.
+ */
 export function readWav(bytes: Uint8Array): Pcm | null {
   const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const tag = (at: number) => String.fromCharCode(...bytes.subarray(at, at + 4));
@@ -29,22 +32,50 @@ export function readWav(bytes: Uint8Array): Pcm | null {
       rate = v.getUint32(body + 4, true);
       bits = v.getUint16(body + 14, true);
     } else if (id === 'data') {
-      // 1 is plain PCM; 0xfffe (extensible) carries PCM too.
-      if ((format !== 1 && format !== 0xfffe) || bits !== 16 || channels < 1) return null;
+      // 1 is integer PCM, 3 is float; 0xfffe (extensible) carries either, told apart by size.
+      const float = format === 3 || (format === 0xfffe && bits === 32 && isFloat(bytes, v));
+      const int = format === 1 || format === 0xfffe;
+      if (channels < 1 || !(float ? bits === 32 : int && [8, 16, 24, 32].includes(bits)))
+        return null;
+      const width = bits / 8;
+      /** One sample, scaled to -1..1. */
+      const read = (p: number): number =>
+        float
+          ? v.getFloat32(p, true)
+          : bits === 8
+            ? (v.getUint8(p) - 128) / 128
+            : bits === 16
+              ? v.getInt16(p, true) / 32768
+              : bits === 24
+                ? (((v.getUint8(p + 2) << 24) | (v.getUint8(p + 1) << 16) | (v.getUint8(p) << 8)) >>
+                    8) /
+                  8388608
+                : v.getInt32(p, true) / 2147483648;
       // A streamed file may say its data runs to 0xffffffff; read what is there.
       const end = Math.min(bytes.length, body + size);
-      const frames = Math.floor((end - body) / (2 * channels));
+      const frames = Math.floor((end - body) / (width * channels));
       const samples = new Int16Array(frames);
       for (let i = 0; i < frames; i++) {
         let sum = 0;
-        for (let c = 0; c < channels; c++) sum += v.getInt16(body + (i * channels + c) * 2, true);
-        samples[i] = Math.round(sum / channels);
+        for (let c = 0; c < channels; c++) sum += read(body + (i * channels + c) * width);
+        samples[i] = Math.max(-32768, Math.min(32767, Math.round((sum / channels) * 32767)));
       }
       return { rate, samples };
     }
     at = body + size + (size % 2);
   }
   return null;
+}
+
+/** In an extensible WAV, whether the sub-format is float (its GUID starts 03 00). */
+function isFloat(bytes: Uint8Array, v: DataView): boolean {
+  for (let at = 12; at + 8 <= bytes.length;) {
+    const size = v.getUint32(at + 4, true);
+    if (String.fromCharCode(...bytes.subarray(at, at + 4)) === 'fmt ' && size >= 40)
+      return v.getUint16(at + 8 + 24, true) === 3;
+    at += 8 + size + (size % 2);
+  }
+  return false;
 }
 
 /** Mono 16-bit PCM as a WAV file. */
@@ -88,14 +119,15 @@ const PACE_SPREAD = 2.5;
 /**
  * Cuts a recording of several items, said one after another with pauses between them, into a
  * clip per item. `letters` is each item's length in letters, used to check each clip is about
- * as long as its item should be. Returns null when the pauses aren't clear enough to be sure,
- * so the caller can ask for fewer items at a time instead of saving a clip with half a word.
+ * as long as its item should be. Returns why not when the pauses aren't clear enough to be
+ * sure, so the caller can ask for fewer items at a time instead of saving a clip with half a
+ * word.
  */
-export function splitAtPauses(pcm: Pcm, letters: number[]): Pcm[] | null {
+export function splitAtPauses(pcm: Pcm, letters: number[]): Pcm[] | { reason: string } {
   const count = letters.length;
   const frame = Math.max(1, Math.round((pcm.rate * FRAME_MS) / 1000));
   const frames = Math.floor(pcm.samples.length / frame);
-  if (count < 1 || frames === 0) return null;
+  if (count < 1 || frames === 0) return { reason: 'the recording is empty' };
   const level: number[] = [];
   for (let f = 0; f < frames; f++) {
     let sum = 0;
@@ -103,8 +135,12 @@ export function splitAtPauses(pcm: Pcm, letters: number[]): Pcm[] | null {
     level.push(Math.sqrt(sum / frame));
   }
   const loud = Math.max(...level);
-  if (loud === 0) return null;
-  const quiet = (f: number) => level[f]! < loud * 0.04;
+  if (loud === 0) return { reason: 'the recording is silent' };
+  // Quiet is under 4% of the loudest moment, or 3 times the background hiss if that is higher
+  // (the quietest tenth of the recording), so a noisy recording still has pauses.
+  const floor = [...level].sort((a, b) => a - b)[Math.floor(frames / 10)]!;
+  const threshold = Math.min(loud * 0.3, Math.max(loud * 0.04, floor * 3));
+  const quiet = (f: number) => level[f]! < threshold;
 
   // Where speech starts and ends, then every quiet stretch in between.
   let first = 0;
@@ -120,7 +156,8 @@ export function splitAtPauses(pcm: Pcm, letters: number[]): Pcm[] | null {
   }
 
   const cuts = [...gaps].sort((a, b) => b.end - b.start - (a.end - a.start)).slice(0, count - 1);
-  if (cuts.length !== count - 1) return null;
+  if (cuts.length !== count - 1)
+    return { reason: `found ${gaps.length} pauses for ${count} items` };
   const length = (g: { start: number; end: number }) => (g.end - g.start) * FRAME_MS;
   const shortestCut = Math.min(...cuts.map(length), Infinity);
   const longestLeft = Math.max(
@@ -131,7 +168,9 @@ export function splitAtPauses(pcm: Pcm, letters: number[]): Pcm[] | null {
       .map(length),
   );
   if (count > 1 && (shortestCut < MIN_GAP_MS || shortestCut < longestLeft * CLEAR_MARGIN))
-    return null;
+    return {
+      reason: `the pauses aren't clear: the shortest between items is ${shortestCut} ms, the longest inside one ${longestLeft} ms`,
+    };
 
   cuts.sort((a, b) => a.start - b.start);
   const pad = Math.round(PAD_MS / FRAME_MS);
@@ -142,11 +181,13 @@ export function splitAtPauses(pcm: Pcm, letters: number[]): Pcm[] | null {
     from = c.end;
   }
   bounds.push([from, last + 1]);
-  if (bounds.some(([a, b]) => (b - a) * FRAME_MS < MIN_CLIP_MS)) return null;
+  if (bounds.some(([a, b]) => (b - a) * FRAME_MS < MIN_CLIP_MS))
+    return { reason: `a clip came out shorter than ${MIN_CLIP_MS} ms` };
   if (count > 2) {
     const pace = bounds.map(([a, b], i) => (b - a) / Math.max(1, letters[i]!));
     const middle = [...pace].sort((x, y) => x - y)[Math.floor(count / 2)]!;
-    if (pace.some((p) => p > middle * PACE_SPREAD || p < middle / PACE_SPREAD)) return null;
+    const off = pace.findIndex((p) => p > middle * PACE_SPREAD || p < middle / PACE_SPREAD);
+    if (off >= 0) return { reason: `clip ${off + 1} is far too long or short for its word` };
   }
   return bounds.map(([a, b]) => ({
     rate: pcm.rate,
