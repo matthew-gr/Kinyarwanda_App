@@ -118,9 +118,9 @@ async function speakPindo(
   count: Count,
 ): Promise<{ bytes: Uint8Array; type: string }> {
   const token = env('PINDO_TOKEN');
-  const ask = (t: string) => {
-    count.requests++;
-    return fetch(`https://api.pindo.io/ai/tts/rw${token ? '' : '/public'}`, {
+  // Only an answered request is billed; Pindo doesn't charge for its server errors.
+  const ask = async (t: string) => {
+    const res = await fetch(`https://api.pindo.io/ai/tts/rw${token ? '' : '/public'}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -128,6 +128,8 @@ async function speakPindo(
       },
       body: JSON.stringify({ text: t, lang: 'rw', speech_rate: voice.speech_rate ?? 1 }),
     });
+    if (res.ok) count.requests++;
+    return res;
   };
   let res = await ask(text);
   // Pindo often fails on very short words (yego, oya, ndi); written as a sentence ("Yego.")
@@ -178,19 +180,19 @@ const one = (voice: Voice, text: string, count: Count): Promise<Spoken> =>
  * Voices several items. A voice that charges per request is sent them in batches, each said
  * twice, and an item is kept only where the two recordings agree (see pairOfTakes). An item
  * that doesn't agree goes to the back of the queue and rides in a later batch; one that has
- * failed twice is voiced on its own. Items left when too few remain for a batch come back
- * `pending`, for the caller's next call, unless `last` is set, when they are voiced alone.
- * `tried[i]` marks an item that already failed once in an earlier call. If the voice runs out
+ * failed MAX_TRIES times is voiced on its own. Items left when too few remain for a batch come
+ * back `pending`, for the caller's next call, unless `last` is set, when they are voiced
+ * alone. `tries[i]` is how many pairs an item already failed in earlier calls. If the voice runs out
  * of credit, the rest are left unvoiced and `stopped` says why.
  */
 export async function speakMany(
   voice: Voice,
   texts: string[],
-  opts: { tried?: readonly boolean[]; last?: boolean } = {},
+  opts: { tries?: readonly number[]; last?: boolean } = {},
 ): Promise<{
   spoken: Spoken[];
-  /** For each item, whether it has now failed a pair of takes at least once. */
-  tried: boolean[];
+  /** For each item, how many pairs of takes it has now failed. */
+  tries: number[];
   requests: number;
   notes: string[];
   stopped?: string;
@@ -198,8 +200,8 @@ export async function speakMany(
   const size = batchSize(voice);
   const count: Count = { requests: 0, notes: [] };
   const spoken: Spoken[] = texts.map(() => ({ error: 'not voiced' }));
-  const tried = texts.map((_, i) => opts.tried?.[i] ?? false);
-  const done = () => ({ spoken, tried, requests: count.requests, notes: count.notes });
+  const tries = texts.map((_, i) => opts.tries?.[i] ?? 0);
+  const done = () => ({ spoken, tries, requests: count.requests, notes: count.notes });
   try {
     if (size <= 1) {
       for (const [i, t] of texts.entries()) spoken[i] = await one(voice, t, count);
@@ -217,14 +219,11 @@ export async function speakMany(
       batch.forEach((i, k) => {
         const clip = kept[k];
         if (clip) spoken[i] = clip;
-        else if (tried[i]) alone.push(i);
-        else {
-          tried[i] = true;
-          queue.push(i);
-        }
+        else if (++tries[i]! >= MAX_TRIES) alone.push(i);
+        else queue.push(i);
       });
     }
-    // Twice failed: likely a word the cutter can't place (a very short one), so said alone.
+    // Failed every try: likely a word the cutter can't place (a very short one), so alone.
     for (const i of alone) spoken[i] = await one(voice, texts[i]!, count);
     for (const i of queue)
       spoken[i] = opts.last ? await one(voice, texts[i]!, count) : { pending: true };
@@ -263,8 +262,15 @@ async function take(
   count: Count,
   label: string,
 ): Promise<Pcm | null> {
+  const script = texts.map(sayable).join(SEPARATOR);
+  // A server error isn't billed, so a take that hits one is asked for once more rather than
+  // losing the whole batch while the other take was paid for.
+  const say = () => speak(voice, script, true, count);
   try {
-    const { bytes } = await speak(voice, texts.map(sayable).join(SEPARATOR), true, count);
+    const { bytes } = await say().catch((e: unknown) => {
+      if (e instanceof OutOfCredit) throw e;
+      return say();
+    });
     const pcm = readWav(bytes);
     if (!pcm) {
       const head = String.fromCharCode(...bytes.subarray(0, 4));
@@ -279,6 +285,9 @@ async function take(
 }
 
 const letters = (texts: readonly string[]) => texts.map((t) => t.replace(/[^a-zA-Z]/g, '').length);
+
+/** Pairs of takes an item may fail before it is voiced on its own. */
+const MAX_TRIES = 3;
 
 /** Fewer items than this aren't worth a pair of takes; they wait for more, or go alone. */
 const MIN_BATCH = 5;

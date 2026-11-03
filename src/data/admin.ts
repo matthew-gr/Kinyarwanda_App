@@ -230,7 +230,7 @@ export interface AudioBatch {
   stopped?: string;
   provider?: string;
   /** Items whose two takes disagreed, to go in the next call's batch. */
-  pending?: { id: string; tried: boolean }[];
+  pending?: { id: string; tries: number }[];
 }
 
 /**
@@ -247,8 +247,10 @@ async function voiceInGroups(
   stop?: () => boolean,
 ): Promise<string | null> {
   let why: string | null = null;
-  const todo = [...ids];
-  const tried = new Set<string>();
+  // Shuffled, so a batch mixes different words instead of 15 forms of one verb, whose clips
+  // are too alike in length for the cutter to place.
+  const todo = [...ids].sort(() => Math.random() - 0.5);
+  const tries: Record<string, number> = {};
   let settled = 0;
   while (todo.length > 0) {
     if (stop?.()) {
@@ -259,12 +261,12 @@ async function voiceInGroups(
     const call = {
       action,
       [action === 'forms' ? 'form_ids' : 'number_ids']: slice,
-      tried_ids: slice.filter((id) => tried.has(id)),
+      tries: Object.fromEntries(slice.filter((id) => tries[id]).map((id) => [id, tries[id]])),
       last: todo.length === 0,
     };
     const batch = (await callAudio<AudioBatch>(call)) ?? {};
     const pending = batch.pending ?? [];
-    for (const p of pending) if (p.tried) tried.add(p.id);
+    for (const p of pending) tries[p.id] = p.tries;
     todo.unshift(...pending.map((p) => p.id));
     settled += slice.length - pending.length;
     onProgress?.(Math.min(ids.length, settled), batch);

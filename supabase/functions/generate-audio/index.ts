@@ -1,7 +1,7 @@
 // Makes AI audio, for admins only. Audio is never made while a learner waits: an admin makes
 // it once, it is stored as a file, and every device caches it.
 //
-//   { action: "forms", form_ids: [...], tried_ids?, last? }
+//   { action: "forms", form_ids: [...], tries?, last? }
 //                                          voices each form with the chosen voice, keeps the
 //                                          clip in audio_clips, and points the form at it;
 //                                          forms whose two takes disagreed come back in
@@ -115,20 +115,20 @@ Deno.serve(async (req) => {
       const done = [];
       const failed: { id: string; error: string }[] = [];
       const list = rows ?? [];
-      // Forms whose takes disagreed in an earlier call get one more try in a batch, then go
-      // alone; on the run's last call, nothing is carried over.
-      const triedIds = new Set((body.tried_ids as string[] | undefined) ?? []);
-      const pending: { id: string; tried: boolean }[] = [];
+      // Forms whose takes disagreed in earlier calls carry their count of tries; on the run's
+      // last call, nothing is carried over.
+      const tries = (body.tries as Record<string, number> | undefined) ?? {};
+      const pending: { id: string; tries: number }[] = [];
       const said = await speakMany(
         voice,
         list.map((r) => r.text),
-        { tried: list.map((r) => triedIds.has(r.id)), last: body.last === true },
+        { tries: list.map((r) => tries[r.id] ?? 0), last: body.last === true },
       );
       const { spoken, requests, notes, stopped } = said;
       for (const [i, r] of list.entries()) {
         const one = spoken[i]!;
         if ('pending' in one) {
-          pending.push({ id: r.id, tried: said.tried[i]! });
+          pending.push({ id: r.id, tries: said.tries[i]! });
           continue;
         }
         // A form the voice couldn't say stays silent, for the next Make missing audio.
