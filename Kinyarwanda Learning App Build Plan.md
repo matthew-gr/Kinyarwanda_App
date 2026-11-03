@@ -85,6 +85,7 @@ Six phases take the app from an empty repository to a phone install, each ending
   - **Hard words:** listening practice on words learners find hard to hear.
   - **Letter changes:** a word is shown in its pieces as they are before joining (ra + iruka). The learner types the joined word (riruka) and submits, then sees whether it's right and can open an explanation of the rule. The rules are a vowel dropping before another vowel, n + r becoming nd (ndakina), and Dahl's law (ku, tu, ka and ki becoming gu, du, ga and gi, as in agakina).
 - Speech recognition for Speed Speaking.
+- **Scenes** (requested by Matt on 3 November 2026): pictures of everyday scenes (a market, a kitchen, a church service, a classroom), each with a written description and its words marked on the picture. This is another way to meet vocabulary, close to the Growing Participator Approach's here-and-now sessions. A word met in a scene or a story can be marked as learned and go straight into Review, or be sent to Learn.
 
 ## Claude Code prompt sequence
 

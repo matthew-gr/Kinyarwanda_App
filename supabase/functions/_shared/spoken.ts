@@ -4,22 +4,24 @@
 //
 // Kinyarwanda letters sound the same every time, so each word is split into syllables and
 // each letter written one fixed English way, with hyphens between syllables so the voice
-// cannot blend them into English sounds (wowe is woh-way, not "wow"; amazi is ah-mah-zee, not
+// cannot blend them into English sounds (wowe is woh-weh, not "wow"; amazi is ah-mah-zee, not
 // like maize). Only n or m before another consonant changes things:
 // - The n or m joins the syllable before (umuntu is oo-moon-...), or starts its own at the
-//   start of a word (njye is in-jay, not spelled out letter by letter).
+//   start of a word (njye is in-jeh, not spelled out letter by letter).
 // - After it, t, k and p are breathed out: umuntu is oo-moon-hoo, inka een-hah.
-// And a consonant before w picks up a g or k (Rwanda is rgwahn-dah, twese tkway-say), softened
+// And a consonant before w picks up a g or k (Rwanda is rgwahn-dah, twese tkweh-seh), softened
 // to ŋ after m because a hard g was too strong (umwami is oo-mŋwah-mee). A consonant before y
-// becomes one sound with it, the way cy and jy are written (ibiryo is ee-bee-rjoh, not ri-o).
+// ends the syllable before, so the voice glides into the y: ibiryo is ee-beer-yoh. Written
+// ryoh it was said ri-o, and rjoh came out as jya.
 // Between words, a short word ending in a vowel joins a word starting with one, as it is said:
 // u becomes w and any other vowel drops (ku isoko is kw'isoko, na umwana n'umwana, ni iki
 // n'iki), as writers do when they write the join.
 // With `stress`, the syllable before last is written in capitals so the voice leans on it
-// (arateka is ah-rah-TAY-kah, never on the tense marker ra).
+// (arateka is ah-rah-TEH-kah, never on the tense marker ra).
 // AI-drafted from what Matt heard; a native speaker should confirm by listening.
 
-const VOWEL_SOUND: Record<string, string> = { a: 'ah', e: 'ay', i: 'ee', o: 'oh', u: 'oo' };
+// e is always short, as in "tech": written ay, arateka was said a-ra-take-uh.
+const VOWEL_SOUND: Record<string, string> = { a: 'ah', e: 'eh', i: 'ee', o: 'oh', u: 'oo' };
 const isVowel = (c: string) => c in VOWEL_SOUND;
 
 /** The consonants that start a syllable, spelled for an English reader. */
@@ -28,10 +30,7 @@ function consonants(cluster: string, vowel: string): string {
     .replace(/shy/g, 'sh')
     .replace(/cy/g, 'ch')
     .replace(/jy/g, 'j')
-    .replace(/c(?!h)/g, 'ch')
-    // Before y a consonant is said with it as one sound: ryo is rjo, tyo is tcho.
-    .replace(/([bdgrvz])y$/, '$1j')
-    .replace(/([ptfks])y$/, '$1ch');
+    .replace(/c(?!h)/g, 'ch');
   if (/[^aeiou]w$/.test(c)) {
     c = c
       .replace(/shw$/, 'shkw')
@@ -72,6 +71,11 @@ function sayWord(word: string, stress: boolean): string {
       if (/^[tk]/.test(cluster) || (nasal === 'm' && cluster.startsWith('p'))) {
         cluster = `h${cluster.slice(1)}`;
       }
+    }
+    // A consonant before y ends the syllable before (ibiryo is ee-beer-yoh).
+    if (/^[bdfgkprstvz]y$/.test(cluster) && syllables.length) {
+      syllables[syllables.length - 1] += cluster.slice(0, 1);
+      cluster = 'y';
     }
     syllables.push(consonants(cluster, vowel) + VOWEL_SOUND[vowel]);
   }

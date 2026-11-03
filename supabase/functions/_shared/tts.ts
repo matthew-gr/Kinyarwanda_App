@@ -3,7 +3,10 @@
 
 import { spokenSpelling } from './spoken.ts';
 
-/** `stress` writes each word's stressed syllable in capitals for the voice (see spoken.ts). */
+/**
+ * Each word's stressed syllable is written in capitals for the voice (see spoken.ts), unless
+ * `stress` is false.
+ */
 export type Voice = (
   | { provider: 'elevenlabs'; voice_id: string; model_id?: string; label: string }
   | { provider: 'http'; label: string }
@@ -25,7 +28,7 @@ export async function speak(
 ): Promise<{ bytes: Uint8Array; type: string }> {
   // The "..." in a phrase like "Nitwa ..." is a gap for the learner's own word, not speech.
   // The voice gets the word as it is said (umuntu as umunhu); learners still see the spelling.
-  const spoken = spokenSpelling(text.replace(/\.{3}|…/g, '').trim(), voice.stress === true);
+  const spoken = spokenSpelling(text.replace(/\.{3}|…/g, '').trim(), voice.stress !== false);
   let res: Response;
   if (voice.provider === 'elevenlabs') {
     res = await fetch(

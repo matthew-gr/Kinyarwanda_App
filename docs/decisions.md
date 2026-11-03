@@ -190,6 +190,10 @@ Prompt 2 was written from the product spec's Module 2 section; the build plan na
     - If capitals work, the better rule is the first syllable of the root, taken from the verb pieces Verb Builder already stores and from each noun's class prefix.
 142. **Stories are voiced twice: whole, then by sentence.** Play the story plays one take of the whole story (`stories/<id>/story.mp3`), so it reads evenly without a pause between sentences, and highlights the sentence it has roughly reached. The per-sentence clips stay for replaying one sentence. Stories made before this, and any whole take that fails, fall back to playing sentence by sentence.
 143. **Remake all audio** on the Admin page voices every form and number again with the current voice and rules, after a confirmation, since it uses credits. Earlier clips stay in `audio_clips`.
+144. **e is always "eh", stress is on by default, and a consonant before y ends the syllable before** (Matt, 3 November 2026). These change decisions 117, 140 and 141.
+    - Matt found the stress marks work. With e written "ay", though, arateka came out a-ra-take-uh, so e is now "eh" everywhere (ah-rah-TEH-kah, woh-weh).
+    - ibiryo written "rjoh" came out as i-bi-jya. The r now ends the syllable before, so it is ee-BEER-yoh. A word that starts with a consonant and y (ryari) keeps "ry".
+    - Stress is now on unless `TTS_VOICE` says `"stress": false`.
 
 ## Planned later
 

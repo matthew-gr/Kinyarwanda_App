@@ -106,7 +106,19 @@ The placement point also sets Stories' starting difficulty, since Stories alread
 - **A `placement_results` table**: the date, the placement point, the verb level and the answers, so a retake can be compared with the last one.
 - **Audio**: 2,000 words with all their forms is about 6,000 to 8,000 clips. That is worth costing in ElevenLabs credits before making them.
 
-## 7. To decide before building
+## 7. Decisions (Matt, 3 November 2026)
+
+1. The bands are 100, 200, 500, 800, 1,200 and 2,000.
+2. The topic tag list is agreed.
+3. Common Voice and KINNEWS may be downloaded to count stem frequencies.
+4. Placement is about 5 minutes of recognition questions with the guessing check, and it also places Verb Builder levels.
+5. Pre-learned words come due over the first 30 days. After that the normal schedule applies, so a word's interval can grow past a month or shrink below it.
+6. One topic at a time: a pulled topic stays the focus until all its words are learned.
+7. No "Hear it first" cards.
+
+Also added to the build plan's later phases: **scenes**, which are pictures of everyday places with descriptions and their words marked. A word met in a scene or a story can be marked as learned and go straight into Review.
+
+### The questions as first asked
 
 1. Are the bands right: 100, 200, 500, 800, 1,200, 2,000?
 2. Is the topic tag list right? Should anything be added (say, ministry or prayer under church, or agriculture beyond farming) or merged?

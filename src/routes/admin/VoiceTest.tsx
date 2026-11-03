@@ -70,7 +70,7 @@ export function VoiceTest() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [chosen, setChosen] = useState<SampleVoice | null>(null);
-  const [stress, setStress] = useState(false);
+  const [stress, setStress] = useState(true);
   const [lines, setLines] = useState(loadLines);
   const items = [...SAMPLE, ...ownItems(lines)];
 
@@ -304,7 +304,7 @@ export function VoiceTest() {
                   ...(chosen.voice_id ? { voice_id: chosen.voice_id } : {}),
                   ...(chosen.model_id ? { model_id: chosen.model_id } : {}),
                   label: chosen.label,
-                  ...(chosen.stress ? { stress: true } : {}),
+                  ...(chosen.stress === false ? { stress: false } : {}),
                 })}
               </pre>
             </div>
