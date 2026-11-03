@@ -2,7 +2,7 @@
 // so a reload lands on the same card with the same form.
 
 import { systemClock, type Clock } from '../engine/clock';
-import { pickForm } from '../engine/forms';
+import { formChoices, pickForm } from '../engine/forms';
 import {
   applyAnswer,
   markIntroSeen,
@@ -25,6 +25,8 @@ export interface CardView {
   key: string;
   item: Item | null;
   form: ItemForm | null;
+  /** The forms the card can switch between (singular and plural, or verb forms). */
+  choices: ItemForm[];
   inPlay: number;
   maxPool: number;
   streak: number;
@@ -82,11 +84,13 @@ export class LearnSession {
     const { state, shown_form } = this.row;
     const step: LearnStep = state.current ?? { type: 'done' };
     const itemId = step.type === 'done' ? null : step.itemId;
+    const item = itemId ? (this.itemsById.get(itemId) ?? null) : null;
     return {
       step,
       key: shown_form?.key ?? 'done',
-      item: itemId ? (this.itemsById.get(itemId) ?? null) : null,
+      item,
       form: shown_form ? (this.forms.find((f) => f.id === shown_form.form_id) ?? null) : null,
+      choices: item ? formChoices(item, this.forms, this.verbLevel) : [],
       inPlay: state.pool.length,
       maxPool: state.config.maxPool,
       streak: itemId ? streakOf(state, itemId) : 0,

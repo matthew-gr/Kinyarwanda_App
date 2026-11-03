@@ -24,9 +24,34 @@ export interface FlashcardProps {
   onFlip?: () => void;
   /** The play button shows only when this is set. */
   onSpeak?: () => void;
+  /** A switch to another form of the word, such as its plural; shown when set. */
+  toggle?: { label: string; onToggle: () => void };
   /** The front's flip button, for moving focus to a new card. */
   flipRef?: Ref<HTMLButtonElement>;
   className?: string;
+}
+
+function SwitchButton({
+  toggle,
+  className,
+  hidden,
+}: {
+  toggle?: FlashcardProps['toggle'];
+  className?: string;
+  hidden?: boolean;
+}) {
+  if (!toggle) return null;
+  return (
+    <button
+      type="button"
+      className={cx('kn-reset-btn kn-flash-switch body-small-bold', className)}
+      onClick={toggle.onToggle}
+      tabIndex={hidden ? -1 : undefined}
+    >
+      <span aria-hidden="true">⇄ </span>
+      {toggle.label}
+    </button>
+  );
 }
 
 function SpeakButton({ onSpeak, hidden }: { onSpeak?: () => void; hidden?: boolean }) {
@@ -56,6 +81,7 @@ export function Flashcard({
   hint = 'Tap to reveal meaning',
   onFlip,
   onSpeak,
+  toggle,
   flipRef,
   className,
 }: FlashcardProps) {
@@ -80,6 +106,7 @@ export function Flashcard({
           <div className="kn-flash-center">
             <p className="kn-flash-word flash-word">{word}</p>
             {phonetic ? <p className="kn-flash-phonetic phonetic">{phonetic}</p> : null}
+            <SwitchButton toggle={toggle} />
             <span className="kn-flash-rule" />
             <p className="kn-flash-translation flash-translation">{translation}</p>
             {detail ? <p className="kn-flash-detail body">{detail}</p> : null}
@@ -120,6 +147,7 @@ export function Flashcard({
             </span>
           </button>
           <SpeakButton onSpeak={onSpeak} hidden={isBack} />
+          <SwitchButton toggle={toggle} className="kn-flash-switch-corner" hidden={isBack} />
         </div>
         <div className="kn-flash-face kn-flash-back" aria-hidden={!isBack || undefined}>
           {tag ? (
@@ -129,6 +157,7 @@ export function Flashcard({
           ) : null}
           <div className="kn-flash-center">
             <p className="kn-flash-backword flash-word">{word}</p>
+            <SwitchButton toggle={toggle} hidden={!isBack} />
             <span className="kn-flash-rule" />
             <p className="kn-flash-translation flash-translation">{translation}</p>
             {detail ? <p className="kn-flash-detail body">{detail}</p> : null}

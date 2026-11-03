@@ -7,6 +7,7 @@ import { SessionHeader } from '../components/SessionHeader';
 import { LearnSession, type CardView } from '../data/learnSession';
 import { loadDeckLearned } from '../data/repo';
 import type { AnswerResult, Deck } from '../engine/learn';
+import type { Item, ItemForm } from '../engine/types';
 import { placeLabel } from '../engine/vocabulary';
 import { CardNotes, ReportMistake } from './CardExtras';
 import {
@@ -225,6 +226,29 @@ interface CardAreaProps {
   onAnswer: (r: AnswerResult) => Promise<void>;
 }
 
+/**
+ * The card's switch to the next of its forms, so a learner sees how the word changes: a
+ * noun's singular and plural, or a verb's forms. None when the word has only one form.
+ */
+function switchFor(
+  item: Item,
+  form: ItemForm,
+  choices: readonly ItemForm[],
+  go: (next: ItemForm) => void,
+): { label: string; onToggle: () => void } | undefined {
+  if (choices.length < 2) return undefined;
+  const at = choices.findIndex((f) => f.id === form.id);
+  const k = (at + 1) % choices.length;
+  const next = choices[k]!;
+  const label =
+    item.word_type === 'noun'
+      ? next.number === 'plural'
+        ? 'Plural'
+        : 'Singular'
+      : `Next form · ${k + 1} of ${choices.length}`;
+  return { label, onToggle: () => go(next) };
+}
+
 function CardArea({
   view,
   flipped,
@@ -235,10 +259,19 @@ function CardArea({
   onNext,
   onAnswer,
 }: CardAreaProps) {
-  const { item, form, step } = view;
-  if (!item || !form || step.type === 'done') return null;
+  // The form switched to on this card, if any; a new card starts on the one it was dealt.
+  const [switched, setSwitched] = useState<{ key: string; formId: string } | null>(null);
+  const { item, step, choices } = view;
+  const dealt = view.form;
+  if (!item || !dealt || step.type === 'done') return null;
+  const form =
+    (switched?.key === view.key && choices.find((f) => f.id === switched.formId)) || dealt;
   const isIntro = step.type === 'intro';
   const audio = form.audio_path;
+  const toggle = switchFor(item, form, choices, (next) => {
+    setSwitched({ key: view.key, formId: next.id });
+    if (next.audio_path) playAudio(next.audio_path);
+  });
   const ghosts = Math.min(GHOSTS.length, Math.max(0, view.inPlay - 1));
 
   return (
@@ -270,6 +303,7 @@ function CardArea({
             hint="Tap to reveal meaning"
             onFlip={onFlip}
             onSpeak={audio ? () => playAudio(audio) : undefined}
+            toggle={toggle}
             flipRef={flipRef}
           />
         </FlashcardDeck>

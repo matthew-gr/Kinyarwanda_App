@@ -60,16 +60,18 @@ const playForms = [
 ];
 
 describe('pickForm', () => {
-  it('always returns the base form for an introduction', () => {
+  it('introduces a noun as singular or plural at random, and a verb by its base', () => {
+    const shown = new Set<string>();
     for (let seed = 1; seed <= 50; seed++) {
       const rng = createSeededRng(seed);
-      expect(
+      shown.add(
         pickForm(child, childForms, { verbLevel: 1, isIntro: true, lastFormId: 'n1-sg' }, rng).id,
-      ).toBe('n1-sg');
+      );
       expect(
         pickForm(play, playForms, { verbLevel: 6, isIntro: true, lastFormId: null }, rng).id,
       ).toBe('v1-3s');
     }
+    expect([...shown].sort()).toEqual(['n1-pl', 'n1-sg']);
   });
 
   it('shows a noun in both singular and plural over 100 seeded draws', () => {
