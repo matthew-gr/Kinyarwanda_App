@@ -24,7 +24,8 @@ export interface AnswerEvent {
   id: string;
   item_id: string;
   form_id: string;
-  module: 'learn' | 'review';
+  /** placement: a word the placement check found known (decision 177). */
+  module: 'learn' | 'review' | 'placement';
   card_view_id: string;
   result: AnswerResult;
   answered_at: string;

@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   applyAnswer,
   createLearnState,
+  focusTopic,
+  markKnown,
   learnConfigFor,
   markIntroSeen,
   nextStep,
@@ -403,5 +405,52 @@ describe('reconcileOrder', () => {
   it('returns the same state when nothing changed', () => {
     const s = midway();
     expect(reconcileOrder(s, items(10))).toBe(s);
+  });
+});
+
+describe('focusing on a topic', () => {
+  const ranked = items(20).map((i) => i.id);
+  const start = () => ({ ...createLearnState('words', items(20), config()), nextIndex: 3 });
+
+  it('puts the topic’s new words next, after story words, and the rest in rank order', () => {
+    const s = focusTopic({ ...start(), ahead: ['w9'] }, 'food', ['w12', 'w2', 'w15'], ranked);
+    expect(s.topic).toBe('food');
+    // w2 is already introduced, so it stays where it is.
+    expect(s.order.slice(0, 7)).toEqual(['w1', 'w2', 'w3', 'w9', 'w12', 'w15', 'w4']);
+    expect(s.order).toHaveLength(20);
+  });
+
+  it('goes back to rank order when the focus is cleared', () => {
+    const focused = focusTopic(start(), 'food', ['w12', 'w15'], ranked);
+    const cleared = focusTopic(focused, null, [], ranked);
+    expect(cleared.topic).toBeUndefined();
+    expect(cleared.order).toEqual(ranked);
+  });
+
+  it('replaces one topic with another', () => {
+    const food = focusTopic(start(), 'food', ['w12', 'w15'], ranked);
+    const church = focusTopic(food, 'church', ['w18'], ranked);
+    expect(church.topic).toBe('church');
+    expect(church.order.slice(3, 6)).toEqual(['w18', 'w4', 'w5']);
+  });
+});
+
+describe('marking words known from the placement check', () => {
+  it('skips them in Learn and moves the open tier past them', () => {
+    const start = createLearnState('words', items(30), config([10, 10, 10]));
+    const known = items(15).map((i) => i.id);
+    const s = markKnown(start, known);
+    expect(s.nextIndex).toBeGreaterThanOrEqual(15);
+    expect(s.tier).toBe(1);
+    expect(s.graduated).toEqual(expect.arrayContaining(['w3', 'w15']));
+    // What Learn introduces next comes after the known words.
+    expect(s.pool.map((c) => c.itemId)).not.toContain('w15');
+    const next = s.order.slice(15);
+    expect(next[0]).toBe('w16');
+  });
+
+  it('leaves the state alone when every word is already introduced', () => {
+    const start = { ...createLearnState('words', items(10), config()), nextIndex: 5 };
+    expect(markKnown(start, ['w1', 'w2'])).toBe(start);
   });
 });

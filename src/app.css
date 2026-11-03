@@ -1475,3 +1475,17 @@ textarea.field-input {
   width: auto;
   padding-inline: var(--space-16);
 }
+
+/* The placement check (decision 177): one word, its meanings as a column of buttons. */
+.placement-word {
+  margin: 0;
+  text-align: center;
+  color: var(--ink);
+}
+.placement-choices {
+  display: grid;
+  gap: var(--space-4, 12px);
+}
+.placement-choices .btn {
+  width: 100%;
+}

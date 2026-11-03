@@ -3,7 +3,7 @@
 import { createLearnState, learnConfigFor, type Deck } from '../engine/learn';
 import { dueCounts, type DueCounts } from '../engine/review';
 import type { Item, ItemForm } from '../engine/types';
-import { BANDS, bandFor } from '../engine/vocabulary';
+import { BANDS, bandFor, topicLabel } from '../engine/vocabulary';
 import {
   db,
   type AnswerEvent,
@@ -113,15 +113,18 @@ export interface HomeStats {
   /** Words in Review and how many are well known, which open Quick Recall. */
   recall: RecallStatus;
   review: DueCounts;
+  /** The topic chosen on the Topics screen, by its label, if any. */
+  topic: string | null;
 }
 
 export async function loadHomeStats(now: number, d: KinyaDb = db): Promise<HomeStats> {
-  const [items, reviews, profile, numbers, recall] = await Promise.all([
+  const [items, reviews, profile, numbers, recall, wordState] = await Promise.all([
     d.items.toArray(),
     d.review_items.toArray(),
     getProfile(d),
     numbersLearned(d),
     recallStatus(d),
+    d.learn_state.get('words'),
   ]);
   const kindById = new Map(items.map((i) => [i.id, i.kind]));
   const startOfDay = new Date(now);
@@ -151,6 +154,7 @@ export async function loadHomeStats(now: number, d: KinyaDb = db): Promise<HomeS
     verbLevel: profile.verb_level,
     numbers,
     recall,
+    topic: wordState?.state.topic ? topicLabel(wordState.state.topic) : null,
     review: dueCounts(
       reviews.map((r) => ({ itemId: r.item_id, dueAt: Date.parse(r.due_at) })),
       now,

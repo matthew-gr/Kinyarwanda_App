@@ -2,7 +2,7 @@
 // launch; edits made in the admin screens download from Supabase afterwards. A row replaces the
 // stored one only when it is newer, so the bundled snapshot never undoes a downloaded edit.
 
-import { learnConfigFor, reconcileOrder, type Deck } from '../engine/learn';
+import { focusTopic, learnConfigFor, reconcileOrder, type Deck } from '../engine/learn';
 import type { Item, ItemForm, NumberPhrase } from '../engine/types';
 import { db, type KinyaDb } from './db';
 import { progressChanged } from './signals';
@@ -65,7 +65,17 @@ async function reconcile(d: KinyaDb): Promise<void> {
     if (!row) continue;
     const kind = deck === 'words' ? 'word' : 'phrase';
     const items = all.filter((i) => i.kind === kind);
-    const state = reconcileOrder({ ...row.state, config: learnConfigFor(deck) }, items);
+    let state = reconcileOrder({ ...row.state, config: learnConfigFor(deck) }, items);
+    // A chosen topic's words stay next, though the new course is otherwise in rank order.
+    if (state.topic) {
+      const ranked = [...items].sort((a, b) => a.rank - b.rank);
+      state = focusTopic(
+        state,
+        state.topic,
+        ranked.filter((i) => (i.tags ?? []).includes(state.topic!)).map((i) => i.id),
+        ranked.map((i) => i.id),
+      );
+    }
     if (state !== row.state) {
       await d.learn_state.put({ ...row, state, updated_at: new Date().toISOString() });
     }

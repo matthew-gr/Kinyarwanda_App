@@ -56,6 +56,8 @@ export function activityByDay(
   for (const e of events) {
     if (seen.has(e.id)) continue;
     seen.add(e.id);
+    // The placement check's words were known already, not answered that day.
+    if (e.module === 'placement') continue;
     const a = at(dayKey(e.answeredAt));
     a.answers++;
     if (e.module === 'review') {
@@ -64,7 +66,7 @@ export function activityByDay(
     }
   }
   for (const p of progress.values()) {
-    if (p.graduatedAt !== null) at(dayKey(p.graduatedAt)).learned++;
+    if (p.graduatedAt !== null && !p.placed) at(dayKey(p.graduatedAt)).learned++;
   }
   return days;
 }

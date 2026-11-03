@@ -35,6 +35,9 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        // The app carries the course for offline use; with 1,000 words its script is over
+        // workbox's 2 MiB default, and a script left out would break the app offline.
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         navigateFallback: '/index.html',
         // Reminders arrive as web push; public/push.js shows them and opens the app.
         importScripts: ['/push.js'],

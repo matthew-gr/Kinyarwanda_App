@@ -222,3 +222,38 @@ describe('mergeLearnState', () => {
     expect(s.pool).toEqual([{ itemId: 'w5', streak: 1 }]);
   });
 });
+
+describe('words placed by the placement check', () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const placed = (id: string, itemId: string, at: number): LogEvent => ({
+    id,
+    itemId,
+    module: 'placement',
+    result: 'got',
+    answeredAt: at,
+  });
+
+  it('go straight into Review at stage 7, due within the next 30 days', () => {
+    const p = rebuildProgress([placed('e1', 'a', 0), placed('e2', 'b', 0)], 3);
+    for (const id of ['a', 'b']) {
+      const it = p.get(id)!;
+      expect(it.graduatedAt).toBe(0);
+      expect(it.placed).toBe(true);
+      expect(it.review!.stage).toBe(7);
+      expect(it.review!.dueAt).toBeGreaterThanOrEqual(DAY);
+      expect(it.review!.dueAt).toBeLessThanOrEqual(30 * DAY);
+      expect(it.got).toBe(0);
+    }
+  });
+
+  it('move up the schedule when reviewed right', () => {
+    const p = rebuildProgress(
+      [
+        placed('e1', 'a', 0),
+        { id: 'e2', itemId: 'a', module: 'review', result: 'got', answeredAt: 40 * DAY },
+      ],
+      3,
+    );
+    expect(p.get('a')!.review!.stage).toBe(8);
+  });
+});

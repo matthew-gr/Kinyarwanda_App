@@ -220,6 +220,20 @@ export function Home() {
           }
           onClick={() => navigate('/learn/words')}
         />
+        {stats && stats.words.learned === 0 ? (
+          <PracticeRow
+            title="Already know some Kinyarwanda?"
+            tone="blue"
+            subtitle="Take the placement check (about 5 minutes)"
+            onClick={() => navigate('/placement')}
+          />
+        ) : null}
+        <PracticeRow
+          title="Topics"
+          tone="green"
+          subtitle={stats?.topic ? `Learning ${stats.topic} next` : 'Choose a topic to learn next'}
+          onClick={() => navigate('/topics')}
+        />
         <PracticeRow
           title="Phrases"
           tone="blue"

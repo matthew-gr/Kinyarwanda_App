@@ -10,7 +10,7 @@ import { applyReview, scheduleNew, type ReviewSchedule } from './review';
 export interface LogEvent {
   id: string;
   itemId: string;
-  module: 'learn' | 'review';
+  module: 'learn' | 'review' | 'placement';
   result: AnswerResult;
   /** Epoch milliseconds. */
   answeredAt: number;
@@ -25,6 +25,22 @@ export interface ItemProgress {
   review: ReviewSchedule | null;
   got: number;
   missed: number;
+  /** True when the placement check, not Learn, put the item in Review. */
+  placed?: boolean;
+}
+
+/** The Review stage a placed word starts at: a week between reviews, then a month. */
+export const PLACED_STAGE = 7;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * A placed word's first review, on one of the next 30 days, so a few come due each day rather
+ * than all at once. Taken from the event ID, so every device spreads them the same way.
+ */
+function placedSchedule(id: string, at: number): ReviewSchedule {
+  let h = 0;
+  for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return { stage: PLACED_STAGE, recheckStep: 0, dueAt: at + (1 + (h % 30)) * DAY_MS };
 }
 
 /** Time order, with the event ID breaking ties so every device sorts the same way. */
@@ -50,6 +66,15 @@ export function rebuildProgress(
     if (!p) {
       p = { learnStreak: 0, graduatedAt: null, review: null, got: 0, missed: 0 };
       progress.set(e.itemId, p);
+    }
+    if (e.module === 'placement') {
+      // A word the placement check found known: straight into Review (decision 177).
+      if (p.graduatedAt === null) {
+        p.graduatedAt = e.answeredAt;
+        p.placed = true;
+        p.review = placedSchedule(e.id, e.answeredAt);
+      }
+      continue;
     }
     if (e.result === 'got') p.got++;
     else p.missed++;

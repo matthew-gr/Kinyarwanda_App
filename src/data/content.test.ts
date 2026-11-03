@@ -8,13 +8,13 @@ describe('the drafted course', () => {
     expect(checkContent(items, forms)).toEqual([]);
   });
 
-  it('has Common 100 to Common 500 and 50 phrases, all marked as AI drafts', () => {
+  it('has the first 1,000 words (Common 100 to the start of Common 1200) and 50 phrases, all marked as AI drafts', () => {
     const words = items.filter((i) => i.kind === 'word');
     const phrases = items.filter((i) => i.kind === 'phrase');
-    expect(words).toHaveLength(500);
+    expect(words).toHaveLength(1000);
     expect(phrases).toHaveLength(50);
     expect(words.map((w) => w.rank).sort((a, b) => a - b)).toEqual(
-      Array.from({ length: 500 }, (_, i) => i + 1),
+      Array.from({ length: 1000 }, (_, i) => i + 1),
     );
     expect(words.every((w) => w.tier === bandFor(w.rank).number)).toBe(true);
     expect(phrases.filter((p) => p.tier === 1)).toHaveLength(25);

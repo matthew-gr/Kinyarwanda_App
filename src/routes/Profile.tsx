@@ -19,6 +19,7 @@ import { useAdmin } from './admin/useAdmin';
 import { EmailSignIn } from './EmailSignIn';
 import { PhonePanel } from './PhonePanel';
 import { waitInWords } from './cardText';
+import { lastPlacement } from '../data/placement';
 import { useProgressVersion } from './useProgressVersion';
 
 const GOALS = [5, 10, 15, 20, 30];
@@ -158,6 +159,7 @@ export function Profile() {
     <div className="stack">
       <SectionHeader as="h1" size="large" title="Profile" subtitle="Your progress and account" />
       <Progress />
+      <PlacementPanel />
       <PhonePanel signedIn={!!status.email} />
       {status.state === 'unavailable' ? (
         <section className="panel">
@@ -180,6 +182,26 @@ export function Profile() {
       {status.email ? <Invites email={status.email} /> : null}
       <AdminLink email={status.email} />
     </div>
+  );
+}
+
+/** The placement check (decision 177), with the last result on this device. */
+function PlacementPanel() {
+  const last = lastPlacement();
+  return (
+    <section className="panel" aria-labelledby="placement-title">
+      <h2 id="placement-title" className="h2-bold">
+        Placement check
+      </h2>
+      <p className="body">
+        {last
+          ? `Last check: about the first ${last.point} words, Verb Builder level ${last.verbLevel}. A retake only adds words.`
+          : 'Already know some Kinyarwanda? About five minutes of questions puts the words you know straight into Review.'}
+      </p>
+      <Link to="/placement" className="btn btn-missed">
+        {last ? 'Take it again' : 'Take the placement check'}
+      </Link>
+    </section>
   );
 }
 

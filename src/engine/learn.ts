@@ -87,6 +87,8 @@ export interface LearnState {
   roundMissed?: number;
   /** Items a learner moved to the front (from a story), newest first, until introduced. */
   ahead?: string[];
+  /** The topic a learner chose to work on next (decision 176): its words follow `ahead`. */
+  topic?: string;
 }
 
 export interface Graduation {
@@ -332,4 +334,65 @@ export function streakOf(state: LearnState, itemId: string): number {
 
 export function poolSize(state: LearnState): number {
   return state.pool.length;
+}
+
+/**
+ * Puts a topic's words next (decision 176): after the items already introduced and any added
+ * from a story, the topic's words not yet introduced, in `topicIds`'s order; then everything
+ * else in rank order (`ranked`, the deck's item IDs by rank). One topic at a time: choosing
+ * another replaces it. With `topic` null, the focus is cleared and the rest goes back to rank
+ * order. Tiers count by position, so the topic's words are introduced in the open tier.
+ */
+export function focusTopic(
+  state: LearnState,
+  topic: string | null,
+  topicIds: readonly string[],
+  ranked: readonly string[],
+): LearnState {
+  const inDeck = new Set(state.order);
+  const introduced = state.order.slice(0, state.nextIndex);
+  const seen = new Set(introduced);
+  const story = (state.ahead ?? []).filter((id) => inDeck.has(id) && !seen.has(id));
+  for (const id of story) seen.add(id);
+  const focus = topic ? topicIds.filter((id) => inDeck.has(id) && !seen.has(id)) : [];
+  for (const id of focus) seen.add(id);
+  const rest = ranked.filter((id) => inDeck.has(id) && !seen.has(id));
+  // Anything in the deck missing from `ranked` keeps its place at the end.
+  for (const id of rest) seen.add(id);
+  const left = state.order.filter((id) => !seen.has(id));
+  const { topic: _old, ...without } = state;
+  void _old;
+  return {
+    ...without,
+    order: [...introduced, ...story, ...focus, ...rest, ...left],
+    ...(topic ? { topic } : {}),
+  };
+}
+
+/**
+ * Marks words as already known, as the placement check does (decision 177): those not yet
+ * introduced move into the introduced part of the order and count as graduated, so Learn
+ * skips them. A word in play now stays in play. The open tier moves on past them.
+ */
+export function markKnown(state: LearnState, known: readonly string[]): LearnState {
+  const introduced = new Set(state.order.slice(0, state.nextIndex));
+  const want = new Set(known.filter((id) => state.order.includes(id) && !introduced.has(id)));
+  if (want.size === 0) return state;
+  const head = state.order.slice(0, state.nextIndex);
+  const placed = state.order.filter((id) => want.has(id));
+  const tail = state.order.slice(state.nextIndex).filter((id) => !want.has(id));
+  const nextIndex = head.length + placed.length;
+  let tier = state.tier;
+  while (tier < state.tierEnds.length - 1 && nextIndex >= state.tierEnds[tier]!) tier++;
+  return refill(
+    {
+      ...state,
+      order: [...head, ...placed, ...tail],
+      nextIndex,
+      tier,
+      ahead: (state.ahead ?? []).filter((id) => !want.has(id)),
+      graduated: [...state.graduated, ...placed],
+    },
+    false,
+  );
 }

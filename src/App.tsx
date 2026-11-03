@@ -24,6 +24,8 @@ import { Review } from './routes/Review';
 import { Search } from './routes/Search';
 import { SpeedSpeaking } from './routes/SpeedSpeaking';
 import { Stories, StoryReader } from './routes/Stories';
+import { Placement } from './routes/Placement';
+import { Topics } from './routes/Topics';
 import { VerbBuilder } from './routes/VerbBuilder';
 import { UpdateBanner } from './routes/Update';
 import { AccessGate } from './routes/Welcome';
@@ -82,6 +84,8 @@ export function App() {
             <Route path="learn/:deck" element={<Learn />} />
             <Route path="review" element={<Review />} />
             <Route path="verbs" element={<VerbBuilder />} />
+            <Route path="topics" element={<Topics />} />
+            <Route path="placement" element={<Placement />} />
             <Route path="drills/speaking" element={<SpeedSpeaking />} />
             <Route path="drills/numbers" element={<NumberListening />} />
             <Route path="drills/recall" element={<QuickRecall />} />
