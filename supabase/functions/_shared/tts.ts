@@ -4,7 +4,7 @@
 // Gemini, IjwiLab and Proto were tried and dropped (decision 156).
 
 import { spokenSpelling } from './spoken.ts';
-import { agreeing, fitCuts } from './fit.ts';
+import { fitCuts } from './fit.ts';
 import { readWav, writeWav, type Pcm } from './split.ts';
 
 export type Voice =
@@ -177,12 +177,11 @@ const one = (voice: Voice, text: string, count: Count): Promise<Spoken> =>
   });
 
 /**
- * Voices several items. A voice that charges per request is sent them in batches, each said
- * twice, and an item is kept only where the two recordings agree (see pairOfTakes). An item
- * that doesn't agree goes to the back of the queue and rides in a later batch; one that has
- * failed MAX_TRIES times is voiced on its own. Items left when too few remain for a batch come
+ * Voices several items. A voice that charges per request is sent them in batches of 15, said
+ * once and cut to fit (see oneTake). An item the cutter doubts goes to the back of the queue
+ * and rides in a later batch; one it has doubted MAX_TRIES times is voiced on its own. Items left when too few remain for a batch come
  * back `pending`, for the caller's next call, unless `last` is set, when they are voiced
- * alone. `tries[i]` is how many pairs an item already failed in earlier calls. If the voice runs out
+ * alone. `tries[i]` is how many batches an item already failed in earlier calls. If the voice runs out
  * of credit, the rest are left unvoiced and `stopped` says why.
  */
 export async function speakMany(
@@ -211,7 +210,7 @@ export async function speakMany(
     const alone: number[] = [];
     while (queue.length >= MIN_BATCH) {
       const batch = queue.splice(0, size);
-      const kept = await pairOfTakes(
+      const kept = await oneTake(
         voice,
         batch.map((i) => texts[i]!),
         count,
@@ -286,38 +285,33 @@ async function take(
 
 const letters = (texts: readonly string[]) => texts.map((t) => t.replace(/[^a-zA-Z]/g, '').length);
 
-/** Pairs of takes an item may fail before it is voiced on its own. */
+/** Batches an item may fail before it is voiced on its own. */
 const MAX_TRIES = 3;
 
-/** Fewer items than this aren't worth a pair of takes; they wait for more, or go alone. */
+/** Fewer items than this aren't worth a batch; they wait for more, or go alone. */
 const MIN_BATCH = 5;
 
 /**
- * Says a batch twice (decision 171). Pindo's pauses between words are too uneven to cut at
- * alone, so the second take says the items in reverse order, and each recording is cut to fit
- * the items' expected lengths (fit.ts). Returns a clip for each item whose two takes agree,
- * and null for the others.
+ * Says a batch once and cuts it to fit the items' expected lengths (fit.ts; decision 175).
+ * Returns a clip for each item the cutter is sure of, and null for those it doubts. A second
+ * take to check against was tried (decision 171) but kept few more right words for its cost;
+ * a clip that is still wrong is re-recorded from its card.
  */
-async function pairOfTakes(
+async function oneTake(
   voice: Voice,
   texts: readonly string[],
   count: Count,
 ): Promise<(Spoken | null)[]> {
   const label = `${texts.length} items (${texts[0]} … ${texts.at(-1)})`;
-  const order = texts.map((_, i) => texts.length - 1 - i);
-  const backwards = order.map((i) => texts[i]!);
-  const [a, b] = await Promise.all([
-    take(voice, texts, count, `${label}, first take`),
-    take(voice, backwards, count, `${label}, second take`),
-  ]);
-  const fa = a ? fitCuts(a, letters(texts)) : null;
-  const fb = b ? fitCuts(b, letters(backwards)) : null;
-  const first = fa && !('reason' in fa) ? fa : null;
-  const second = fb && !('reason' in fb) ? fb : null;
-  const kept = new Set(first && second ? agreeing(first, second, order) : []);
-  count.notes.push(`${label}: ${kept.size} of ${texts.length} agreed in both takes`);
-  return texts.map((_, i) =>
-    kept.has(i) ? { bytes: writeWav(first!.clips[i]!), type: 'audio/wav' } : null,
+  const pcm = await take(voice, texts, count, label);
+  const fit = pcm ? fitCuts(pcm, letters(texts)) : null;
+  if (!fit || 'reason' in fit) {
+    if (fit) count.notes.push(`${label}: ${fit.reason}`);
+    return texts.map(() => null);
+  }
+  count.notes.push(`${label}: ${texts.length - fit.doubtful.length} of ${texts.length} cut`);
+  return fit.clips.map((c, i) =>
+    fit.doubtful.includes(i) ? null : { bytes: writeWav(c), type: 'audio/wav' },
   );
 }
 

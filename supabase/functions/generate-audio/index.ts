@@ -6,6 +6,8 @@
 //                                          clip in audio_clips, and points the form at it;
 //                                          forms whose two takes disagreed come back in
 //                                          `pending` for the next call, unless `last`
+//   { action: "rerecord", force? }       records the re-record queue (audio_requests) once
+//                                          15 wait, or now with `force`; else says how many
 //   { action: "numbers", number_ids: [...] }
 //                                          the same for the drills' numbers (number_phrases)
 //   { action: "sample", voice, items }     the listening test: voices the same items with any
@@ -24,6 +26,8 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { cleanLabel, env, extension, speakMany, type Voice } from '../_shared/tts.ts';
 
 const MAX_PER_CALL = 25;
+/** Re-record requests wait until there are this many, enough for a batch. */
+const RERECORD_BATCH = 15;
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -99,68 +103,109 @@ Deno.serve(async (req) => {
       return json({ label, clips: out, failed, requests, notes, stopped });
     }
 
-    if (body.action === 'forms' || body.action === 'numbers') {
+    if (body.action === 'forms' || body.action === 'numbers' || body.action === 'rerecord') {
       const raw = env('TTS_VOICE');
       if (!raw) return json({ error: 'No voice chosen yet. Set the TTS_VOICE secret.' }, 409);
       const voice = JSON.parse(raw) as Voice;
       const label = cleanLabel(voice.label);
+
+      /**
+       * Voices rows of a table and points each at its new clip; every earlier clip is kept in
+       * audio_clips. Rows whose cut was doubted come back `pending` for the next call, unless
+       * this is the run's last.
+       */
+      const voiceRows = async (
+        table: 'item_forms' | 'number_phrases',
+        rows: { id: string; text: string }[],
+        tries: Record<string, number>,
+        last: boolean,
+      ) => {
+        const folder = table === 'number_phrases' ? 'numbers' : 'forms';
+        const owner = table === 'number_phrases' ? 'number_phrase_id' : 'form_id';
+        const done = [];
+        const failed: { id: string; error: string }[] = [];
+        const pending: { id: string; tries: number }[] = [];
+        const said = await speakMany(
+          voice,
+          rows.map((r) => r.text),
+          { tries: rows.map((r) => tries[r.id] ?? 0), last },
+        );
+        for (const [i, r] of rows.entries()) {
+          const one = said.spoken[i]!;
+          if ('pending' in one) {
+            pending.push({ id: r.id, tries: said.tries[i]! });
+            continue;
+          }
+          // A row the voice couldn't say stays silent, for the next Make missing audio.
+          if ('error' in one) {
+            failed.push({ id: r.id, error: one.error });
+            continue;
+          }
+          const { bytes, type } = one;
+          const clipId = crypto.randomUUID();
+          const path = `${folder}/${r.id}/${clipId}.${extension(type)}`;
+          const up = await service.storage.from('audio').upload(path, bytes, { contentType: type });
+          if (up.error) throw up.error;
+          const url = service.storage.from('audio').getPublicUrl(path).data.publicUrl;
+          const source = `ai:${label}`;
+          const clip = await service.from('audio_clips').insert({
+            id: clipId,
+            [owner]: r.id,
+            path: url,
+            source,
+            created_by: who.user?.id ?? null,
+          });
+          if (clip.error) throw clip.error;
+          const upd = await service
+            .from(table)
+            .update({ audio_path: url, audio_source: source })
+            .eq('id', r.id);
+          if (upd.error) throw upd.error;
+          done.push({ [owner]: r.id, audio_path: url, audio_source: source });
+        }
+        const { requests, notes, stopped } = said;
+        // `pending` rows go in the next call's batch; `stopped` says not to send one.
+        return { done, failed, pending, requests, notes, stopped, provider: voice.provider };
+      };
+
+      if (body.action === 'rerecord') {
+        // The re-record queue (decision 175): recorded once 15 wait, or now when `force` is set.
+        const { data: queued, error } = await service
+          .from('audio_requests')
+          .select('id, form_id, item_forms!inner(text)')
+          .eq('status', 'queued')
+          .order('created_at')
+          .limit(MAX_PER_CALL);
+        if (error) throw error;
+        const waiting = queued ?? [];
+        if (waiting.length < RERECORD_BATCH && body.force !== true)
+          return json({ waiting: waiting.length, batch: RERECORD_BATCH });
+        const rows = waiting.map((q) => ({
+          id: q.form_id as string,
+          text: (q.item_forms as unknown as { text: string }).text,
+        }));
+        const result = await voiceRows('item_forms', rows, {}, true);
+        const voiced = new Set(result.done.map((d) => d.form_id as string));
+        const finished = waiting.filter((q) => voiced.has(q.form_id as string)).map((q) => q.id);
+        if (finished.length > 0) {
+          const upd = await service
+            .from('audio_requests')
+            .update({ status: 'done', done_at: new Date().toISOString() })
+            .in('id', finished);
+          if (upd.error) throw upd.error;
+        }
+        return json({ ...result, rerecorded: finished.length });
+      }
+
       // Course forms and drill numbers are voiced the same way; only the table differs.
       const numbers = body.action === 'numbers';
       const table = numbers ? 'number_phrases' : 'item_forms';
-      const folder = numbers ? 'numbers' : 'forms';
-      const owner = numbers ? 'number_phrase_id' : 'form_id';
       const ids = ((numbers ? body.number_ids : body.form_ids) as string[]).slice(0, MAX_PER_CALL);
       const { data: rows, error } = await service.from(table).select('id, text').in('id', ids);
       if (error) throw error;
-      const done = [];
-      const failed: { id: string; error: string }[] = [];
-      const list = rows ?? [];
-      // Forms whose takes disagreed in earlier calls carry their count of tries; on the run's
-      // last call, nothing is carried over.
+      // Rows the cutter doubted in earlier calls carry their count of tries.
       const tries = (body.tries as Record<string, number> | undefined) ?? {};
-      const pending: { id: string; tries: number }[] = [];
-      const said = await speakMany(
-        voice,
-        list.map((r) => r.text),
-        { tries: list.map((r) => tries[r.id] ?? 0), last: body.last === true },
-      );
-      const { spoken, requests, notes, stopped } = said;
-      for (const [i, r] of list.entries()) {
-        const one = spoken[i]!;
-        if ('pending' in one) {
-          pending.push({ id: r.id, tries: said.tries[i]! });
-          continue;
-        }
-        // A form the voice couldn't say stays silent, for the next Make missing audio.
-        if ('error' in one) {
-          failed.push({ id: r.id, error: one.error });
-          continue;
-        }
-        const { bytes, type } = one;
-        const clipId = crypto.randomUUID();
-        const path = `${folder}/${r.id}/${clipId}.${extension(type)}`;
-        const up = await service.storage.from('audio').upload(path, bytes, { contentType: type });
-        if (up.error) throw up.error;
-        const url = service.storage.from('audio').getPublicUrl(path).data.publicUrl;
-        const source = `ai:${label}`;
-        const clip = await service.from('audio_clips').insert({
-          id: clipId,
-          [owner]: r.id,
-          path: url,
-          source,
-          created_by: who.user?.id ?? null,
-        });
-        if (clip.error) throw clip.error;
-        const upd = await service
-          .from(table)
-          .update({ audio_path: url, audio_source: source })
-          .eq('id', r.id);
-        if (upd.error) throw upd.error;
-        done.push({ [owner]: r.id, audio_path: url, audio_source: source });
-      }
-      // `stopped` tells the admin screen not to send the next group.
-      // `pending` forms go in the next call's batch; `stopped` says not to send one.
-      return json({ done, failed, pending, requests, notes, stopped, provider: voice.provider });
+      return json(await voiceRows(table, rows ?? [], tries, body.last === true));
     }
 
     return json({ error: 'Unknown action' }, 400);

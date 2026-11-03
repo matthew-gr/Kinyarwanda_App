@@ -1,7 +1,8 @@
 // The parts of a flashcard that come from the course: the pronunciation guide, the example or
-// breakdown, and the Report a mistake form.
+// breakdown, the Report a mistake form, and asking for the audio to be re-recorded.
 
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { errorText, requestRerecord } from '../data/admin';
 import { requestSync } from '../data/sync';
 import { saveReport, type NewReport } from '../data/reports';
 import type { Item, ItemForm } from '../engine/types';
@@ -42,21 +43,60 @@ export function ReportMistake({
   module: 'learn' | 'review';
 }) {
   return (
-    <ReportLink
-      report={{
-        item_id: item.id,
-        form_id: form.id,
-        module,
-        shown_text: `${form.text} = ${form.en}`,
-      }}
-      intro={
-        <>
-          This card was drafted by AI and is not yet checked by a native speaker. What looks wrong
-          in <span lang="rw">{form.text}</span>?
-        </>
-      }
-      placeholder="For example: the plural is wrong, or the audio says something else"
-    />
+    <>
+      <ReportLink
+        report={{
+          item_id: item.id,
+          form_id: form.id,
+          module,
+          shown_text: `${form.text} = ${form.en}`,
+        }}
+        intro={
+          <>
+            This card was drafted by AI and is not yet checked by a native speaker. What looks wrong
+            in <span lang="rw">{form.text}</span>?
+          </>
+        }
+        placeholder="For example: the plural is wrong, or the audio says something else"
+      />
+      {form.audio_path ? <RerecordLink form={form} /> : null}
+    </>
+  );
+}
+
+/**
+ * Asks for the card's audio to be made again (decision 175). An admin's request joins the
+ * re-record queue, recorded once 15 wait; anyone else's waits for an admin to approve it.
+ */
+function RerecordLink({ form }: { form: ItemForm }) {
+  const [state, setState] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const ask = async () => {
+    setBusy(true);
+    try {
+      const r = await requestRerecord(form.id);
+      setState(
+        !r.queued
+          ? 'Re-record requested; an admin will check it'
+          : r.waiting === undefined
+            ? 'Re-recorded with the queue'
+            : `Queued for re-recording (${r.waiting} of ${r.batch ?? 15})`,
+      );
+    } catch (e) {
+      setState(`Couldn’t send: ${errorText(e)}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <button
+      type="button"
+      className="report-link body-small"
+      disabled={busy || state !== null}
+      onClick={() => void ask()}
+    >
+      {busy ? 'Sending…' : (state ?? 'Re-record audio')}
+    </button>
   );
 }
 

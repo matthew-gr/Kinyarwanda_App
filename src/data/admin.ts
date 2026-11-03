@@ -325,3 +325,97 @@ export function makeSample(voice: SampleVoice, items: { key: string; text: strin
     items,
   });
 }
+
+/** A learner's request to re-record a form's audio, for an admin to approve or reject. */
+export interface AudioRequestView {
+  id: string;
+  form_id: string;
+  text: string;
+  en: string;
+  audio_path: string | null;
+  note: string | null;
+  created_at: string;
+}
+
+/** Answers a re-record run: how many wait for a batch, or what was recorded. */
+export interface RerecordResult extends AudioBatch {
+  waiting?: number;
+  batch?: number;
+  rerecorded?: number;
+}
+
+/**
+ * Records the re-record queue once 15 wait (decision 175), or now when `force` is set.
+ * Without enough waiting, says how many there are.
+ */
+export async function runRerecords(force = false): Promise<RerecordResult> {
+  const result = await callAudio<RerecordResult>({ action: 'rerecord', force });
+  if (result.rerecorded) await pullContent(undefined, true);
+  return result;
+}
+
+/** Forms waiting in the re-record queue. */
+export async function countQueuedRerecords(): Promise<number> {
+  const { count, error } = await client()
+    .from('audio_requests')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'queued');
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/**
+ * Asks for a form's audio to be made again. An admin's request goes straight into the queue,
+ * which is recorded once 15 wait; anyone else's waits for an admin. Asking again while a
+ * request is open changes nothing. Returns where the request stands.
+ */
+export async function requestRerecord(
+  formId: string,
+): Promise<{ queued: boolean; waiting?: number; batch?: number }> {
+  const admin = await isAdmin();
+  const { error } = await client()
+    .from('audio_requests')
+    .insert({ form_id: formId, status: admin ? 'queued' : 'requested' });
+  // 23505: a request for this form is already open.
+  if (error && error.code !== '23505') throw error;
+  if (!admin) return { queued: false };
+  const run = await runRerecords();
+  return { queued: true, waiting: run.waiting, batch: run.batch };
+}
+
+/** Learners' re-record requests waiting for an admin, oldest first. */
+export async function listAudioRequests(): Promise<AudioRequestView[]> {
+  const { data, error } = await client()
+    .from('audio_requests')
+    .select('id, form_id, note, created_at, item_forms!inner(text, en, audio_path)')
+    .eq('status', 'requested')
+    .order('created_at');
+  if (error) throw error;
+  return (data ?? []).map((r) => {
+    const f = r.item_forms as unknown as Pick<ItemForm, 'text' | 'en' | 'audio_path'>;
+    return {
+      id: r.id as string,
+      form_id: r.form_id as string,
+      note: r.note as string | null,
+      created_at: r.created_at as string,
+      text: f.text,
+      en: f.en,
+      audio_path: f.audio_path,
+    };
+  });
+}
+
+/** Approves a request into the queue, or rejects it because the audio is fine. */
+export async function decideAudioRequest(id: string, approve: boolean): Promise<void> {
+  const c = client();
+  const { data: session } = await c.auth.getSession();
+  const { error } = await c
+    .from('audio_requests')
+    .update({
+      status: approve ? 'queued' : 'rejected',
+      decided_at: new Date().toISOString(),
+      decided_by: session.session?.user.id ?? null,
+    })
+    .eq('id', id);
+  if (error) throw error;
+}

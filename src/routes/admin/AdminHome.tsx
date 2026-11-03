@@ -11,7 +11,13 @@ import {
   makeNumberAudio,
   resolveReport,
   type ReportView,
+  countQueuedRerecords,
+  decideAudioRequest,
+  listAudioRequests,
+  runRerecords,
+  type AudioRequestView,
 } from '../../data/admin';
+import { playAudio } from '../cardText';
 import type { Item, ItemForm } from '../../engine/types';
 import { AdminShell, ErrorLine } from './AdminShell';
 
@@ -289,6 +295,8 @@ function Course() {
         <ErrorLine error={error} />
       </section>
 
+      <Rerecords />
+
       <section className="panel" aria-labelledby="course-title">
         <h2 id="course-title" className="h2-bold">
           Course
@@ -445,5 +453,134 @@ function ReportCard({ report, onDone }: { report: ReportView; onDone: () => void
       )}
       <ErrorLine error={error} />
     </li>
+  );
+}
+
+/**
+ * The re-record queue (decision 175): learners' requests to approve or reject, and the forms
+ * waiting to be recorded together once there are 15.
+ */
+function Rerecords() {
+  const [requests, setRequests] = useState<AudioRequestView[] | null>(null);
+  const [queued, setQueued] = useState(0);
+  const [note, setNote] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
+
+  useEffect(() => {
+    let alive = true;
+    Promise.all([listAudioRequests(), countQueuedRerecords()]).then(
+      ([r, q]) => {
+        if (!alive) return;
+        setRequests(r);
+        setQueued(q);
+      },
+      (e: unknown) => alive && setError(errorText(e)),
+    );
+    return () => {
+      alive = false;
+    };
+  }, [reload]);
+
+  /** Records the queue if 15 wait, or now when forced, and says what happened. */
+  const run = async (force: boolean) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await runRerecords(force);
+      setNote(
+        r.waiting !== undefined
+          ? `${r.waiting} waiting; the queue is recorded once ${r.batch ?? 15} wait.`
+          : `Re-recorded ${r.rerecorded ?? 0} clips with ${r.requests ?? 0} requests to the voice.` +
+              (r.stopped ? ` Stopped: ${r.stopped}` : ''),
+      );
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+      setReload((n) => n + 1);
+    }
+  };
+
+  const decide = async (id: string, approve: boolean) => {
+    setError(null);
+    try {
+      await decideAudioRequest(id, approve);
+      if (approve) await run(false);
+      else setReload((n) => n + 1);
+    } catch (e) {
+      setError(errorText(e));
+    }
+  };
+
+  return (
+    <section className="panel" aria-labelledby="rerecord-title">
+      <h2 id="rerecord-title" className="h2-bold">
+        Re-recording
+      </h2>
+      <p className="body">
+        {queued} {queued === 1 ? 'clip waits' : 'clips wait'} to be re-recorded; they are made
+        together once 15 wait.
+      </p>
+      <div className="admin-actions">
+        <button
+          type="button"
+          className="btn btn-missed"
+          disabled={busy || queued === 0}
+          onClick={() => void run(true)}
+        >
+          {busy ? 'Recording…' : 'Record them now'}
+        </button>
+      </div>
+      {note ? (
+        <p className="body-small" role="status">
+          {note}
+        </p>
+      ) : null}
+      <h3 className="h3-bold">Learners&rsquo; requests</h3>
+      {requests === null ? (
+        <p className="body-small">Loading…</p>
+      ) : requests.length === 0 ? (
+        <p className="body-small">None waiting.</p>
+      ) : (
+        <ul className="stack">
+          {requests.map((r) => (
+            <li key={r.id} className="admin-request">
+              <p className="body-bold" lang="rw">
+                {r.text} <span className="body-small">({r.en})</span>
+              </p>
+              {r.note ? <p className="body-small">{r.note}</p> : null}
+              <div className="admin-actions">
+                {r.audio_path ? (
+                  <button
+                    type="button"
+                    className="btn btn-missed"
+                    onClick={() => playAudio(r.audio_path!)}
+                  >
+                    Play
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => void decide(r.id, true)}
+                >
+                  Re-record
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-missed"
+                  onClick={() => void decide(r.id, false)}
+                >
+                  It&rsquo;s fine
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+      <ErrorLine error={error} />
+    </section>
   );
 }
