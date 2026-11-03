@@ -20,6 +20,8 @@ jobs:
           node-version: 22
       - name: Install ffmpeg
         run: command -v ffmpeg || (sudo apt-get update -q && sudo apt-get install -y -q ffmpeg)
+      - name: Check ffmpeg makes MP3s
+        run: node scripts/convert-audio.ts --self-test
       - name: Convert
         env:
           REMINDERS_SECRET: ${{ secrets.REMINDERS_SECRET }}
