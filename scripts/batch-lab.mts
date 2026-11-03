@@ -14,7 +14,8 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { readWav, splitAtPauses } from '../supabase/functions/_shared/split.ts';
+import { fitCuts } from '../supabase/functions/_shared/fit.ts';
+import { readWav, splitAtPauses, writeWav } from '../supabase/functions/_shared/split.ts';
 
 const OUT = 'batch-lab.local';
 const PRICE = 0.12;
@@ -99,36 +100,88 @@ function words(): string[] {
   return picked.map((_, i) => picked[(i * 17) % 45]!);
 }
 
+/**
+ * The token, from a file holding just the token, or "PINDO_TOKEN=..." or a label line above
+ * it. Nothing here or later ever puts the token's value in a message.
+ */
 function token(): string {
   const file = 'pindo-token.local';
   if (!fs.existsSync(file))
     throw new Error(`Put the Pindo token in ${file} in the project folder (one line).`);
-  return fs
+  const found = fs
     .readFileSync(file, 'utf8')
-    .trim()
-    .replace(/^["']|["']$/g, '');
+    .split(/\r?\n/)
+    .map((l) =>
+      l
+        .replace(/^\s*PINDO_TOKEN\s*[=:]?\s*/i, '')
+        .trim()
+        .replace(/^["']|["']$/g, ''),
+    )
+    .filter((l) => /^[A-Za-z0-9._~+/=-]{20,}$/.test(l));
+  if (found.length !== 1)
+    throw new Error(`${file} should hold the token on one line, with nothing else.`);
+  return found[0]!;
 }
 
-const NO_CREDIT = /balance|credit|insufficient|funds|top.?up|quota|payment/i;
+/** Any message that could carry the token has it blanked out. */
+const scrub = (message: string, secret: string) =>
+  message
+    .split(secret)
+    .join('[token]')
+    .replace(/Bearer\s+\S+/g, 'Bearer [token]');
 
-async function say(text: string, rate: number, auth: string): Promise<Uint8Array> {
+/** As in tts.ts: only an error's own message is checked, not `remaining_balance`. */
+const NO_CREDIT =
+  /insufficient|not enough (credit|balance|funds)|low balance|balance is (too )?low|top.?up|out of credit|quota/i;
+
+interface Reply {
+  data?: { generated_audio_url?: string; remaining_balance?: number } | null;
+  error?: { message?: string; details?: string } | string | null;
+}
+
+/** The balance after the last answered request, as Pindo reports it. */
+let balance: number | undefined;
+
+async function say(
+  text: string,
+  rate: number,
+  auth: string,
+  billed: () => void,
+): Promise<Uint8Array> {
+  if (balance !== undefined && balance < PRICE)
+    throw Object.assign(new Error(`Pindo has $${balance} left, less than a request`), {
+      stop: true,
+    });
   const res = await fetch('https://api.pindo.io/ai/tts/rw', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth}` },
     body: JSON.stringify({ text, lang: 'rw', speech_rate: rate }),
   });
-  const reply = await res.text();
-  if (res.status === 402 || NO_CREDIT.test(reply))
-    throw Object.assign(new Error(`Pindo is out of credit: ${reply.slice(0, 160)}`), {
-      credit: true,
-    });
-  if (!res.ok) throw new Error(`Pindo said ${res.status}: ${reply.slice(0, 160)}`);
-  const url = (JSON.parse(reply) as { data?: { generated_audio_url?: string } }).data
-    ?.generated_audio_url;
-  if (!url) throw new Error(`Pindo returned no audio: ${reply.slice(0, 160)}`);
-  const file = await fetch(new URL(url, 'https://api.pindo.io/'));
-  if (!file.ok) throw new Error(`Pindo audio said ${file.status}`);
-  return new Uint8Array(await file.arrayBuffer());
+  // Only a request Pindo answered is counted as paid for.
+  billed();
+  const raw = await res.text();
+  let reply: Reply = {};
+  try {
+    reply = JSON.parse(raw) as Reply;
+  } catch {
+    // Not JSON; the raw text is reported below.
+  }
+  if (typeof reply.data?.remaining_balance === 'number') balance = reply.data.remaining_balance;
+  const url = reply.data?.generated_audio_url;
+  if (res.ok && url) {
+    const file = await fetch(new URL(url, 'https://api.pindo.io/'));
+    if (!file.ok) throw new Error(`Pindo audio said ${file.status}`);
+    return new Uint8Array(await file.arrayBuffer());
+  }
+  const message =
+    typeof reply.error === 'string'
+      ? reply.error
+      : [reply.error?.message, reply.error?.details].filter(Boolean).join(': ');
+  if (res.status === 402 || NO_CREDIT.test(message))
+    throw Object.assign(new Error(`Pindo is out of credit: ${message}`), { stop: true });
+  if (res.status === 401 || res.status === 403)
+    throw Object.assign(new Error(`Pindo refused the token (${res.status})`), { stop: true });
+  throw new Error(`Pindo said ${res.status}: ${message || raw.slice(0, 300)}`);
 }
 
 interface Take {
@@ -149,6 +202,7 @@ async function record(budget: number, only: string[] | null) {
   const takes = loadTakes();
   const all = words();
   let sent = 0;
+  let failures = 0;
   for (const v of VARIANTS) {
     if (only && !only.includes(v.id)) continue;
     for (let b = 0; b * v.size < all.length; b++) {
@@ -161,15 +215,19 @@ async function record(budget: number, only: string[] | null) {
       const batch = all.slice(b * v.size, (b + 1) * v.size);
       const script = v.join(batch);
       try {
-        sent++;
-        const bytes = await say(script, v.rate, auth);
+        const bytes = await say(script, v.rate, auth, () => sent++);
         const file = `${v.id}-${b}.wav`;
         fs.writeFileSync(path.join(OUT, file), bytes);
         takes.push({ variant: v.id, batch: b, words: batch, script, file });
-        console.log(`${v.id} batch ${b}: ${batch.length} words, ${bytes.length} bytes`);
+        failures = 0;
+        console.log(
+          `${v.id} batch ${b}: ${batch.length} words, ${bytes.length} bytes, balance ${balance}`,
+        );
       } catch (e) {
-        console.log(`${v.id} batch ${b}: ${(e as Error).message}`);
-        if ((e as { credit?: boolean }).credit) return save(takes, sent);
+        console.log(`${v.id} batch ${b}: ${scrub((e as Error).message, auth)}`);
+        // Out of credit, a refused token or three failures in a row: nothing more is sent.
+        if ((e as { stop?: boolean }).stop || ++failures >= 3) return save(takes, sent);
+        continue;
       }
     }
   }
@@ -246,6 +304,90 @@ function score() {
   }
 }
 
+/**
+ * Cuts every recording with fitCuts, writes the clips and a page to listen to them on, and
+ * checks the cuts against each other: the same word should come out about as long, for its
+ * letters, in every variant. A word whose length is far off its usual was likely cut wrong.
+ */
+function fit() {
+  const takes = loadTakes();
+  const dir = path.join(OUT, 'cuts');
+  fs.rmSync(dir, { recursive: true, force: true });
+  fs.mkdirSync(dir, { recursive: true });
+  // ratio[word][variant]
+  const ratio = new Map<string, Map<string, number>>();
+  const results: { take: Take; files: string[]; doubtful: number[]; error?: string }[] = [];
+  for (const t of takes) {
+    const pcm = readWav(new Uint8Array(fs.readFileSync(path.join(OUT, t.file))));
+    const out = pcm
+      ? fitCuts(
+          pcm,
+          t.words.map((w) => w.replace(/[^a-zA-Z]/g, '').length),
+        )
+      : { reason: 'not a readable WAV' };
+    if ('reason' in out) {
+      results.push({ take: t, files: [], doubtful: [], error: out.reason });
+      continue;
+    }
+    const files = out.clips.map((c, i) => {
+      const f = `${t.variant}-${t.batch}-${String(i).padStart(2, '0')}.wav`;
+      fs.writeFileSync(path.join(dir, f), writeWav(c));
+      return f;
+    });
+    t.words.forEach((w, i) => {
+      if (!ratio.has(w)) ratio.set(w, new Map());
+      ratio.get(w)!.set(t.variant, out.ratios[i]!);
+    });
+    results.push({ take: t, files, doubtful: out.doubtful });
+  }
+
+  const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]!;
+  const usual = new Map([...ratio].map(([w, m]) => [w, median([...m.values()])]));
+  const agrees = (w: string, v: string) => {
+    const r = ratio.get(w)?.get(v);
+    return r !== undefined && Math.abs(Math.log(r / usual.get(w)!)) < Math.log(1.35);
+  };
+
+  for (const v of VARIANTS) {
+    const mine = results.filter((r) => r.take.variant === v.id);
+    if (mine.length === 0) continue;
+    const words = mine.flatMap((r) => (r.error ? [] : r.take.words));
+    const ok = words.filter((w) => agrees(w, v.id)).length;
+    const doubt = mine.reduce((s, r) => s + r.doubtful.length, 0);
+    const failed = mine.filter((r) => r.error).length;
+    console.log(
+      `${v.id}  ${v.about}\n   ${ok} of ${words.length} words agree with their other takes; ` +
+        `${doubt} flagged doubtful by the cutter` +
+        (failed ? `; ${failed} recordings couldn't be cut` : ''),
+    );
+  }
+
+  // A page to listen on, one row per word, with each variant's clip side by side.
+  const cell = (r: (typeof results)[number] | undefined, i: number, w: string) => {
+    if (!r || r.error || !r.files[i]) return '<td></td>';
+    const mark = !agrees(w, r.take.variant) ? ' class="off"' : '';
+    return `<td${mark}><audio controls preload="none" src="cuts/${r.files[i]}"></audio></td>`;
+  };
+  const byWord = words();
+  const rows = byWord.map((w) => {
+    const cells = VARIANTS.map((v) => {
+      const r = results.find((x) => x.take.variant === v.id && x.take.words.includes(w));
+      return cell(r, r ? r.take.words.indexOf(w) : -1, w);
+    });
+    return `<tr><th lang="rw">${w.replace(/</g, '&lt;')}</th>${cells.join('')}</tr>`;
+  });
+  const html = `<!doctype html><meta charset="utf-8"><title>Batching lab</title>
+<style>body{font:14px system-ui;margin:16px}td,th{padding:4px;text-align:left}audio{width:140px}
+.off{background:#fde2e2}</style>
+<h1>Batching lab: each word as cut from each variant</h1>
+<p>Pink: this clip's length is far from the same word's other takes, so it was likely cut wrong.</p>
+<table><tr><th>Word</th>${VARIANTS.map((v) => `<th title="${v.about}">${v.id}</th>`).join('')}</tr>
+${rows.join('\n')}</table>
+<ul>${VARIANTS.map((v) => `<li><b>${v.id}</b>: ${v.about}</li>`).join('')}</ul>`;
+  fs.writeFileSync(path.join(OUT, 'listen.html'), html);
+  console.log(`\nListen: ${path.resolve(OUT, 'listen.html')}`);
+}
+
 const [mode, ...rest] = process.argv.slice(2);
 const flag = (name: string) => {
   const i = rest.indexOf(`--${name}`);
@@ -253,4 +395,5 @@ const flag = (name: string) => {
 };
 if (mode === 'record') await record(Number(flag('budget') ?? 30), flag('only')?.split(',') ?? null);
 else if (mode === 'score') score();
+else if (mode === 'fit') fit();
 else console.log('Usage: node scripts/batch-lab.mts record [--budget 30] [--only A,B] | score');

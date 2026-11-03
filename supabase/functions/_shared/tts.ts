@@ -36,19 +36,42 @@ export const env = (name: string) => (Deno.env.get(name) ?? '').trim().replace(/
  */
 export class OutOfCredit extends Error {}
 
-/** How Pindo and ElevenLabs word a refusal for lack of credit. */
-const NO_CREDIT = /balance|credit|insufficient|funds|top.?up|quota|payment/i;
+/**
+ * How a refusal for lack of credit is worded. Only an error's own message is checked: Pindo's
+ * successful replies carry `remaining_balance`, which isn't a refusal.
+ */
+const NO_CREDIT =
+  /insufficient|not enough (credit|balance|funds)|low balance|balance is (too )?low|top.?up|out of credit|quota/i;
+
+/** The error message in a reply ({"error": {"message", "details"}}, {"detail": ...}). */
+function errorMessage(body: string): string {
+  try {
+    const j = JSON.parse(body) as Record<string, unknown>;
+    const parts = [j.error, j.detail, j.message].flatMap((e) =>
+      typeof e === 'string' ? [e] : e && typeof e === 'object' ? Object.values(e).map(String) : [],
+    );
+    return parts.join(' ');
+  } catch {
+    return body;
+  }
+}
 
 /** Throws OutOfCredit for a refusal over credit, and a plain error for any other. */
 async function refused(who: string, res: Response): Promise<never> {
   const text = (await res.text()).slice(0, 300);
-  if (res.status === 402 || NO_CREDIT.test(text))
+  if (res.status === 402 || NO_CREDIT.test(errorMessage(text)))
     throw new OutOfCredit(`${who} is out of credit (${res.status}: ${text.slice(0, 160)})`);
   throw new Error(`${who} said ${res.status}: ${text}`);
 }
 
-/** Requests sent to the voice; each one is billed, including retries. */
-export type Count = { requests: number; notes: string[] };
+/** What Pindo charges a request, failed ones included. */
+const PINDO_PRICE = 0.12;
+
+/**
+ * Requests sent to the voice; each one is billed, including retries and server errors. `stop`
+ * is set when the balance left can't pay for another request.
+ */
+export type Count = { requests: number; notes: string[]; stop?: string };
 
 /** Labels become storage folders and audio_source values, so keep them plain. */
 export const cleanLabel = (s: string) =>
@@ -66,6 +89,7 @@ export async function speak(
 ): Promise<{ bytes: Uint8Array; type: string }> {
   // The "..." in a phrase like "Nitwa ..." is a gap for the learner's own word, not speech.
   const plain = script ? text : text.replace(/\.{3}|…/g, '').trim();
+  if (count.stop) throw new OutOfCredit(count.stop);
   if (voice.provider === 'pindo') return speakPindo(voice, plain, count);
   if (voice.provider !== 'elevenlabs')
     throw new Error(
@@ -109,18 +133,24 @@ async function speakPindo(
   // they sometimes go through.
   if (res.status >= 500) {
     const why = await res.clone().text();
-    if (NO_CREDIT.test(why)) await refused('Pindo', res);
+    if (NO_CREDIT.test(errorMessage(why))) await refused('Pindo', res);
     const sentence = text[0]!.toUpperCase() + text.slice(1) + (/[.?!]$/.test(text) ? '' : '.');
     res = await ask(sentence);
   }
   if (!res.ok) await refused('Pindo', res);
   const reply = await res.text();
-  const out = JSON.parse(reply || '{}') as { data?: { generated_audio_url?: string } };
+  const out = JSON.parse(reply || '{}') as {
+    data?: { generated_audio_url?: string; remaining_balance?: number } | null;
+  };
   const url = out.data?.generated_audio_url;
   // A refusal can also come back as a 200 with a message instead of audio.
-  if (!url && NO_CREDIT.test(reply))
+  if (!url && NO_CREDIT.test(errorMessage(reply)))
     throw new OutOfCredit(`Pindo is out of credit (${reply.slice(0, 160)})`);
   if (!url) throw new Error(`pindo returned no audio: ${reply.slice(0, 160)}`);
+  // Each reply says what is left, so the run ends before a request the balance can't pay for.
+  const left = out.data?.remaining_balance;
+  if (typeof left === 'number' && left < PINDO_PRICE)
+    count.stop = `Pindo has $${left.toFixed(2)} left, less than one request`;
   const file = await fetch(new URL(url, 'https://api.pindo.io/'));
   if (!file.ok) throw new Error(`pindo audio said ${file.status}`);
   const type = (file.headers.get('content-type') ?? 'audio/wav').split(';')[0]!.trim();
