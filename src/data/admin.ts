@@ -253,6 +253,8 @@ export function makeSample(voice: SampleVoice, items: { key: string; text: strin
     label: string;
     clips: { key: string; url: string }[];
     failed?: { key: string; error: string }[];
+    /** Requests the voice was sent; for a batched voice, 1 means the batch cut cleanly. */
+    requests?: number;
   }>({
     action: 'sample',
     voice,

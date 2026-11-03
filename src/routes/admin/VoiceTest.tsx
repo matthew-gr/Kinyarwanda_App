@@ -117,6 +117,7 @@ export function VoiceTest() {
   const [chosen, setChosen] = useState<SampleVoice | null>(null);
   const [progress, setProgress] = useState('');
   const [failed, setFailed] = useState<{ key: string; error: string }[]>([]);
+  const [requests, setRequests] = useState<number | null>(null);
   const [stress, setStress] = useState(true);
   const [lines, setLines] = useState(loadLines);
   const items = [...SAMPLE, ...ownItems(lines)];
@@ -161,6 +162,8 @@ export function VoiceTest() {
     const clips: Record<string, string> = {};
     const lost: { key: string; error: string }[] = [];
     let label = voice.label;
+    let sent = 0;
+    setRequests(null);
     try {
       const batch = sampleBatch(provider);
       for (let i = 0; i < all.length; i += batch) {
@@ -169,6 +172,7 @@ export function VoiceTest() {
         label = res.label;
         for (const c of res.clips) clips[c.key] = `${c.url}?v=${Date.now()}`;
         lost.push(...(res.failed ?? []));
+        sent += res.requests ?? 0;
       }
     } catch (e) {
       setError(errorText(e));
@@ -180,6 +184,7 @@ export function VoiceTest() {
         saveTrials(next);
       }
       setFailed(lost);
+      setRequests(sent || null);
       setProgress('');
       setBusy(false);
     }
@@ -348,6 +353,14 @@ export function VoiceTest() {
           {busy ? `Making samples… ${progress}` : 'Make samples'}
         </button>
         <ErrorLine error={error} />
+        {requests !== null ? (
+          <p className="body-small" role="status">
+            The last run sent {requests} {requests === 1 ? 'request' : 'requests'} to the voice.
+            {readsKinyarwanda(provider) && provider !== 'gemini'
+              ? ' Items are sent together and cut apart; more than one request per batch means some had to be split smaller.'
+              : ''}
+          </p>
+        ) : null}
         {failed.length > 0 ? (
           <div className="stack" role="alert">
             <p className="body-small-bold">

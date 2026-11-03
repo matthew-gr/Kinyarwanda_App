@@ -222,6 +222,13 @@ Prompt 2 was written from the product spec's Module 2 section; the build plan na
     - The `send-reminders` function, started hourly by a GitHub Actions workflow with a shared secret, sends at most one a day, in that hour, only if a review is due by the end of it. It removes subscriptions the browser has dropped.
     - The server keeps no review schedule, so "next due" is the last value any of the learner's devices uploaded.
     - On iPhone, reminders need the app on the Home Screen (iOS 16.4 or later).
+152. **WAV clips become MP3 within the hour** (Matt, 3 November 2026; plan in `docs/audio-formats.md`).
+    - An hourly GitHub Actions job asks the `convert-audio` function which WAV clips the course, drill numbers and stories use, then encodes each with ffmpeg as 48 kbps mono MP3, about a fifth of the size.
+    - It uploads each MP3 beside its WAV through a one-time upload link, then has the function point every row, and `audio_clips`, at the MP3.
+    - The job holds only the shared `REMINDERS_SECRET`; the database key stays on Supabase.
+    - WAVs are kept, so a phone that saved one keeps playing it. A clip that fails is tried again next run.
+    - ElevenLabs clips are now 64 kbps MP3 rather than 128.
+153. **The Voice test shows how many requests a run sent.** For a batched voice (Pindo, IjwiLab, Proto), 1 means the batch cut cleanly; more means some of it was halved.
 
 ## Planned later
 

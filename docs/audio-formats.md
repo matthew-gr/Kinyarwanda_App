@@ -1,6 +1,10 @@
-# WAV to MP3: scope (3 November 2026)
+# WAV to MP3 (3 November 2026)
 
-This is a proposal, not yet built.
+**Built:** option 1 below, as Matt asked. The parts:
+- `.github/workflows/convert-audio.yml` runs every hour at 35 minutes past.
+- `scripts/convert-audio.ts` does the encoding with ffmpeg.
+- The `convert-audio` server function lists the clips in use and updates the course afterwards.
+- ElevenLabs now returns 64 kbps MP3 (`mp3_44100_64`) instead of 128 kbps.
 
 ## Why convert
 

@@ -1,0 +1,26 @@
+# Every hour, converts any WAV clips the app uses to 48 kbps MP3 (about a fifth of the size),
+# so phones that save audio for offline use need far less space. scripts/convert-audio.ts does
+# the work with ffmpeg; the convert-audio server function lists the clips and updates the
+# course, using the shared REMINDERS_SECRET.
+name: Convert audio to MP3
+
+on:
+  schedule:
+    - cron: '35 * * * *'
+  workflow_dispatch:
+
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install ffmpeg
+        run: command -v ffmpeg || (sudo apt-get update -q && sudo apt-get install -y -q ffmpeg)
+      - name: Convert
+        env:
+          REMINDERS_SECRET: ${{ secrets.REMINDERS_SECRET }}
+        run: node scripts/convert-audio.ts

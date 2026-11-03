@@ -64,7 +64,7 @@ export async function speak(
   let res: Response;
   if (voice.provider === 'elevenlabs') {
     res = await fetch(
-      `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voice.voice_id)}?output_format=mp3_44100_128`,
+      `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voice.voice_id)}?output_format=mp3_44100_64`,
       {
         method: 'POST',
         headers: { 'xi-api-key': env('ELEVENLABS_API_KEY'), 'Content-Type': 'application/json' },
@@ -252,20 +252,31 @@ const failed = (e: unknown): Spoken => ({ error: e instanceof Error ? e.message 
  * and the recording is cut at the pauses; if the pauses aren't clear, the batch is halved and
  * tried again, down to single items, so a clip never holds half a neighbour.
  */
-export async function speakMany(voice: Voice, texts: string[]): Promise<Spoken[]> {
+export async function speakMany(
+  voice: Voice,
+  texts: string[],
+): Promise<{ spoken: Spoken[]; requests: number }> {
   const size = batchSize(voice);
-  if (size <= 1) {
-    const out: Spoken[] = [];
-    for (const t of texts) out.push(await speak(voice, t).catch(failed));
-    return out;
-  }
+  const count = { requests: 0 };
   const out: Spoken[] = [];
-  for (let i = 0; i < texts.length; i += size)
-    out.push(...(await together(voice, texts.slice(i, i + size))));
-  return out;
+  if (size <= 1) {
+    for (const t of texts) {
+      count.requests++;
+      out.push(await speak(voice, t).catch(failed));
+    }
+  } else {
+    for (let i = 0; i < texts.length; i += size)
+      out.push(...(await together(voice, texts.slice(i, i + size), count)));
+  }
+  return { spoken: out, requests: count.requests };
 }
 
-async function together(voice: Voice, texts: string[]): Promise<Spoken[]> {
+async function together(
+  voice: Voice,
+  texts: string[],
+  count: { requests: number },
+): Promise<Spoken[]> {
+  count.requests++;
   if (texts.length === 1) return [await speak(voice, texts[0]!).catch(failed)];
   // Each item ends a sentence, then an ellipsis: with Pindo that left pauses of 230 to 420 ms
   // between words, where a full stop or a line break left almost none.
@@ -293,8 +304,8 @@ async function together(voice: Voice, texts: string[]): Promise<Spoken[]> {
   }
   const half = Math.ceil(texts.length / 2);
   return [
-    ...(await together(voice, texts.slice(0, half))),
-    ...(await together(voice, texts.slice(half))),
+    ...(await together(voice, texts.slice(0, half), count)),
+    ...(await together(voice, texts.slice(half), count)),
   ];
 }
 
