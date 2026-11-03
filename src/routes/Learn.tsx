@@ -51,14 +51,23 @@ function LearnDeck({ deck }: { deck: Deck }) {
   const nextRef = useRef<HTMLButtonElement>(null);
   const gotRef = useRef<HTMLButtonElement>(null);
   const version = useProgressVersion();
+  // Bumped as each Next or answer starts and ends.
+  const actions = useRef(0);
 
   useEffect(() => {
     let alive = true;
-    void LearnSession.open(deck).then((s) => {
-      if (!alive) return;
-      setSession(s);
-      setView(s.view());
-    });
+    const open = () => {
+      const at = actions.current;
+      void LearnSession.open(deck).then((s) => {
+        if (!alive) return;
+        // A sync can land mid-card. A session read while a card was being answered would put
+        // that card back, so it is read again from what the answer saved.
+        if (actions.current !== at) return open();
+        setSession(s);
+        setView(s.view());
+      });
+    };
+    open();
     return () => {
       alive = false;
     };
@@ -105,14 +114,18 @@ function LearnDeck({ deck }: { deck: Deck }) {
 
   const next = useCallback(async () => {
     if (!session) return;
+    actions.current++;
     await session.next();
+    actions.current++;
     setView(session.view());
   }, [session]);
 
   const answer = useCallback(
     async (result: AnswerResult) => {
       if (!session || !view || view.step.type !== 'test' || flippedKey !== view.key) return;
+      actions.current++;
       const out = await session.answer(view.step.cardViewId, result);
+      actions.current++;
       if (!out.counted) return;
       if (out.graduated) setNote({ text: GRADUATION_NOTE, id: Date.now() });
       setView(session.view());
