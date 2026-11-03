@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { INVITES_PER_MEMBER } from '../../supabase/functions/_shared/invite';
 import { Link } from 'react-router';
 import { AchievementCard } from '../components/AchievementCard';
 import { SectionHeader } from '../components/SectionHeader';
@@ -8,14 +9,14 @@ import { setDailyGoal } from '../data/repo';
 import {
   getSyncStatus,
   onSyncStatus,
-  sendSignInLink,
-  signInWithCode,
   signOut,
   requestSync,
   syncNow,
   type SyncStatus,
 } from '../data/sync';
+import { createInvite, listInvites, type InviteRow, type NewInvite } from '../data/invites';
 import { useAdmin } from './admin/useAdmin';
+import { EmailSignIn } from './EmailSignIn';
 import { waitInWords } from './cardText';
 import { useProgressVersion } from './useProgressVersion';
 
@@ -165,8 +166,16 @@ export function Profile() {
       ) : status.email ? (
         <SignedIn status={status} />
       ) : (
-        <SignIn pending={status.pending} />
+        <EmailSignIn
+          title="Save your progress"
+          intro={`Sign in to keep your words and reviews safe and use them on your other devices.${
+            status.pending > 0
+              ? ` The ${answers(status.pending)} on this device come with you.`
+              : ''
+          }`}
+        />
       )}
+      {status.email ? <Invites email={status.email} /> : null}
       <AdminLink email={status.email} />
     </div>
   );
@@ -185,127 +194,6 @@ function AdminLink({ email }: { email: string | null }) {
       <Link to="/admin" className="btn btn-missed">
         Open admin
       </Link>
-    </section>
-  );
-}
-
-function SignIn({ pending }: { pending: number }) {
-  const [email, setEmail] = useState('');
-  const [sentTo, setSentTo] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [code, setCode] = useState('');
-
-  const submitCode = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!sentTo || !code.trim()) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await signInWithCode(sentTo, code.trim());
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    const address = email.trim();
-    if (!address) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await sendSignInLink(address);
-      setSentTo(address);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  if (sentTo) {
-    return (
-      <section className="panel" aria-labelledby="check-email">
-        <h2 id="check-email" className="h2-bold">
-          Check your email
-        </h2>
-        <p className="body" role="status">
-          We sent a sign-in link to <strong>{sentTo}</strong>. Open it in this browser to finish
-          signing in, or type the code from the email here.
-        </p>
-        <form className="form" onSubmit={(e) => void submitCode(e)}>
-          <label className="field">
-            <span className="body-bold">Code from the email</span>
-            <input
-              className="field-input body"
-              name="code"
-              autoComplete="one-time-code"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              required
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-            />
-          </label>
-          {error ? (
-            <p className="form-error body-small" role="alert">
-              {error}
-            </p>
-          ) : null}
-          <button type="submit" className="btn btn-primary" disabled={busy}>
-            {busy ? 'Signing in…' : 'Sign in with code'}
-          </button>
-        </form>
-        <button
-          type="button"
-          className="btn btn-missed"
-          onClick={() => {
-            setSentTo(null);
-            setCode('');
-            setError(null);
-          }}
-        >
-          Use a different email
-        </button>
-      </section>
-    );
-  }
-
-  return (
-    <section className="panel" aria-labelledby="sign-in">
-      <h2 id="sign-in" className="h2-bold">
-        Save your progress
-      </h2>
-      <p className="body">
-        Sign in to keep your words and reviews safe and use them on your other devices.
-        {pending > 0 ? ` The ${answers(pending)} on this device come with you.` : ''}
-      </p>
-      <form className="form" onSubmit={(e) => void submit(e)}>
-        <label className="field">
-          <span className="body-bold">Email</span>
-          <input
-            className="field-input body"
-            type="email"
-            name="email"
-            autoComplete="email"
-            inputMode="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </label>
-        {error ? (
-          <p className="form-error body-small" role="alert">
-            {error}
-          </p>
-        ) : null}
-        <button type="submit" className="btn btn-primary" disabled={busy}>
-          {busy ? 'Sending…' : 'Email me a sign-in link'}
-        </button>
-      </form>
     </section>
   );
 }
@@ -374,6 +262,115 @@ function SignedIn({ status }: { status: SyncStatus }) {
           Sign out
         </button>
       )}
+    </section>
+  );
+}
+
+/** Inviting others while the app is invite only: 2 each, any number for admins. */
+function Invites({ email }: { email: string }) {
+  const admin = useAdmin(email);
+  const [invites, setInvites] = useState<InviteRow[] | null>(null);
+  const [to, setTo] = useState('');
+  const [made, setMade] = useState<NewInvite | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    listInvites().then(
+      (list) => alive && setInvites(list),
+      () => alive && setInvites([]),
+    );
+    return () => {
+      alive = false;
+    };
+  }, [made]);
+
+  const left = admin ? null : Math.max(0, INVITES_PER_MEMBER - (invites?.length ?? 0));
+
+  const invite = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      setMade(await createInvite(to));
+      setTo('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (invites === null) return null;
+  return (
+    <section className="panel" aria-labelledby="invite-title">
+      <h2 id="invite-title" className="h2-bold">
+        Invite friends
+      </h2>
+      <p className="body">
+        The app is invite only while we test it.{' '}
+        {left === null
+          ? 'As an admin you can invite as many people as you like.'
+          : left > 0
+            ? `You can invite ${left} more ${left === 1 ? 'person' : 'people'}.`
+            : `You've used your ${INVITES_PER_MEMBER} invitations.`}
+      </p>
+      {made ? (
+        <div className="stack" role="status">
+          <p className="body">
+            {made.emailed ? 'Invitation sent. ' : ''}Their invite code is{' '}
+            <strong>{made.code}</strong>, or they can open this link:
+          </p>
+          <p className="body-small invite-link">{made.link}</p>
+          <button
+            type="button"
+            className="btn btn-missed"
+            onClick={() => void navigator.clipboard?.writeText(made.link)}
+          >
+            Copy link
+          </button>
+        </div>
+      ) : null}
+      {left === null || left > 0 ? (
+        <form className="form" onSubmit={(e) => void invite(e)}>
+          <label className="field">
+            <span className="body-bold">Their email (optional)</span>
+            <input
+              className="field-input body"
+              type="email"
+              name="invite-email"
+              autoComplete="off"
+              inputMode="email"
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+            />
+          </label>
+          <p className="body-small">
+            With an email, we send the invitation and only that address can use it. Without one, you
+            get a code to share yourself.
+          </p>
+          {error ? (
+            <p className="form-error body-small" role="alert">
+              {error}
+            </p>
+          ) : null}
+          <button type="submit" className="btn btn-primary" disabled={busy}>
+            {busy ? 'Making invitation…' : to.trim() ? 'Send invitation' : 'Make an invite code'}
+          </button>
+        </form>
+      ) : null}
+      {invites.length > 0 ? (
+        <ul className="invite-list body-small">
+          {invites.map((i) => (
+            <li key={i.code}>
+              <strong>{i.code}</strong>
+              {i.email ? ` · ${i.email}` : ''} ·{' '}
+              {i.used_at ? 'Joined' : Date.parse(i.expires_at) < Date.now() ? 'Ran out' : 'Waiting'}
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </section>
   );
 }

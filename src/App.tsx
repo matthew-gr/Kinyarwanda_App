@@ -25,6 +25,7 @@ import { Search } from './routes/Search';
 import { SpeedSpeaking } from './routes/SpeedSpeaking';
 import { Stories, StoryReader } from './routes/Stories';
 import { VerbBuilder } from './routes/VerbBuilder';
+import { AccessGate } from './routes/Welcome';
 
 function TabsLayout() {
   const { pathname } = useLocation();
@@ -66,27 +67,29 @@ export function App() {
   if (!ready) return null;
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route element={<TabsLayout />}>
-          <Route index element={<Home />} />
-          <Route path="search" element={<Search />} />
-          <Route path="history" element={<History />} />
-          <Route path="profile" element={<Profile />} />
-        </Route>
-        <Route path="learn/:deck" element={<Learn />} />
-        <Route path="review" element={<Review />} />
-        <Route path="verbs" element={<VerbBuilder />} />
-        <Route path="drills/speaking" element={<SpeedSpeaking />} />
-        <Route path="drills/numbers" element={<NumberListening />} />
-        <Route path="drills/recall" element={<QuickRecall />} />
-        <Route path="stories" element={<Stories />} />
-        <Route path="stories/:id" element={<StoryReader />} />
-        <Route path="admin" element={<AdminHome />} />
-        <Route path="admin/items/:id" element={<AdminItem />} />
-        <Route path="admin/voices" element={<VoiceTest />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+    <AccessGate>
+      <BrowserRouter>
+        <Routes>
+          <Route element={<TabsLayout />}>
+            <Route index element={<Home />} />
+            <Route path="search" element={<Search />} />
+            <Route path="history" element={<History />} />
+            <Route path="profile" element={<Profile />} />
+          </Route>
+          <Route path="learn/:deck" element={<Learn />} />
+          <Route path="review" element={<Review />} />
+          <Route path="verbs" element={<VerbBuilder />} />
+          <Route path="drills/speaking" element={<SpeedSpeaking />} />
+          <Route path="drills/numbers" element={<NumberListening />} />
+          <Route path="drills/recall" element={<QuickRecall />} />
+          <Route path="stories" element={<Stories />} />
+          <Route path="stories/:id" element={<StoryReader />} />
+          <Route path="admin" element={<AdminHome />} />
+          <Route path="admin/items/:id" element={<AdminItem />} />
+          <Route path="admin/voices" element={<VoiceTest />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AccessGate>
   );
 }

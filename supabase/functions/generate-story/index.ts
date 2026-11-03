@@ -143,6 +143,13 @@ Deno.serve(async (req) => {
   if (!env('ANTHROPIC_API_KEY')) return json({ error: 'Stories are not set up yet' }, 503);
 
   const service = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'));
+  // Invite only: an account made some other way gets no stories.
+  const { data: member } = await service
+    .from('members')
+    .select('user_id')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (!member) return json({ error: 'Stories are for invited members' }, 403);
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const { count } = await service
     .from('stories')

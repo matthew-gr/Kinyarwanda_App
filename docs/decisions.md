@@ -194,6 +194,14 @@ Prompt 2 was written from the product spec's Module 2 section; the build plan na
     - Matt found the stress marks work. With e written "ay", though, arateka came out a-ra-take-uh, so e is now "eh" everywhere (ah-rah-TEH-kah, woh-weh).
     - ibiryo written "rjoh" came out as i-bi-jya. The r now ends the syllable before, so it is ee-BEER-yoh. A word that starts with a consonant and y (ryari) keeps "ry".
     - Stress is now on unless `TTS_VOICE` says `"stress": false`.
+145. **Invite only while testing** (Matt, 3 November 2026).
+    - Nothing opens until someone is signed in and on the `members` list. Everyone with an account when this shipped was added.
+    - A member can make 2 invitations; admins can make any number. An invitation is a code (such as KQ7M-3XPA) and a link with the code in it. Made with an email, it is sent through SendGrid with click and open tracking off, and only that address can use it. Invitations last 30 days.
+    - Joining checks the code on the server (the `invites` function), makes the account if there isn't one, adds it to members and uses up the code. The learner then signs in by email as usual.
+    - Signing in never makes an account (`shouldCreateUser: false`). An email with no account is told it needs an invitation.
+    - Signups should also be turned off in Supabase's auth settings, so an account can't be made by calling Supabase directly. Even if one is, it isn't a member: the app stays on the welcome screen and generate-story refuses it.
+    - Once a device has confirmed membership, the app opens offline.
+    - Builds with `VITE_INVITE_ONLY=false` skip the gate, as the browser tests do. `e2e/invite.spec.ts` tests a second build with it on.
 
 ## Planned later
 

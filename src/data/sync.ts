@@ -15,6 +15,7 @@ import {
   type KinyaDb,
   type SyncStateRow,
 } from './db';
+import { forgetAccess, INVITE_ONLY } from './invites';
 import { getProfile } from './repo';
 import { answerSaved, progressChanged } from './signals';
 import { supabase } from './supabase';
@@ -487,9 +488,14 @@ export async function sendSignInLink(email: string): Promise<void> {
   if (!supabase) throw new Error('Accounts are not set up in this build.');
   const { error } = await supabase.auth.signInWithOtp({
     email,
-    options: { emailRedirectTo: `${window.location.origin}/profile`, shouldCreateUser: true },
+    // Invite only: new accounts are made by redeeming an invite, never here.
+    options: { emailRedirectTo: `${window.location.origin}/`, shouldCreateUser: !INVITE_ONLY },
   });
-  if (error) throw error;
+  if (error) {
+    if (/signups? not allowed|not found/i.test(error.message))
+      throw new Error('There is no account for that email yet. You need an invitation to join.');
+    throw error;
+  }
 }
 
 /** Signs in with the code from the sign-in email, for when the link opens somewhere else. */
@@ -510,6 +516,7 @@ export async function signOut(force = false, d: KinyaDb = db): Promise<number> {
   const pending = await countPending(d);
   if (pending > 0 && !force) return pending;
   await supabase.auth.signOut();
+  forgetAccess();
   await clearProgress(d);
   progressChanged.emit();
   setStatus({ state: 'signed-out', email: null, pending: 0, lastSyncedAt: null, error: null });
