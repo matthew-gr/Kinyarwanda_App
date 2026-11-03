@@ -1,9 +1,9 @@
 // Converts the app's WAV clips to MP3 with ffmpeg. Run by .github/workflows/convert-audio.yml
 // every hour, or by hand: REMINDERS_SECRET=... node scripts/convert-audio.ts
-// With --self-test it only encodes a made-up second of sound and checks the MP3, touching
-// nothing on the server.
 // It asks the convert-audio server function which WAVs are in use, encodes each, uploads the
 // MP3 next to it, then has the function point everything at the MP3s.
+// With --self-test it only encodes a made-up second of sound and checks the MP3, touching
+// nothing on the server.
 
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
