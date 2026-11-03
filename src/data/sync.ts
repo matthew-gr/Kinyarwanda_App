@@ -16,6 +16,7 @@ import {
   type SyncStateRow,
 } from './db';
 import { forgetAccess, INVITE_ONLY } from './invites';
+import { uploadNextDue } from './reminders';
 import { getProfile } from './repo';
 import { answerSaved, progressChanged } from './signals';
 import { supabase } from './supabase';
@@ -425,6 +426,8 @@ async function runOnce(d: KinyaDb): Promise<void> {
       await applyProgress(Date.now(), d);
       progressChanged.emit();
     }
+    // Reminders: the server learns when this device's next review comes due.
+    await uploadNextDue(userId, d).catch(() => undefined);
     const last = new Date().toISOString();
     const latest = await getSyncState(d);
     await d.sync_state.put({ ...latest, last_synced_at: last });

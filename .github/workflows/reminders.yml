@@ -1,0 +1,26 @@
+# Once an hour, asks the send-reminders server function to send any review reminders due in
+# that hour. The function refuses calls without the shared REMINDERS_SECRET (a repository
+# secret here, and a Supabase secret there).
+name: Review reminders
+
+on:
+  schedule:
+    - cron: '5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Send reminders
+        env:
+          REMINDERS_SECRET: ${{ secrets.REMINDERS_SECRET }}
+        run: |
+          if [ -z "$REMINDERS_SECRET" ]; then
+            echo "REMINDERS_SECRET is not set; skipping."
+            exit 0
+          fi
+          curl --fail-with-body -sS -X POST \
+            -H "x-reminders-secret: $REMINDERS_SECRET" \
+            https://ujrfelmkvqckurpkqyre.supabase.co/functions/v1/send-reminders

@@ -31,7 +31,7 @@ export interface Clip {
 }
 
 export interface SampleVoice {
-  provider: 'elevenlabs' | 'http' | 'gemini' | 'pindo';
+  provider: 'elevenlabs' | 'http' | 'gemini' | 'pindo' | 'ijwi' | 'proto';
   voice_id?: string;
   model_id?: string;
   /** Gemini's prebuilt voice, such as Kore. */

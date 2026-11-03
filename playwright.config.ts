@@ -23,6 +23,8 @@ export default defineConfig({
   use: {
     baseURL: `http://localhost:${PORT}`,
     trace: 'retain-on-failure',
+    // A service worker would hide requests from page.route. e2e/pwa.spec.ts turns it on.
+    serviceWorkers: 'block',
   },
   projects: [
     {

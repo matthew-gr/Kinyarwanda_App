@@ -17,6 +17,7 @@ import {
 import { createInvite, listInvites, type InviteRow, type NewInvite } from '../data/invites';
 import { useAdmin } from './admin/useAdmin';
 import { EmailSignIn } from './EmailSignIn';
+import { PhonePanel } from './PhonePanel';
 import { waitInWords } from './cardText';
 import { useProgressVersion } from './useProgressVersion';
 
@@ -157,6 +158,7 @@ export function Profile() {
     <div className="stack">
       <SectionHeader as="h1" size="large" title="Profile" subtitle="Your progress and account" />
       <Progress />
+      <PhonePanel signedIn={!!status.email} />
       {status.state === 'unavailable' ? (
         <section className="panel">
           <p className="body">

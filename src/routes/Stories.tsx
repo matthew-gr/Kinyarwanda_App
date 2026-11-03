@@ -185,8 +185,15 @@ function StoryList({ stories, now }: { stories: StoryRow[]; now: number }) {
  * The whole story in one take, which the server saves beside the first sentence's clip.
  * Stories made before it existed don't have one, so playing it can fail.
  */
-const wholeStoryAudio = (s: StoryRow) =>
-  s.sentences[0]?.audio_path?.replace(/\/0\.(\w+)(\?.*)?$/, '/story.$1') ?? null;
+const wholeTake = (s: StoryRow) =>
+  s.audio_path ?? s.sentences[0]?.audio_path?.replace(/\/0\.(\w+)(\?.*)?$/, '/story.$1') ?? null;
+
+/** Where sentence `i` starts and ends in the whole take, as shares of it, judged by length. */
+function sentenceSpan(s: StoryRow, i: number): [number, number] {
+  const total = s.sentences.reduce((n, x) => n + x.rw.length, 0) || 1;
+  const before = s.sentences.slice(0, i).reduce((n, x) => n + x.rw.length, 0);
+  return [before / total, (before + (s.sentences[i]?.rw.length ?? 0)) / total];
+}
 
 /** Which sentence is being read, judged by how far through the take the voice is. */
 function sentenceAt(s: StoryRow, fraction: number): number {
@@ -222,13 +229,13 @@ export function StoryReader() {
   }, [id]);
 
   // Audio is recorded after the text arrives, so a new story checks back for it for a while.
-  const silent = story ? story.sentences.every((s) => !s.audio_path) : false;
+  const silent = story ? !story.audio_path && story.sentences.every((s) => !s.audio_path) : false;
   const young = story ? Date.now() - Date.parse(story.created_at) < 10 * 60_000 : false;
   useEffect(() => {
     if (!silent || !young) return;
     const t = setInterval(() => {
       void refreshStory(id).then((s) => {
-        if (s && s.sentences.some((x) => x.audio_path)) setStory(s);
+        if (s && (s.audio_path || s.sentences.some((x) => x.audio_path))) setStory(s);
       });
     }, 5000);
     return () => clearInterval(t);
@@ -238,10 +245,13 @@ export function StoryReader() {
     (from: number, onwards: boolean) => {
       if (!story) return;
       stopRef.current?.();
+      const whole = wholeTake(story);
       const go = (i: number) => {
         const path = story.sentences[i]?.audio_path;
         if (!path) {
-          setPlaying(null);
+          // No clip of its own (a Pindo story): play its part of the whole take.
+          if (whole && !onwards) playPart(whole, i);
+          else setPlaying(null);
           return;
         }
         setPlaying(i);
@@ -250,30 +260,40 @@ export function StoryReader() {
           else setPlaying(null);
         });
       };
-      const whole = from === 0 && onwards ? wholeStoryAudio(story) : null;
-      if (!whole) {
-        go(from);
-        return;
-      }
-      // The whole take reads evenly; if it isn't there, fall back to one sentence at a time.
-      const audio = new Audio(whole);
-      let stopped = false;
-      const stop = () => {
-        stopped = true;
-        audio.pause();
+      /** The whole take from `i`'s share of it, to the end or just that sentence. */
+      const playPart = (path: string, i: number, toEnd = false) => {
+        const [startAt, endAt] = sentenceSpan(story, i);
+        const audio = new Audio(path);
+        let stopped = false;
+        stopRef.current = () => {
+          stopped = true;
+          audio.pause();
+        };
+        setPlaying(i);
+        audio.addEventListener('loadedmetadata', () => {
+          if (startAt > 0) audio.currentTime = startAt * audio.duration;
+        });
+        audio.addEventListener('timeupdate', () => {
+          if (!(audio.duration > 0)) return;
+          const at = audio.currentTime / audio.duration;
+          if (!toEnd && at >= endAt) {
+            audio.pause();
+            setPlaying(null);
+          } else setPlaying(sentenceAt(story, at));
+        });
+        audio.addEventListener('ended', () => setPlaying(null));
+        // If the take isn't there, fall back to one sentence at a time.
+        const fail = () => {
+          if (stopped) return;
+          if (story.sentences.some((x) => x.audio_path)) go(i);
+          else setPlaying(null);
+        };
+        audio.addEventListener('error', fail);
+        audio.play().catch(fail);
       };
-      stopRef.current = stop;
-      setPlaying(0);
-      audio.addEventListener('timeupdate', () => {
-        if (audio.duration > 0) setPlaying(sentenceAt(story, audio.currentTime / audio.duration));
-      });
-      audio.addEventListener('ended', () => setPlaying(null));
-      audio.addEventListener('error', () => {
-        if (!stopped) go(0);
-      });
-      audio.play().catch(() => {
-        if (!stopped) go(0);
-      });
+      // The whole take reads evenly, so Play the story uses it when there is one.
+      if (whole && onwards && from === 0) playPart(whole, 0, true);
+      else go(from);
     },
     [story],
   );
@@ -302,7 +322,7 @@ export function StoryReader() {
     ? (story.glossary.find((g) => g.word.toLowerCase() === word.word)?.en ??
       (word.course ? word.course.form.en : null))
     : null;
-  const hasAudio = story.sentences.some((s) => s.audio_path);
+  const hasAudio = !!story.audio_path || story.sentences.some((s) => s.audio_path);
 
   return (
     <main className="screen screen-learn screen-stories">
@@ -370,7 +390,7 @@ export function StoryReader() {
                   <span key={j}>{t.text}</span>
                 ),
               )}
-              {s.audio_path ? (
+              {s.audio_path || story.audio_path ? (
                 <button
                   type="button"
                   className="kn-reset-btn story-replay"

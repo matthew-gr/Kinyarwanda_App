@@ -6,6 +6,8 @@
 //
 // Secrets (set with `supabase secrets set`):
 //   ANTHROPIC_API_KEY
+//   STORY_VOICE                     the voice for stories, as JSON like TTS_VOICE; without it
+//                                   stories use TTS_VOICE
 //   TTS_VOICE, ELEVENLABS_API_KEY   the voice generate-audio uses; without them stories have
 //                                   no audio
 // SUPABASE_URL, SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY are provided.
@@ -94,19 +96,31 @@ async function voiceStory(
   id: string,
   sentences: { rw: string; en: string; audio_path: string | null }[],
 ): Promise<void> {
-  const raw = env('TTS_VOICE');
+  const raw = env('STORY_VOICE') || env('TTS_VOICE');
   if (!raw) return;
   const voice = JSON.parse(raw) as Voice;
   const done = [...sentences];
   try {
     const { bytes, type } = await speak(voice, sentences.map((s) => s.rw).join(' '));
+    const path = `stories/${id}/story.${extension(type)}`;
     const up = await service.storage
       .from('audio')
-      .upload(`stories/${id}/story.${extension(type)}`, bytes, { contentType: type, upsert: true });
+      .upload(path, bytes, { contentType: type, upsert: true });
     if (up.error) throw up.error;
+    // Saved straight away, so the learner can play the story before the sentences are done.
+    await service
+      .from('stories')
+      .update({
+        audio_path: service.storage.from('audio').getPublicUrl(path).data.publicUrl,
+        audio_source: `ai:${voice.label}`,
+      })
+      .eq('id', id);
   } catch (e) {
     console.error('story audio, whole story', id, e);
   }
+  // Pindo charges a minute for every request, so its stories have only the whole take, and a
+  // sentence replays from its part of it.
+  if (voice.provider === 'pindo') return;
   for (let i = 0; i < done.length; i++) {
     try {
       const { bytes, type } = await speak(voice, done[i]!.rw);

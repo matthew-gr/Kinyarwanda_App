@@ -19,7 +19,7 @@
 // SUPABASE_URL, SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY are provided.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { cleanLabel, env, extension, speak, type Voice } from '../_shared/tts.ts';
+import { cleanLabel, env, extension, speakMany, type Voice } from '../_shared/tts.ts';
 
 const MAX_PER_CALL = 25;
 const CORS = {
@@ -69,10 +69,17 @@ Deno.serve(async (req) => {
       const label = cleanLabel(voice.label);
       const out = [];
       const failed: { key: string; error: string }[] = [];
-      // One item the voice can't say shouldn't lose the rest of the samples.
-      for (const it of items) {
+      // One item the voice can't say shouldn't lose the rest of the samples. Voices that charge
+      // per request get the items in one batch, cut into clips afterwards.
+      const spoken = await speakMany(
+        voice,
+        items.map((it) => it.text),
+      );
+      for (const [i, it] of items.entries()) {
         try {
-          const { bytes, type } = await speak(voice, it.text);
+          const said = spoken[i]!;
+          if ('error' in said) throw new Error(said.error);
+          const { bytes, type } = said;
           const path = `voice-test/${label}/${cleanLabel(it.key)}.${extension(type)}`;
           const up = await service.storage
             .from('audio')
@@ -103,8 +110,20 @@ Deno.serve(async (req) => {
       const { data: rows, error } = await service.from(table).select('id, text').in('id', ids);
       if (error) throw error;
       const done = [];
-      for (const r of rows ?? []) {
-        const { bytes, type } = await speak(voice, r.text);
+      const failed: { id: string; error: string }[] = [];
+      const list = rows ?? [];
+      const spoken = await speakMany(
+        voice,
+        list.map((r) => r.text),
+      );
+      for (const [i, r] of list.entries()) {
+        const said = spoken[i]!;
+        // A form the voice couldn't say stays silent, for the next Make missing audio.
+        if ('error' in said) {
+          failed.push({ id: r.id, error: said.error });
+          continue;
+        }
+        const { bytes, type } = said;
         const clipId = crypto.randomUUID();
         const path = `${folder}/${r.id}/${clipId}.${extension(type)}`;
         const up = await service.storage.from('audio').upload(path, bytes, { contentType: type });
@@ -126,7 +145,7 @@ Deno.serve(async (req) => {
         if (upd.error) throw upd.error;
         done.push({ [owner]: r.id, audio_path: url, audio_source: source });
       }
-      return json({ done });
+      return json({ done, failed });
     }
 
     return json({ error: 'Unknown action' }, 400);

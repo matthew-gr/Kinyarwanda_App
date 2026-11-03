@@ -118,8 +118,15 @@ export async function newStory(
 /** Fetches a story again, for its audio, which arrives after the text. Local changes are kept. */
 export async function refreshStory(id: string, d: KinyaDb = db): Promise<StoryRow | undefined> {
   if (!supabase) return d.stories.get(id);
-  const { data } = await supabase.from('stories').select('sentences, audio_source').eq('id', id);
-  const fresh = data?.[0] as Pick<StoryRow, 'sentences' | 'audio_source'> | undefined;
+  const { data } = await supabase.from('stories').select('*').eq('id', id);
+  const row = data?.[0] as StoryRow | undefined;
+  const fresh = row
+    ? {
+        sentences: row.sentences,
+        audio_source: row.audio_source,
+        audio_path: row.audio_path ?? null,
+      }
+    : undefined;
   if (fresh) await d.stories.update(id, fresh);
   return d.stories.get(id);
 }

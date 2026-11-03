@@ -9,8 +9,11 @@ import { playAudio } from '../cardText';
 import { AdminShell, ErrorLine } from './AdminShell';
 
 const STORE = 'kinyarwanda.voice-test';
-/** Items voiced per server call. */
-const SAMPLE_BATCH = 6;
+/**
+ * Items voiced per server call: few for Gemini, which allows 10 requests a minute, and all of
+ * them for voices that charge per request, which get them as one batch.
+ */
+const sampleBatch = (p: SampleVoice['provider']) => (p === 'gemini' ? 6 : 25);
 const LINES_STORE = 'kinyarwanda.voice-test-lines';
 const DEFAULT_LINES = 'ku isoko\nibiryo\narateka';
 const MODELS = ['eleven_v3', 'eleven_multilingual_v2', 'eleven_flash_v2_5'];
@@ -49,7 +52,8 @@ const GEMINI_VOICES = [
   'Sulafat (warm)',
 ];
 /** Gemini and Pindo read Kinyarwanda, so they get the real spelling, not the respelling. */
-const readsKinyarwanda = (p: SampleVoice['provider']) => p === 'gemini' || p === 'pindo';
+const readsKinyarwanda = (p: SampleVoice['provider']) =>
+  p === 'gemini' || p === 'pindo' || p === 'ijwi' || p === 'proto';
 
 /** The 20 test items: the first 14 words, a plural, a verb form, and the first 4 phrases. */
 const SAMPLE = (() => {
@@ -144,7 +148,11 @@ export function VoiceTest() {
             }
           : provider === 'pindo'
             ? { provider, speech_rate: rate, label: `pindo-${rate}` }
-            : { provider, label: `${httpLabel}${tag}`, stress };
+            : provider === 'ijwi'
+              ? { provider, label: 'ijwilab-keza' }
+              : provider === 'proto'
+                ? { provider, label: `proto-${rate}`, speech_rate: rate }
+                : { provider, label: `${httpLabel}${tag}`, stress };
     setBusy(true);
     setFailed([]);
     // In batches, so a slow voice (Gemini allows 10 requests a minute) never runs past the
@@ -154,9 +162,10 @@ export function VoiceTest() {
     const lost: { key: string; error: string }[] = [];
     let label = voice.label;
     try {
-      for (let i = 0; i < all.length; i += SAMPLE_BATCH) {
+      const batch = sampleBatch(provider);
+      for (let i = 0; i < all.length; i += batch) {
         setProgress(`${i} of ${all.length}`);
-        const res = await makeSample(voice, all.slice(i, i + SAMPLE_BATCH));
+        const res = await makeSample(voice, all.slice(i, i + batch));
         label = res.label;
         for (const c of res.clips) clips[c.key] = `${c.url}?v=${Date.now()}`;
         lost.push(...(res.failed ?? []));
@@ -203,6 +212,8 @@ export function VoiceTest() {
             <option value="elevenlabs">ElevenLabs</option>
             <option value="gemini">Gemini (the GEMINI_API_KEY secret)</option>
             <option value="pindo">Pindo (Kinyarwanda)</option>
+            <option value="ijwi">IjwiLab: Keza (the IJWI_API_KEY secret)</option>
+            <option value="proto">Proto (PROTO_TEAMSPACE_ID and PROTO_SECRET)</option>
             <option value="http">Other endpoint (the TTS_HTTP_URL secret)</option>
           </select>
         </label>
@@ -270,7 +281,11 @@ export function VoiceTest() {
               </select>
             </label>
           </>
-        ) : provider === 'pindo' ? (
+        ) : provider === 'ijwi' ? (
+          <p className="body-small">
+            IjwiLab has one Kinyarwanda voice, Keza. The whole sample run is one request.
+          </p>
+        ) : provider === 'pindo' || provider === 'proto' ? (
           <label className="field">
             <span className="body-small-bold">Speech rate (0.5 to 2)</span>
             <input

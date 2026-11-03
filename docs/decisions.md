@@ -206,6 +206,22 @@ Prompt 2 was written from the product spec's Module 2 section; the build plan na
     - Gemini 3.8 Flash TTS and Flash-Lite TTS list Kinyarwanda. They are priced by seconds of audio: about $0.0003 a word clip with Flash, against about $0.0012 with ElevenLabs v3, and about $0.04 against $0.38 for a story. Gemini's prices double on 1 January 2027. The key is the `GEMINI_API_KEY` secret.
     - Pindo is a Rwandan Kinyarwanda voice. Without a `PINDO_TOKEN` secret it uses Pindo's public endpoint, which is rate-limited. Its price isn't published.
     - Both return WAV, about 3 times the size of ElevenLabs' MP3. That matters for offline storage once the app installs on phones.
+147. **Voices that charge per request get words in batches, cut apart afterwards** (Matt, 3 November 2026). Pindo bills a minute per request, IjwiLab a token per request up to 2 minutes, and Proto a credit per request, however short the request.
+    - Up to 15 (Pindo) or 25 (IjwiLab, Proto) items go in one request, each ending in a full stop and joined by " ... ". With Pindo, that separator left pauses of 230 to 420 ms between words; full stops or line breaks left almost none.
+    - The WAV is cut at the longest pauses, one fewer than the items (`_shared/split.ts`).
+    - It is refused if the cuts aren't clearly longer than every pause inside a word, or if any clip's time per letter is more than 2.5 times off the batch's middle value, as when the voice drops or runs words together (which Pindo did). A refused batch is halved and tried again, down to single items. Halving costs more requests but never saves a clip holding half a neighbour.
+    - In testing, Pindo ran "Yego. ... Oya" together, so its batches will often be halved. IjwiLab and Proto are untested.
+148. **Stories have their own voice, and Pindo stories have only the whole take.** `STORY_VOICE` (JSON like `TTS_VOICE`) voices stories; without it they use `TTS_VOICE`. The whole take is saved in the new `stories.audio_path` column. With Pindo, sentences are not voiced one by one (each would be a billed minute); a sentence's replay button plays its share of the whole take, judged by its length.
+149. **Gemini requests are spaced 6.5 seconds apart**, for Tier 1's 10 requests a minute. `GEMINI_GAP_MS` changes the gap. A 429 says which limit was hit; the daily one (100 requests on Tier 1) isn't retried.
+150. **The phone install** (Prompt 11).
+    - **Install:** a web app manifest and the green "Rw" icon (`public/icon.svg`, rendered by `scripts/make-icons.ts`). Android installs from Profile's "Install the app"; iPhone gets Add to Home Screen instructions. There are no iPhone splash images: iOS shows the page colour while the app opens.
+    - **Offline:** the service worker (vite-plugin-pwa, Workbox) saves the app and its fonts, and keeps every audio clip once played. Profile's "Save all audio" saves the rest. Progress already lives on the device.
+    - **Updates:** a new version waits for the learner to tap Update, so it never reloads mid-card.
+151. **Reminders by web push.**
+    - A learner turns them on and picks an hour (6 pm by default). Each device uploads its next due review after every sync.
+    - The `send-reminders` function, started hourly by a GitHub Actions workflow with a shared secret, sends at most one a day, in that hour, only if a review is due by the end of it. It removes subscriptions the browser has dropped.
+    - The server keeps no review schedule, so "next due" is the last value any of the learner's devices uploaded.
+    - On iPhone, reminders need the app on the Home Screen (iOS 16.4 or later).
 
 ## Planned later
 

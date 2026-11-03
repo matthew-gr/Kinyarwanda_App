@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#2d6a4f"/>
+  <path d="M136 132h240a40 40 0 0 1 40 40v136a40 40 0 0 1-40 40H252l-72 56v-56h-44a40 40 0 0 1-40-40V172a40 40 0 0 1 40-40z" fill="#ffffff"/>
+  <text x="256" y="276" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-weight="800" font-size="120" fill="#2d6a4f">Rw</text>
+</svg>

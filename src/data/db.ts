@@ -123,6 +123,8 @@ export interface StoryRow {
   coverage: number;
   source: string;
   audio_source: string | null;
+  /** The whole story in one take, once voiced. Older rows don't have it. */
+  audio_path?: string | null;
   status: 'ai_draft' | 'reviewed' | 'approved';
   reads: number;
   last_read_at: string | null;
