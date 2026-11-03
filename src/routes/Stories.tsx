@@ -181,6 +181,24 @@ function StoryList({ stories, now }: { stories: StoryRow[]; now: number }) {
   );
 }
 
+/**
+ * The whole story in one take, which the server saves beside the first sentence's clip.
+ * Stories made before it existed don't have one, so playing it can fail.
+ */
+const wholeStoryAudio = (s: StoryRow) =>
+  s.sentences[0]?.audio_path?.replace(/\/0\.(\w+)(\?.*)?$/, '/story.$1') ?? null;
+
+/** Which sentence is being read, judged by how far through the take the voice is. */
+function sentenceAt(s: StoryRow, fraction: number): number {
+  const total = s.sentences.reduce((n, x) => n + x.rw.length, 0);
+  let seen = 0;
+  for (let i = 0; i < s.sentences.length; i++) {
+    seen += s.sentences[i]!.rw.length;
+    if (fraction * total < seen) return i;
+  }
+  return s.sentences.length - 1;
+}
+
 /** One story: sentences to read and hear, words to tap, questions, and feedback. */
 export function StoryReader() {
   const navigate = useNavigate();
@@ -232,7 +250,30 @@ export function StoryReader() {
           else setPlaying(null);
         });
       };
-      go(from);
+      const whole = from === 0 && onwards ? wholeStoryAudio(story) : null;
+      if (!whole) {
+        go(from);
+        return;
+      }
+      // The whole take reads evenly; if it isn't there, fall back to one sentence at a time.
+      const audio = new Audio(whole);
+      let stopped = false;
+      const stop = () => {
+        stopped = true;
+        audio.pause();
+      };
+      stopRef.current = stop;
+      setPlaying(0);
+      audio.addEventListener('timeupdate', () => {
+        if (audio.duration > 0) setPlaying(sentenceAt(story, audio.currentTime / audio.duration));
+      });
+      audio.addEventListener('ended', () => setPlaying(null));
+      audio.addEventListener('error', () => {
+        if (!stopped) go(0);
+      });
+      audio.play().catch(() => {
+        if (!stopped) go(0);
+      });
     },
     [story],
   );

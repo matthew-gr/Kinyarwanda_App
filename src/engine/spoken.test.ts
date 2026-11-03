@@ -37,3 +37,25 @@ it('adds the g or k sound a consonant takes before w, softened to ŋ after m', (
 it('leaves words without vowels alone', () => {
   expect(spokenSpelling('100 RWF')).toBe('100 RWF');
 });
+
+it('says a consonant before y as one sound with it', () => {
+  expect(spokenSpelling('ibiryo')).toBe('ee-bee-rjoh');
+  expect(spokenSpelling('ibyo')).toBe('ee-bjoh');
+  expect(spokenSpelling('icyo')).toBe('ee-choh');
+});
+
+it('joins a short word ending in a vowel to the next word starting with one', () => {
+  expect(spokenSpelling('ku isoko.')).toBe('kwee-soh-koh.');
+  expect(spokenSpelling('na umwana')).toBe('noo-mŋwah-nah');
+  expect(spokenSpelling('Ni iki?')).toBe('Nee-kee?');
+  // Longer words, and words split by punctuation, stay apart.
+  expect(spokenSpelling('umugabo arakina')).toBe('oo-moo-gah-boh ah-rah-kee-nah');
+  expect(spokenSpelling('Ego, ariko')).toBe('Ay-goh, ah-ree-koh');
+});
+
+it('with stress, writes the syllable before last in capitals', () => {
+  expect(spokenSpelling('arateka', true)).toBe('ah-rah-TAY-kah');
+  expect(spokenSpelling('ibiryo', true)).toBe('ee-BEE-rjoh');
+  // Words of 1 or 2 syllables are left as they are.
+  expect(spokenSpelling('amazi wowe', true)).toBe('ah-MAH-zee woh-way');
+});

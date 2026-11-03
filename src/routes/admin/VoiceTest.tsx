@@ -2,12 +2,15 @@
 // side by side, so the best one can be chosen before any course audio is made.
 
 import { useState } from 'react';
+import { spokenSpelling } from '../../../supabase/functions/_shared/spoken';
 import { errorText, listVoices, makeSample, type SampleVoice } from '../../data/admin';
 import { bundledForms, bundledItems } from '../../data/content';
 import { playAudio } from '../cardText';
 import { AdminShell, ErrorLine } from './AdminShell';
 
 const STORE = 'kinyarwanda.voice-test';
+const LINES_STORE = 'kinyarwanda.voice-test-lines';
+const DEFAULT_LINES = 'ku isoko\nibiryo\narateka';
 const MODELS = ['eleven_v3', 'eleven_multilingual_v2', 'eleven_flash_v2_5'];
 
 /** The 20 test items: the first 14 words, a plural, a verb form, and the first 4 phrases. */
@@ -20,6 +23,21 @@ const SAMPLE = (() => {
     (f) => ({ key: f.text, text: f.text, en: f.en }),
   );
 })();
+
+function loadLines(): string {
+  try {
+    return localStorage.getItem(LINES_STORE) ?? DEFAULT_LINES;
+  } catch {
+    return DEFAULT_LINES;
+  }
+}
+
+/** The lines typed in, one item each, after the 20 fixed ones. */
+const ownItems = (lines: string) =>
+  [...new Set(lines.split('\n').map((l) => l.trim()))]
+    .filter(Boolean)
+    .slice(0, 5)
+    .map((l) => ({ key: `own-${l}`, text: l, en: 'Your line' }));
 
 interface Trial {
   voice: SampleVoice;
@@ -52,6 +70,9 @@ export function VoiceTest() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [chosen, setChosen] = useState<SampleVoice | null>(null);
+  const [stress, setStress] = useState(false);
+  const [lines, setLines] = useState(loadLines);
+  const items = [...SAMPLE, ...ownItems(lines)];
 
   const load = async () => {
     setError(null);
@@ -67,15 +88,16 @@ export function VoiceTest() {
   const run = async () => {
     setError(null);
     const name = voices.find((v) => v.voice_id === voiceId)?.name ?? voiceId;
+    const tag = stress ? '-stress' : '';
     const voice: SampleVoice =
       provider === 'elevenlabs'
-        ? { provider, voice_id: voiceId, model_id: model, label: `${name}-${model}` }
-        : { provider, label: httpLabel };
+        ? { provider, voice_id: voiceId, model_id: model, label: `${name}-${model}${tag}`, stress }
+        : { provider, label: `${httpLabel}${tag}`, stress };
     setBusy(true);
     try {
       const res = await makeSample(
         voice,
-        SAMPLE.map(({ key, text }) => ({ key, text })),
+        items.map(({ key, text }) => ({ key, text })),
       );
       const trial: Trial = {
         voice: { ...voice, label: res.label },
@@ -104,8 +126,8 @@ export function VoiceTest() {
           Try a voice
         </h2>
         <p className="body-small">
-          Each try voices the same {SAMPLE.length} items. No provider lists Kinyarwanda, so listen
-          for the sounds English voices get wrong: r, c and the vowels.
+          Each try voices the same {SAMPLE.length} items, and your own lines. No provider lists
+          Kinyarwanda, so listen for the sounds English voices get wrong: r, c and the vowels.
         </p>
         <label className="field">
           <span className="body-small-bold">Provider</span>
@@ -163,6 +185,35 @@ export function VoiceTest() {
             />
           </label>
         )}
+        <label className="field">
+          <input type="checkbox" checked={stress} onChange={(e) => setStress(e.target.checked)} />{' '}
+          <span className="body-small-bold">
+            Mark the stressed syllable (the one before last, in capitals)
+          </span>
+        </label>
+        <label className="field">
+          <span className="body-small-bold">Your own lines, one per line (up to 5)</span>
+          <textarea
+            className="field-input"
+            rows={4}
+            value={lines}
+            lang="rw"
+            onChange={(e) => {
+              setLines(e.target.value);
+              try {
+                localStorage.setItem(LINES_STORE, e.target.value);
+              } catch {
+                // Kept until the page closes.
+              }
+            }}
+          />
+        </label>
+        <p className="body-small">
+          Sent to the voice as:{' '}
+          {ownItems(lines)
+            .map((i) => spokenSpelling(i.text, stress))
+            .join(' · ')}
+        </p>
         <button
           type="button"
           className="btn btn-primary"
@@ -192,7 +243,7 @@ export function VoiceTest() {
                 </tr>
               </thead>
               <tbody>
-                {SAMPLE.map((s) => (
+                {items.map((s) => (
                   <tr key={s.key}>
                     <th scope="row">
                       <span lang="rw">{s.text}</span>
@@ -253,6 +304,7 @@ export function VoiceTest() {
                   ...(chosen.voice_id ? { voice_id: chosen.voice_id } : {}),
                   ...(chosen.model_id ? { model_id: chosen.model_id } : {}),
                   label: chosen.label,
+                  ...(chosen.stress ? { stress: true } : {}),
                 })}
               </pre>
             </div>

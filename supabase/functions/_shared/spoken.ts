@@ -10,7 +10,13 @@
 //   start of a word (njye is in-jay, not spelled out letter by letter).
 // - After it, t, k and p are breathed out: umuntu is oo-moon-hoo, inka een-hah.
 // And a consonant before w picks up a g or k (Rwanda is rgwahn-dah, twese tkway-say), softened
-// to ŋ after m because a hard g was too strong (umwami is oo-mŋwah-mee).
+// to ŋ after m because a hard g was too strong (umwami is oo-mŋwah-mee). A consonant before y
+// becomes one sound with it, the way cy and jy are written (ibiryo is ee-bee-rjoh, not ri-o).
+// Between words, a short word ending in a vowel joins a word starting with one, as it is said:
+// u becomes w and any other vowel drops (ku isoko is kw'isoko, na umwana n'umwana, ni iki
+// n'iki), as writers do when they write the join.
+// With `stress`, the syllable before last is written in capitals so the voice leans on it
+// (arateka is ah-rah-TAY-kah, never on the tense marker ra).
 // AI-drafted from what Matt heard; a native speaker should confirm by listening.
 
 const VOWEL_SOUND: Record<string, string> = { a: 'ah', e: 'ay', i: 'ee', o: 'oh', u: 'oo' };
@@ -22,7 +28,10 @@ function consonants(cluster: string, vowel: string): string {
     .replace(/shy/g, 'sh')
     .replace(/cy/g, 'ch')
     .replace(/jy/g, 'j')
-    .replace(/c(?!h)/g, 'ch');
+    .replace(/c(?!h)/g, 'ch')
+    // Before y a consonant is said with it as one sound: ryo is rjo, tyo is tcho.
+    .replace(/([bdgrvz])y$/, '$1j')
+    .replace(/([ptfks])y$/, '$1ch');
   if (/[^aeiou]w$/.test(c)) {
     c = c
       .replace(/shw$/, 'shkw')
@@ -38,7 +47,7 @@ function consonants(cluster: string, vowel: string): string {
 /** n or m that belongs to the syllable before: before a consonant other than ny, my or mw. */
 const strayNasal = (cluster: string) => /^[nm][^yw]/.test(cluster);
 
-function sayWord(word: string): string {
+function sayWord(word: string, stress: boolean): string {
   const letters = word.toLowerCase().replace(/'/g, '');
   const syllables: string[] = [];
   let i = 0;
@@ -66,11 +75,33 @@ function sayWord(word: string): string {
     }
     syllables.push(consonants(cluster, vowel) + VOWEL_SOUND[vowel]);
   }
+  if (stress && syllables.length >= 3) {
+    const at = syllables.length - 2;
+    syllables[at] = syllables[at]!.toUpperCase();
+  }
   const out = syllables.join('-');
   return word[0] !== word[0]!.toLowerCase() ? out[0]!.toUpperCase() + out.slice(1) : out;
 }
 
-/** The text to send to a voice for `text`, which may be a word, a phrase or a sentence. */
-export function spokenSpelling(text: string): string {
-  return text.replace(/[A-Za-z']+/g, (word) => (/[aeiou]/i.test(word) ? sayWord(word) : word));
+/** Words of up to 3 letters ending in a vowel join a following vowel: ku, mu, na, ni, kwa. */
+const JOINS = /(?<![A-Za-z'])([A-Za-z]{0,2}[aeiou]) +([aeiouAEIOU])/g;
+
+/** Joins a short word to a next word that starts with a vowel, the way it is said. */
+export function joinVowels(text: string): string {
+  return text.replace(JOINS, (_, word: string, next: string) => {
+    const stem = word.slice(0, -1);
+    const glide = word.slice(-1).toLowerCase() === 'u' ? 'w' : '';
+    // A word that is only a vowel is left as it is.
+    return stem ? `${stem}${glide}'${next}` : `${word} ${next}`;
+  });
+}
+
+/**
+ * The text to send to a voice for `text`, which may be a word, a phrase or a sentence. With
+ * `stress`, each word's syllable before last is in capitals.
+ */
+export function spokenSpelling(text: string, stress = false): string {
+  return joinVowels(text).replace(/[A-Za-z']+/g, (word) =>
+    /[aeiou]/i.test(word) ? sayWord(word, stress) : word,
+  );
 }

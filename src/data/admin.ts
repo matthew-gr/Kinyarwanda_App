@@ -35,6 +35,8 @@ export interface SampleVoice {
   voice_id?: string;
   model_id?: string;
   label: string;
+  /** Write each word's stressed syllable in capitals for the voice. */
+  stress?: boolean;
 }
 
 /** A readable message from anything thrown, including Supabase's error objects. */

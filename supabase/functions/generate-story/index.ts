@@ -84,7 +84,11 @@ async function askClaude(
   return { story, model: out.model };
 }
 
-/** Reads each sentence aloud and saves the clips onto the story. Failures leave it silent. */
+/**
+ * Reads the story aloud: first all of it in one take, saved beside the sentence clips as
+ * story.mp3, so Play the story flows evenly; then each sentence on its own, for replaying one.
+ * Failures leave that part silent.
+ */
 async function voiceStory(
   service: ReturnType<typeof createClient>,
   id: string,
@@ -94,6 +98,15 @@ async function voiceStory(
   if (!raw) return;
   const voice = JSON.parse(raw) as Voice;
   const done = [...sentences];
+  try {
+    const { bytes, type } = await speak(voice, sentences.map((s) => s.rw).join(' '));
+    const up = await service.storage
+      .from('audio')
+      .upload(`stories/${id}/story.${extension(type)}`, bytes, { contentType: type, upsert: true });
+    if (up.error) throw up.error;
+  } catch (e) {
+    console.error('story audio, whole story', id, e);
+  }
   for (let i = 0; i < done.length; i++) {
     try {
       const { bytes, type } = await speak(voice, done[i]!.rw);

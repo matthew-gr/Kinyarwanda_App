@@ -3,9 +3,11 @@
 
 import { spokenSpelling } from './spoken.ts';
 
-export type Voice =
+/** `stress` writes each word's stressed syllable in capitals for the voice (see spoken.ts). */
+export type Voice = (
   | { provider: 'elevenlabs'; voice_id: string; model_id?: string; label: string }
-  | { provider: 'http'; label: string };
+  | { provider: 'http'; label: string }
+) & { stress?: boolean };
 
 /** A secret pasted with a line break, spaces or quotes around it would break the request header. */
 export const env = (name: string) => (Deno.env.get(name) ?? '').trim().replace(/^["']|["']$/g, '');
@@ -23,7 +25,7 @@ export async function speak(
 ): Promise<{ bytes: Uint8Array; type: string }> {
   // The "..." in a phrase like "Nitwa ..." is a gap for the learner's own word, not speech.
   // The voice gets the word as it is said (umuntu as umunhu); learners still see the spelling.
-  const spoken = spokenSpelling(text.replace(/\.{3}|…/g, '').trim());
+  const spoken = spokenSpelling(text.replace(/\.{3}|…/g, '').trim(), voice.stress === true);
   let res: Response;
   if (voice.provider === 'elevenlabs') {
     res = await fetch(

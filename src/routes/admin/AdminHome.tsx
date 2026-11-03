@@ -96,23 +96,36 @@ function Course() {
       i.kind === kind && (!q || i.base.toLowerCase().includes(q) || i.en.toLowerCase().includes(q)),
   );
 
-  const makeMissing = async () => {
+  /** Voices the given forms and numbers; every earlier clip is kept in audio_clips. */
+  const voice = async (formIds: string[], numberIds: string[]) => {
     setError(null);
+    const all = formIds.length + numberIds.length;
     try {
-      await makeAudio(
-        silent.map((f) => f.id),
-        (done) => setMaking(`${done} of ${missing}`),
-      );
-      await makeNumberAudio(
-        silentNumbers.map((n) => n.id),
-        (done) => setMaking(`${silent.length + done} of ${missing}`),
-      );
+      await makeAudio(formIds, (done) => setMaking(`${done} of ${all}`));
+      await makeNumberAudio(numberIds, (done) => setMaking(`${formIds.length + done} of ${all}`));
       setReload((r) => r + 1);
     } catch (e) {
       setError(errorText(e));
     } finally {
       setMaking(null);
     }
+  };
+
+  const makeMissing = () =>
+    voice(
+      silent.map((f) => f.id),
+      silentNumbers.map((n) => n.id),
+    );
+
+  // After the spoken spelling changes, every clip can be made again with the new rules.
+  const remakeAll = () => {
+    const all = live.length + liveNumbers.length;
+    if (!window.confirm(`Make all ${all} clips again with the current voice? This uses credits.`))
+      return;
+    void voice(
+      live.map((f) => f.id),
+      liveNumbers.map((n) => n.id),
+    );
   };
 
   return (
@@ -139,6 +152,14 @@ function Course() {
             onClick={() => void makeMissing()}
           >
             {making ? `Making audio: ${making}` : 'Make missing audio'}
+          </button>
+          <button
+            type="button"
+            className="btn btn-missed"
+            disabled={live.length + liveNumbers.length === 0 || making !== null}
+            onClick={remakeAll}
+          >
+            Remake all audio
           </button>
         </div>
         <ErrorLine error={error} />
