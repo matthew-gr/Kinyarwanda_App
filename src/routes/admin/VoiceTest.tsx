@@ -9,6 +9,8 @@ import { playAudio } from '../cardText';
 import { AdminShell, ErrorLine } from './AdminShell';
 
 const STORE = 'kinyarwanda.voice-test';
+/** Items voiced per server call. */
+const SAMPLE_BATCH = 6;
 const LINES_STORE = 'kinyarwanda.voice-test-lines';
 const DEFAULT_LINES = 'ku isoko\nibiryo\narateka';
 const MODELS = ['eleven_v3', 'eleven_multilingual_v2', 'eleven_flash_v2_5'];
@@ -109,6 +111,8 @@ export function VoiceTest() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [chosen, setChosen] = useState<SampleVoice | null>(null);
+  const [progress, setProgress] = useState('');
+  const [failed, setFailed] = useState<{ key: string; error: string }[]>([]);
   const [stress, setStress] = useState(true);
   const [lines, setLines] = useState(loadLines);
   const items = [...SAMPLE, ...ownItems(lines)];
@@ -142,21 +146,32 @@ export function VoiceTest() {
             ? { provider, speech_rate: rate, label: `pindo-${rate}` }
             : { provider, label: `${httpLabel}${tag}`, stress };
     setBusy(true);
+    setFailed([]);
+    // In batches, so a slow voice (Gemini allows 10 requests a minute) never runs past the
+    // server function's time limit.
+    const all = items.map(({ key, text }) => ({ key, text }));
+    const clips: Record<string, string> = {};
+    const lost: { key: string; error: string }[] = [];
+    let label = voice.label;
     try {
-      const res = await makeSample(
-        voice,
-        items.map(({ key, text }) => ({ key, text })),
-      );
-      const trial: Trial = {
-        voice: { ...voice, label: res.label },
-        clips: Object.fromEntries(res.clips.map((c) => [c.key, `${c.url}?v=${Date.now()}`])),
-      };
-      const next = [...trials.filter((t) => t.voice.label !== res.label), trial];
-      setTrials(next);
-      saveTrials(next);
+      for (let i = 0; i < all.length; i += SAMPLE_BATCH) {
+        setProgress(`${i} of ${all.length}`);
+        const res = await makeSample(voice, all.slice(i, i + SAMPLE_BATCH));
+        label = res.label;
+        for (const c of res.clips) clips[c.key] = `${c.url}?v=${Date.now()}`;
+        lost.push(...(res.failed ?? []));
+      }
     } catch (e) {
       setError(errorText(e));
     } finally {
+      if (Object.keys(clips).length > 0) {
+        const trial: Trial = { voice: { ...voice, label }, clips };
+        const next = [...trials.filter((t) => t.voice.label !== label), trial];
+        setTrials(next);
+        saveTrials(next);
+      }
+      setFailed(lost);
+      setProgress('');
       setBusy(false);
     }
   };
@@ -315,9 +330,23 @@ export function VoiceTest() {
           disabled={busy || (provider === 'elevenlabs' && !voiceId)}
           onClick={() => void run()}
         >
-          {busy ? 'Making samples…' : 'Make samples'}
+          {busy ? `Making samples… ${progress}` : 'Make samples'}
         </button>
         <ErrorLine error={error} />
+        {failed.length > 0 ? (
+          <div className="stack" role="alert">
+            <p className="body-small-bold">
+              {failed.length} {failed.length === 1 ? 'item' : 'items'} couldn&rsquo;t be voiced:
+            </p>
+            <ul className="body-small">
+              {failed.map((f) => (
+                <li key={f.key}>
+                  <span lang="rw">{f.key.replace(/^own-/, '')}</span>: {f.error.slice(0, 160)}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
       </section>
 
       {trials.length > 0 ? (

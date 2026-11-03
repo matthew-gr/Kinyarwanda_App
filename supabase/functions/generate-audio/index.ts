@@ -68,19 +68,25 @@ Deno.serve(async (req) => {
       const items = (body.items as { key: string; text: string }[]).slice(0, MAX_PER_CALL);
       const label = cleanLabel(voice.label);
       const out = [];
+      const failed: { key: string; error: string }[] = [];
+      // One item the voice can't say shouldn't lose the rest of the samples.
       for (const it of items) {
-        const { bytes, type } = await speak(voice, it.text);
-        const path = `voice-test/${label}/${cleanLabel(it.key)}.${extension(type)}`;
-        const up = await service.storage
-          .from('audio')
-          .upload(path, bytes, { contentType: type, upsert: true });
-        if (up.error) throw up.error;
-        out.push({
-          key: it.key,
-          url: service.storage.from('audio').getPublicUrl(path).data.publicUrl,
-        });
+        try {
+          const { bytes, type } = await speak(voice, it.text);
+          const path = `voice-test/${label}/${cleanLabel(it.key)}.${extension(type)}`;
+          const up = await service.storage
+            .from('audio')
+            .upload(path, bytes, { contentType: type, upsert: true });
+          if (up.error) throw up.error;
+          out.push({
+            key: it.key,
+            url: service.storage.from('audio').getPublicUrl(path).data.publicUrl,
+          });
+        } catch (e) {
+          failed.push({ key: it.key, error: e instanceof Error ? e.message : String(e) });
+        }
       }
-      return json({ label, clips: out });
+      return json({ label, clips: out, failed });
     }
 
     if (body.action === 'forms' || body.action === 'numbers') {

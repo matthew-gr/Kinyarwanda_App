@@ -249,7 +249,11 @@ export function listVoices() {
 }
 
 export function makeSample(voice: SampleVoice, items: { key: string; text: string }[]) {
-  return callAudio<{ label: string; clips: { key: string; url: string }[] }>({
+  return callAudio<{
+    label: string;
+    clips: { key: string; url: string }[];
+    failed?: { key: string; error: string }[];
+  }>({
     action: 'sample',
     voice,
     items,

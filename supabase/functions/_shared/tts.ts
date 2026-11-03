@@ -68,12 +68,30 @@ export async function speak(
   return { bytes: new Uint8Array(await res.arrayBuffer()), type };
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Gemini's lower tiers allow only a few requests a minute, so a 429 waits as long as Gemini
+ * says (up to 40 seconds) and tries again, twice at most.
+ */
+async function fetchGemini(url: string, init: RequestInit): Promise<Response> {
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(url, init);
+    if (res.status !== 429 || attempt >= 2) return res;
+    const said = await res.text();
+    const wait = Number(/"retryDelay":\s*"(\d+)/.exec(said)?.[1] ?? 20);
+    // A daily limit won't clear by waiting.
+    if (/per.?day|PerDay/i.test(said) || wait > 40) return new Response(said, { status: 429 });
+    await sleep((wait + 1) * 1000);
+  }
+}
+
 async function speakGemini(
   voice: Extract<Voice, { provider: 'gemini' }>,
   text: string,
 ): Promise<{ bytes: Uint8Array; type: string }> {
   const model = voice.model_id || 'gemini-3.8-flash-tts';
-  const res = await fetch(
+  const res = await fetchGemini(
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
     {
       method: 'POST',
@@ -107,14 +125,22 @@ async function speakPindo(
   text: string,
 ): Promise<{ bytes: Uint8Array; type: string }> {
   const token = env('PINDO_TOKEN');
-  const res = await fetch(`https://api.pindo.io/ai/tts/rw${token ? '' : '/public'}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify({ text, lang: 'rw', speech_rate: voice.speech_rate ?? 1 }),
-  });
+  const ask = (t: string) =>
+    fetch(`https://api.pindo.io/ai/tts/rw${token ? '' : '/public'}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ text: t, lang: 'rw', speech_rate: voice.speech_rate ?? 1 }),
+    });
+  let res = await ask(text);
+  // Pindo often fails on very short words (yego, oya, ndi); written as a sentence ("Yego.")
+  // they sometimes go through.
+  if (res.status >= 500) {
+    const sentence = text[0]!.toUpperCase() + text.slice(1) + (/[.?!]$/.test(text) ? '' : '.');
+    res = await ask(sentence);
+  }
   if (!res.ok) throw new Error(`pindo said ${res.status}: ${(await res.text()).slice(0, 300)}`);
   const out = (await res.json()) as { data?: { generated_audio_url?: string } };
   const url = out.data?.generated_audio_url;
