@@ -104,40 +104,76 @@ async function clearProgress(d: KinyaDb): Promise<void> {
   );
 }
 
+/** Profile columns synced. The name and picture are newer (decision 179). */
+const PROFILE_COLUMNS = 'verb_level, daily_goal, display_name, avatar';
+const OLD_PROFILE_COLUMNS = 'verb_level, daily_goal';
+
+interface ServerProfile {
+  verb_level: number;
+  daily_goal: number;
+  display_name?: string | null;
+  avatar?: string | null;
+}
+
+/** True when the server has no name and picture columns yet, before their migration. */
+const missingColumn = (e: { code?: string } | null) => e?.code === '42703' || e?.code === 'PGRST204';
+
 /** The server profile wins once it exists; the first sign-in creates it from this device's. */
 async function syncProfile(userId: string, d: KinyaDb): Promise<void> {
   const client = supabase!;
   const local = await getProfile(d);
-  const { data, error } = await client
-    .from('profiles')
-    .select('verb_level, daily_goal')
-    .eq('id', userId)
-    .maybeSingle();
-  if (error) throw error;
+  let withIdentity = true;
+  let read = await client.from('profiles').select(PROFILE_COLUMNS).eq('id', userId).maybeSingle();
+  if (missingColumn(read.error)) {
+    withIdentity = false;
+    read = await client.from('profiles').select(OLD_PROFILE_COLUMNS).eq('id', userId).maybeSingle();
+  }
+  if (read.error) throw read.error;
+  const data = read.data as ServerProfile | null;
+  const identity = withIdentity
+    ? { display_name: local.display_name ?? null, avatar: local.avatar ?? null }
+    : {};
+  // A name or picture the server can't hold yet stays marked, to go up after the migration.
+  const dirty = !withIdentity && Boolean(local.display_name || local.avatar);
   if (data && local.dirty) {
     // A change made on this device goes up; until then the server copy wins. The verb level
     // only ever rises, so a device that is behind never lowers another device's level.
-    const verb_level = Math.max(local.verb_level, (data as { verb_level: number }).verb_level);
+    const verb_level = Math.max(local.verb_level, data.verb_level);
     const { error: updateError } = await client
       .from('profiles')
-      .update({ daily_goal: local.daily_goal, verb_level, updated_at: new Date().toISOString() })
+      .update({
+        daily_goal: local.daily_goal,
+        verb_level,
+        ...identity,
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', userId);
     if (updateError) throw updateError;
-    await d.profile.put({ ...local, verb_level, dirty: false });
+    await d.profile.put({ ...local, verb_level, dirty });
     return;
   }
   if (data) {
-    const { verb_level, daily_goal } = data as { verb_level: number; daily_goal: number };
-    if (verb_level !== local.verb_level || daily_goal !== local.daily_goal) {
-      await d.profile.put({ ...local, verb_level, daily_goal });
+    const { verb_level, daily_goal } = data;
+    const display_name = withIdentity ? (data.display_name ?? null) : (local.display_name ?? null);
+    const avatar = withIdentity ? (data.avatar ?? null) : (local.avatar ?? null);
+    if (
+      verb_level !== local.verb_level ||
+      daily_goal !== local.daily_goal ||
+      display_name !== (local.display_name ?? null) ||
+      avatar !== (local.avatar ?? null)
+    ) {
+      await d.profile.put({ ...local, verb_level, daily_goal, display_name, avatar });
     }
     return;
   }
-  const { error: insertError } = await client
-    .from('profiles')
-    .insert({ id: userId, verb_level: local.verb_level, daily_goal: local.daily_goal });
+  const { error: insertError } = await client.from('profiles').insert({
+    id: userId,
+    verb_level: local.verb_level,
+    daily_goal: local.daily_goal,
+    ...identity,
+  });
   if (insertError) throw insertError;
-  if (local.dirty) await d.profile.put({ ...local, dirty: false });
+  if (local.dirty) await d.profile.put({ ...local, dirty });
 }
 
 async function push(userId: string, d: KinyaDb): Promise<void> {

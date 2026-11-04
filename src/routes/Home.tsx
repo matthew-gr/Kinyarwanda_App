@@ -84,7 +84,7 @@ const COMING: ModuleCard[] = [
   },
 ];
 
-/** Placeholder until accounts arrive in Prompt 3. */
+/** Until the learner sets a name on Profile. */
 const LEARNER_NAME = 'Learner';
 
 export function Home() {
@@ -180,7 +180,11 @@ export function Home() {
 
   return (
     <div className="stack">
-      <GreetingHeader name={LEARNER_NAME} />
+      <GreetingHeader
+        name={stats?.name || LEARNER_NAME}
+        avatarSrc={stats?.avatar ?? undefined}
+        onAvatar={() => navigate('/profile')}
+      />
       <HeroBanner
         title="Start Learning today"
         subtitle={

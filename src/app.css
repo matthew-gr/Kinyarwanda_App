@@ -1489,3 +1489,22 @@ textarea.field-input {
 .placement-choices .btn {
   width: 100%;
 }
+
+/* Profile: the learner's name and picture (decision 179). */
+.identity-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.identity-picture {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.identity-upload {
+  cursor: pointer;
+}
+.identity-upload:focus-within {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}

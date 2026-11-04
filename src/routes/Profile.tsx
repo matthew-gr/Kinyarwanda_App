@@ -2,10 +2,13 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { INVITES_PER_MEMBER } from '../../supabase/functions/_shared/invite';
 import { Link } from 'react-router';
 import { AchievementCard } from '../components/AchievementCard';
+import { Avatar } from '../components/Avatar';
 import { SectionHeader } from '../components/SectionHeader';
 import { StatRow } from '../components/StatRow';
 import { loadProgressStats, type ProgressStats } from '../data/progressStats';
-import { setDailyGoal } from '../data/repo';
+import { avatarFromFile, NAME_MAX } from '../data/avatar';
+import { getProfile, setDailyGoal, setIdentity } from '../data/repo';
+import { progressChanged } from '../data/signals';
 import {
   getSyncStatus,
   onSyncStatus,
@@ -158,6 +161,7 @@ export function Profile() {
   return (
     <div className="stack">
       <SectionHeader as="h1" size="large" title="Profile" subtitle="Your progress and account" />
+      <Identity />
       <Progress />
       <PlacementPanel />
       <PhonePanel signedIn={!!status.email} />
@@ -182,6 +186,111 @@ export function Profile() {
       {status.email ? <Invites email={status.email} /> : null}
       <AdminLink email={status.email} />
     </div>
+  );
+}
+
+/** The learner's name and picture, shown on Home (decision 179). */
+function Identity() {
+  const [loaded, setLoaded] = useState(false);
+  const [name, setName] = useState('');
+  const [saved, setSaved] = useState('');
+  const [avatar, setAvatar] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    void getProfile().then((p) => {
+      if (!alive) return;
+      setName(p.display_name ?? '');
+      setSaved(p.display_name ?? '');
+      setAvatar(p.avatar ?? null);
+      setLoaded(true);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const save = async (next: { display_name: string | null; avatar: string | null }) => {
+    await setIdentity(next);
+    setSaved(next.display_name ?? '');
+    setAvatar(next.avatar);
+    requestSync();
+    progressChanged.emit();
+  };
+
+  const saveName = async (e: FormEvent) => {
+    e.preventDefault();
+    const trimmed = name.trim().slice(0, NAME_MAX);
+    setName(trimmed);
+    await save({ display_name: trimmed || null, avatar });
+  };
+
+  const choosePicture = async (file: File | undefined) => {
+    if (!file) return;
+    setError(null);
+    try {
+      await save({ display_name: saved || null, avatar: await avatarFromFile(file) });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  if (!loaded) return null;
+  return (
+    <section className="panel identity" aria-labelledby="identity-title">
+      <h2 id="identity-title" className="h2-bold">
+        You
+      </h2>
+      <div className="identity-row">
+        <Avatar src={avatar ?? undefined} name={saved || 'Learner'} size={72} />
+        <div className="identity-picture">
+          <label className="btn btn-missed identity-upload">
+            {avatar ? 'Change picture' : 'Add a picture'}
+            <input
+              type="file"
+              accept="image/*"
+              className="sr-only"
+              onChange={(e) => {
+                void choosePicture(e.target.files?.[0]);
+                e.target.value = '';
+              }}
+            />
+          </label>
+          {avatar ? (
+            <button
+              type="button"
+              className="btn btn-missed"
+              onClick={() => void save({ display_name: saved || null, avatar: null })}
+            >
+              Remove picture
+            </button>
+          ) : null}
+        </div>
+      </div>
+      {error ? (
+        <p className="form-error body-small" role="alert">
+          {error}
+        </p>
+      ) : null}
+      <form className="form" onSubmit={(e) => void saveName(e)}>
+        <label className="field">
+          <span className="body-bold">Your name</span>
+          <input
+            className="field-input body"
+            type="text"
+            name="display-name"
+            autoComplete="given-name"
+            maxLength={NAME_MAX}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </label>
+        <button type="submit" className="btn btn-primary" disabled={name.trim() === saved}>
+          Save name
+        </button>
+      </form>
+    </section>
   );
 }
 

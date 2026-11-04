@@ -39,6 +39,15 @@ export async function setDailyGoal(goal: number, d: KinyaDb = db): Promise<void>
   await d.profile.put({ ...profile, daily_goal: goal, dirty: true });
 }
 
+/** Saves the learner's name and picture on this device and marks them for the next sync. */
+export async function setIdentity(
+  identity: { display_name: string | null; avatar: string | null },
+  d: KinyaDb = db,
+): Promise<void> {
+  const profile = await getProfile(d);
+  await d.profile.put({ ...profile, ...identity, dirty: true });
+}
+
 export interface DeckData {
   items: Item[];
   forms: ItemForm[];
@@ -115,6 +124,9 @@ export interface HomeStats {
   review: DueCounts;
   /** The topic chosen on the Topics screen, by its label, if any. */
   topic: string | null;
+  /** The learner's name and picture from Profile, if set. */
+  name: string | null;
+  avatar: string | null;
 }
 
 export async function loadHomeStats(now: number, d: KinyaDb = db): Promise<HomeStats> {
@@ -155,6 +167,8 @@ export async function loadHomeStats(now: number, d: KinyaDb = db): Promise<HomeS
     numbers,
     recall,
     topic: wordState?.state.topic ? topicLabel(wordState.state.topic) : null,
+    name: profile.display_name ?? null,
+    avatar: profile.avatar ?? null,
     review: dueCounts(
       reviews.map((r) => ({ itemId: r.item_id, dueAt: Date.parse(r.due_at) })),
       now,

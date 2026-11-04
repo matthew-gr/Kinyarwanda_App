@@ -143,6 +143,10 @@ export interface Profile {
   id: string;
   verb_level: number;
   daily_goal: number;
+  /** The learner's name, shown on Home; empty until they set one. */
+  display_name?: string | null;
+  /** Their picture, a small JPEG data URL made on this device (src/data/avatar.ts). */
+  avatar?: string | null;
   /** True after a change on this device that the server does not have yet. */
   dirty?: boolean;
 }

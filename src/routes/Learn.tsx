@@ -264,11 +264,19 @@ function CardArea({
   const { item, step, choices } = view;
   const dealt = view.form;
   if (!item || !dealt || step.type === 'done') return null;
+  // A class 9/10 noun is spelled the same in the plural, so the content has one form; the
+  // card still switches, to a plural that says so, since knowing that is part of the class.
+  const samePlural =
+    item.word_type === 'noun' && item.noun_class === '9/10' && choices.length < 2
+      ? { ...dealt, id: `${dealt.id}:plural`, number: 'plural' as const, is_base: false }
+      : null;
+  const cardChoices = samePlural ? [dealt, samePlural] : choices;
   const form =
-    (switched?.key === view.key && choices.find((f) => f.id === switched.formId)) || dealt;
+    (switched?.key === view.key && cardChoices.find((f) => f.id === switched.formId)) || dealt;
+  const isSamePlural = form === samePlural;
   const isIntro = step.type === 'intro';
   const audio = form.audio_path;
-  const toggle = switchFor(item, form, choices, (next) => {
+  const toggle = switchFor(item, form, cardChoices, (next) => {
     setSwitched({ key: view.key, formId: next.id });
     if (next.audio_path) playAudio(next.audio_path);
   });
@@ -295,9 +303,17 @@ function CardArea({
             key={view.key}
             side={isIntro ? 'both' : flipped ? 'back' : 'front'}
             word={form.text}
-            phonetic={pronunciationFor(item, form)}
+            phonetic={
+              isSamePlural
+                ? `${pronunciationFor(item, form)} · plural, same word`
+                : pronunciationFor(item, form)
+            }
             translation={form.en}
-            detail={dictionaryLine(item, form)}
+            detail={
+              isSamePlural
+                ? `Plural: the same word (class 9 singular, class 10 plural)`
+                : dictionaryLine(item, form)
+            }
             notes={hasNotes(item) ? <CardNotes item={item} /> : undefined}
             tag={tagFor(item)}
             hint="Tap to reveal meaning"
