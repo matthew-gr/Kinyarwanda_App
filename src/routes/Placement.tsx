@@ -22,7 +22,8 @@ function canDo(point: number): string {
   if (point <= 200) return 'enough for everyday basics: family, food, the house and time';
   if (point <= 500) return 'enough to follow simple talk about family, food and the house';
   if (point <= 800) return 'enough for everyday talk about work, shopping and health';
-  return 'enough to follow simple stories and everyday talk on most topics';
+  if (point <= 1000) return 'enough to follow simple stories and everyday talk on most topics';
+  return 'enough for most everyday conversation, and a start on church, the radio and the news';
 }
 
 export function Placement() {

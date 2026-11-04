@@ -116,7 +116,8 @@ interface ServerProfile {
 }
 
 /** True when the server has no name and picture columns yet, before their migration. */
-const missingColumn = (e: { code?: string } | null) => e?.code === '42703' || e?.code === 'PGRST204';
+const missingColumn = (e: { code?: string } | null) =>
+  e?.code === '42703' || e?.code === 'PGRST204';
 
 /** The server profile wins once it exists; the first sign-in creates it from this device's. */
 async function syncProfile(userId: string, d: KinyaDb): Promise<void> {

@@ -10,7 +10,7 @@
 
 import { pickOne, shuffle, type Rng } from './random';
 
-export const CHECKPOINTS = [50, 100, 150, 200, 300, 400, 500, 650, 800, 1000] as const;
+export const CHECKPOINTS = [50, 100, 150, 200, 300, 400, 500, 650, 800, 1000, 1200, 1500] as const;
 export const PER_CHECKPOINT = 4;
 export const TO_PASS = 3;
 /** A made-up word is asked after this many questions, then again each time. */

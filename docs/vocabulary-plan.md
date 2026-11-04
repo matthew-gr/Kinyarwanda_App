@@ -1,6 +1,6 @@
 # Vocabulary plan (agreed 3 November 2026; being built)
 
-**Progress:** frequency counts done (`docs/data/word-frequency.tsv`); bands in Learn, tags and the new-card label done; words 1 to 1,000 drafted (`scripts/vocabulary/`); the Topics screen (decision 176) and the placement check (decision 177) built. Next: native review of the drafts, ranks 1,001 to 2,000, and tagging the phrases.
+**Progress:** frequency counts done (`docs/data/word-frequency.tsv`); bands in Learn, tags and the new-card label done; words 1 to 1,500 drafted (`scripts/vocabulary/`); the Topics screen (decision 176) and the placement check (decision 177) built. Next: native review of the drafts, ranks 1,501 to 2,000, and tagging the phrases.
 
 The plan below was a proposal for review. It covers the 2,000-word list, its tags and order, how Learn draws from it, the placement check, and pre-learned words. Section 7 lists the questions to settle before building.
 
