@@ -5,8 +5,12 @@ export type ItemKind = 'word' | 'phrase';
 export type WordType = 'noun' | 'verb' | 'other';
 /** AI draft, then reviewed, then approved by a native speaker. `dev` was the unchecked test set. */
 export type ContentStatus = 'dev' | 'ai_draft' | 'reviewed' | 'approved';
-/** Who made it: `dev`, `ai:<model or voice>`, `admin:<how>` or `native:<speaker>`. */
-export type ContentSource = 'dev' | `ai:${string}` | `admin:${string}` | `native:${string}`;
+/**
+ * Who made it: `dev`, `ai:<model or voice>`, `admin:<how>`, `native:<speaker>`, or `learner` for a
+ * word on the learner's own list (decision 185).
+ */
+export type ContentSource =
+  'dev' | 'learner' | `ai:${string}` | `admin:${string}` | `native:${string}`;
 
 /** A Kinyarwanda line and its English. */
 export interface Gloss {

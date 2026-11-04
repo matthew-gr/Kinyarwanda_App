@@ -10,8 +10,10 @@ import {
   OPEN_AT_IN_REVIEW,
   type RecallPrompt,
 } from '../engine/quickRecall';
+import { applyReview } from '../engine/review';
 import type { NumberPhrase } from '../engine/types';
 import { db, type KinyaDb } from './db';
+import { listMyWords } from './myWords';
 import { answerSaved } from './signals';
 
 /** Speed Speaking and Number Listening open once numbers 1 to 5 are learned. */
@@ -98,21 +100,34 @@ export async function recallStatus(d: KinyaDb = db): Promise<RecallStatus> {
 export const recallOpen = (s: RecallStatus) =>
   s.inReview >= OPEN_AT_IN_REVIEW && s.wellKnown >= MIN_PROMPTS;
 
-/** Every word and phrase in the course as a prompt: its base form, meaning and audio. */
+/**
+ * Every word and phrase in the course, and on the learner's own list, as a prompt: its base form,
+ * meaning and audio.
+ */
 async function coursePrompts(d: KinyaDb): Promise<RecallPrompt[]> {
   const items = (await d.items.toArray()).filter((i) => !i.retired);
   const bases = await d.item_forms.filter((f) => f.is_base && !f.retired).toArray();
   const baseOf = new Map(bases.map((f) => [f.item_id, f]));
-  return items.map((i) => {
-    const f = baseOf.get(i.id);
-    return {
-      id: i.id,
-      kind: i.kind,
-      text: f?.text ?? i.base,
-      en: i.en,
-      audio_path: f?.audio_path ?? null,
-    };
-  });
+  const mine: RecallPrompt[] = (await listMyWords(d)).map((w) => ({
+    id: w.id,
+    kind: 'word',
+    text: w.rw,
+    en: w.en,
+    audio_path: null,
+  }));
+  return [
+    ...mine,
+    ...items.map((i) => {
+      const f = baseOf.get(i.id);
+      return {
+        id: i.id,
+        kind: i.kind,
+        text: f?.text ?? i.base,
+        en: i.en,
+        audio_path: f?.audio_path ?? null,
+      };
+    }),
+  ];
 }
 
 export interface RecallPool {
@@ -128,4 +143,48 @@ export async function loadRecallPool(d: KinyaDb = db): Promise<RecallPool> {
     (await d.review_items.toArray()).filter((r) => r.stage >= MIN_STAGE).map((r) => r.item_id),
   );
   return { prompts: meanings.filter((m) => known.has(m.id)), meanings };
+}
+
+/**
+ * Counts a Quick Recall answer as a review (decision 186). Only a right answer inside the target
+ * time counts, and only for a word due today: it is recorded as a Review answer, so it moves the
+ * word up a stage and the answer log replays it on every device. A wrong or slow answer changes
+ * nothing. Returns true when it counted.
+ */
+export async function countRecallAsReview(
+  itemId: string,
+  now: number,
+  d: KinyaDb = db,
+): Promise<boolean> {
+  const endOfToday = new Date(now).setHours(24, 0, 0, 0);
+  const iso = new Date(now).toISOString();
+  const counted = await d.transaction('rw', [d.review_items, d.answer_events], async () => {
+    const r = await d.review_items.get(itemId);
+    if (!r || Date.parse(r.due_at) >= endOfToday) return false;
+    const next = applyReview(
+      { stage: r.stage, recheckStep: r.recheck_step, dueAt: Date.parse(r.due_at) },
+      'got',
+      now,
+    );
+    await d.answer_events.add({
+      id: crypto.randomUUID(),
+      item_id: itemId,
+      form_id: r.last_form_id ?? '',
+      module: 'review',
+      card_view_id: crypto.randomUUID(),
+      result: 'got',
+      answered_at: iso,
+      synced: 0,
+    });
+    await d.review_items.put({
+      ...r,
+      stage: next.stage,
+      recheck_step: next.recheckStep,
+      due_at: new Date(next.dueAt).toISOString(),
+      updated_at: iso,
+    });
+    return true;
+  });
+  if (counted) answerSaved.emit();
+  return counted;
 }

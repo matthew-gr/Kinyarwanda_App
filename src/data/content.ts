@@ -33,7 +33,7 @@ export async function applyContent(
 ): Promise<boolean> {
   return d.transaction(
     'rw',
-    [d.items, d.item_forms, d.learn_state, d.review_items, d.review_session],
+    [d.items, d.item_forms, d.my_words, d.learn_state, d.review_items, d.review_session],
     async () => {
       const storedItems = await d.items.bulkGet(items.map((i) => i.id));
       const storedForms = await d.item_forms.bulkGet(forms.map((f) => f.id));
@@ -60,6 +60,8 @@ export async function applyContent(
 async function reconcile(d: KinyaDb): Promise<void> {
   const all = await d.items.toArray();
   const live = new Set(all.map((i) => i.id));
+  // The learner's own words are not in the course, but stay in Review (decision 185).
+  for (const w of await d.my_words.toArray()) if (!w.deleted) live.add(w.id);
   for (const deck of DECKS) {
     const row = await d.learn_state.get(deck);
     if (!row) continue;

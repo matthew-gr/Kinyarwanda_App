@@ -288,7 +288,9 @@ function ReviewCardArea({
             </button>
           </div>
         )}
-        {flipped ? <ReportMistake item={item} form={form} module="review" /> : null}
+        {flipped && item.source !== 'learner' ? (
+          <ReportMistake item={item} form={form} module="review" />
+        ) : null}
       </div>
     </>
   );

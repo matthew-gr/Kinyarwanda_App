@@ -34,10 +34,13 @@ async function meaningsOf(page: Page, text: string): Promise<Set<string>> {
   return new Set(list);
 }
 
-/** Puts the first `count` items into Review at `stage`, as if learned and reviewed. */
-async function putInReview(page: Page, count: number, stage: number) {
+/**
+ * Puts the first `count` items into Review at `stage`, as if learned and reviewed, due `dueIn`
+ * milliseconds from now (tomorrow unless given).
+ */
+async function putInReview(page: Page, count: number, stage: number, dueIn = 864e5) {
   await page.evaluate(
-    ([count, stage]) =>
+    ([count, stage, dueIn]) =>
       new Promise<void>((resolve, reject) => {
         const open = indexedDB.open('kinyarwanda');
         open.onerror = () => reject(open.error);
@@ -45,7 +48,7 @@ async function putInReview(page: Page, count: number, stage: number) {
           const tx = open.result.transaction(['items', 'review_items'], 'readwrite');
           const all = tx.objectStore('items').getAll();
           all.onsuccess = () => {
-            const later = new Date(Date.now() + 864e5).toISOString();
+            const later = new Date(Date.now() + (dueIn ?? 864e5)).toISOString();
             const items = (all.result as { id: string; rank: number }[])
               .sort((a, b) => a.rank - b.rank)
               .slice(0, count);
@@ -65,8 +68,48 @@ async function putInReview(page: Page, count: number, stage: number) {
           tx.onerror = () => reject(tx.error);
         };
       }),
-    [count, stage],
+    [count, stage, dueIn],
   );
+}
+
+/** Review answers logged, and the Review stages now. */
+async function reviewLog(page: Page): Promise<{ events: string[]; stages: number[] }> {
+  return page.evaluate(
+    () =>
+      new Promise<{ events: string[]; stages: number[] }>((resolve, reject) => {
+        const open = indexedDB.open('kinyarwanda');
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+          const tx = open.result.transaction(['answer_events', 'review_items'], 'readonly');
+          const events = tx.objectStore('answer_events').getAll();
+          const rows = tx.objectStore('review_items').getAll();
+          tx.oncomplete = () =>
+            resolve({
+              events: (events.result as { module: string; result: string }[]).map(
+                (e) => `${e.module}:${e.result}`,
+              ),
+              stages: (rows.result as { stage: number }[]).map((r) => r.stage),
+            });
+        };
+      }),
+  );
+}
+
+/** Taps the right meaning, or a wrong one, of the word on screen. */
+async function tap(page: Page, right: boolean) {
+  const options = page.getByRole('group', { name: 'Meanings' }).getByRole('button');
+  await expect(options).toHaveCount(4);
+  const word = (await page.locator('.recall-word').textContent()) ?? '';
+  const meant = await meaningsOf(page, word);
+  for (const o of await options.allTextContents()) {
+    if (meant.has(o) === right) {
+      await page
+        .getByRole('group', { name: 'Meanings' })
+        .getByRole('button', { name: o, exact: true })
+        .click();
+      return;
+    }
+  }
 }
 
 test('Quick Recall opens at 20 in Review, runs a session and leaves Review alone', async ({
@@ -160,4 +203,44 @@ test('Quick Recall opens at 20 in Review, runs a session and leaves Review alone
   );
   expect(touched.events).toBe(0);
   expect(new Set(touched.stages)).toEqual(new Set([3]));
+});
+
+test('Quick Recall counts a right answer in time as the review of a word due today', async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await page.clock.install();
+  await page.goto('/');
+  // 20 well-known words, all due a minute ago.
+  await putInReview(page, 20, 3, -60_000);
+  await page.goto('/drills/recall');
+  await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 1000);
+  await page.getByRole('button', { name: /Read it/ }).click();
+
+  // Right inside the target: logged as a review, and the word moves up a stage.
+  await expect(page.locator('.recall-word')).toBeVisible();
+  await page.clock.fastForward(800);
+  await tap(page, true);
+  await expect(page.locator('.recall-option-right')).toBeVisible();
+  await expect.poll(async () => (await reviewLog(page)).events).toEqual(['review:got']);
+  expect((await reviewLog(page)).stages.filter((s) => s === 4)).toHaveLength(1);
+  await page.clock.fastForward(600);
+  await expect(page.locator('.recall-option-right')).toHaveCount(0);
+
+  // A miss changes nothing.
+  await tap(page, false);
+  await expect(page.locator('.recall-option-wrong')).toBeVisible();
+  await page.clock.fastForward(1600);
+  expect((await reviewLog(page)).events).toEqual(['review:got']);
+
+  // Slow but right: no review either.
+  await expect(page.locator('.recall-word')).toBeVisible();
+  await page.clock.fastForward(3500);
+  await tap(page, true);
+  await expect(page.locator('.recall-option-right')).toBeVisible();
+  expect((await reviewLog(page)).events).toEqual(['review:got']);
+
+  await page.clock.fastForward(121_000);
+  await expect(page.getByRole('heading', { name: 'Time’s up' })).toBeVisible();
+  await expect(page.getByText('1 review due today done along the way')).toBeVisible();
 });

@@ -4,7 +4,8 @@
 import { shuffle, type Rng } from './random';
 import { BAND_SIZES } from './vocabulary';
 
-export type Deck = 'words' | 'phrases';
+/** The course's words and phrases, and the learner's own words (decision 185). */
+export type Deck = 'words' | 'phrases' | 'mine';
 export type AnswerResult = 'got' | 'missed';
 
 export interface LearnConfig {
@@ -36,10 +37,12 @@ const BASE_CONFIG = {
 
 /**
  * Words: the vocabulary plan's bands (Common 100, 200, 500, 800, 1200, 2000), each opening once
- * the one before is learned. Phrases: batches of 25.
+ * the one before is learned. Phrases: batches of 25. The learner's own words: one open tier, in
+ * the order they were added.
  */
 export function learnConfigFor(deck: Deck): LearnConfig {
-  return { ...BASE_CONFIG, tierSizes: deck === 'words' ? BAND_SIZES : [25] };
+  const tierSizes = deck === 'words' ? BAND_SIZES : deck === 'phrases' ? [25] : [10_000];
+  return { ...BASE_CONFIG, tierSizes };
 }
 
 export interface LearnItemRef {

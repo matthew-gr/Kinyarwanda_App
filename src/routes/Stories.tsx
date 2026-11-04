@@ -5,12 +5,14 @@ import { Badge } from '../components/Badge';
 import { cx } from '../components/cx';
 import { Icon } from '../components/Icon';
 import type { StoryRow } from '../data/db';
+import { addMyWord, findMyWord } from '../data/myWords';
 import { STORY_MODELS, storyModelLabel } from '../../supabase/functions/_shared/story';
 import {
   addToLearn,
   findInCourse,
   finishReading,
   getStoryModel,
+  learnStoryWord,
   loadStories,
   loadStory,
   newStory,
@@ -19,11 +21,15 @@ import {
   setStoryModel,
   storiesOpen,
   storiesStatus,
+  storyNewWords,
+  STORY_TAG,
   type StoriesStatus,
+  type StoryNewWord,
   type WordInCourse,
 } from '../data/stories';
 import { dueRepeats, readCounts, tokens, type StoryFeedback } from '../engine/stories';
 import { ReportLink } from './CardExtras';
+import { WordForm } from './MyWords';
 import { waitInWords } from './cardText';
 import { playThen } from './drillTime';
 import { useProgressVersion } from './useProgressVersion';
@@ -213,8 +219,17 @@ export function StoryReader() {
   const [story, setStory] = useState<StoryRow | null | undefined>(undefined);
   const [english, setEnglish] = useState(false);
   const [playing, setPlaying] = useState<number | null>(null);
-  const [word, setWord] = useState<{ word: string; course: WordInCourse | null } | null>(null);
+  const [word, setWord] = useState<{
+    word: string;
+    course: WordInCourse | null;
+    /** On the learner's own list already. */
+    mine: boolean;
+  } | null>(null);
+  /** The word being added to My words, in the panel's form. */
+  const [adding, setAdding] = useState(false);
   const [notice, setNotice] = useState('');
+  /** Bumped when a word is added, so the story's new-word list is read again. */
+  const [added, setAdded] = useState(0);
   const stopRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
@@ -300,12 +315,32 @@ export function StoryReader() {
 
   const show = async (w: string) => {
     setNotice('');
-    setWord({ word: w, course: await findInCourse(w) });
+    setAdding(false);
+    const [course, mine] = await Promise.all([findInCourse(w), findMyWord(w)]);
+    setWord({ word: w, course, mine: mine !== null });
   };
 
   const add = async (itemId: string, w: string) => {
-    const added = await addToLearn(itemId);
-    setNotice(added ? `Added ${w} to Learn, as the next new word.` : `${w} is already in Learn.`);
+    const ok = await addToLearn(itemId);
+    setNotice(ok ? `Added ${w} to Learn, as the next new word.` : `${w} is already in Learn.`);
+    setAdded((n) => n + 1);
+  };
+
+  const meaningOf = (w: string) =>
+    story?.glossary.find((g) => g.word.toLowerCase() === w)?.en ?? null;
+
+  /** Holding a word: a course word goes next in Learn; any other onto My words. */
+  const hold = async (w: string) => {
+    const course = await findInCourse(w);
+    if (course?.learned) return setNotice(`You already know ${w}.`);
+    if (course) return add(course.item.id, w);
+    const en = meaningOf(w);
+    if (!en) return show(w);
+    const out = await learnStoryWord({ word: w, en, itemId: null });
+    setNotice(
+      out === 'mine' ? `Added ${w} to My words, to learn next.` : `${w} is already on your list.`,
+    );
+    setAdded((n) => n + 1);
   };
 
   if (story === undefined) return null;
@@ -374,17 +409,7 @@ export function StoryReader() {
                     key={j}
                     text={t.text}
                     onTap={() => void show(t.word!)}
-                    onHold={() =>
-                      void findInCourse(t.word!).then((c) =>
-                        c && !c.learned
-                          ? add(c.item.id, t.word!)
-                          : setNotice(
-                              c
-                                ? `You already know ${t.word}.`
-                                : `${t.word} isn’t in the course yet.`,
-                            ),
-                      )
-                    }
+                    onHold={() => void hold(t.word!)}
                   />
                 ) : (
                   <span key={j}>{t.text}</span>
@@ -426,12 +451,40 @@ export function StoryReader() {
             </button>
           ) : word.course ? (
             <p className="body-small">You’ve learned this word.</p>
-          ) : null}
-          <button type="button" className="btn btn-missed" onClick={() => setWord(null)}>
-            Close
-          </button>
+          ) : word.mine ? (
+            <p className="body-small">It’s on your list in My words.</p>
+          ) : adding ? (
+            <WordForm
+              initial={{ rw: word.word, en: meaning ?? '', tags: [STORY_TAG] }}
+              submitLabel="Add to my words"
+              onCancel={() => setAdding(false)}
+              onSubmit={async (input) => {
+                const row = await addMyWord(input);
+                setAdding(false);
+                setWord({ ...word, mine: true });
+                setNotice(`Added ${row.rw} to My words, to learn next.`);
+                setAdded((n) => n + 1);
+              }}
+            />
+          ) : (
+            <>
+              <p className="body-small">
+                Not in the course. Add it to your own words; you can change it to its root first.
+              </p>
+              <button type="button" className="btn btn-primary" onClick={() => setAdding(true)}>
+                Add to my words
+              </button>
+            </>
+          )}
+          {adding ? null : (
+            <button type="button" className="btn btn-missed" onClick={() => setWord(null)}>
+              Close
+            </button>
+          )}
         </section>
       ) : null}
+
+      <NewWords key={story.id} story={story} version={added} onNotice={setNotice} />
 
       <Questions story={story} />
       <Finish story={story} onChange={setStory} />
@@ -451,7 +504,109 @@ export function StoryReader() {
   );
 }
 
-/** A word in a story: tap for its meaning, hold to add it to Learn. */
+/**
+ * The story's words the learner hasn't learned (decision 187), each with a way to learn it:
+ * course words go next in Learn, others onto My words. Learn all does every one at once.
+ */
+function NewWords({
+  story,
+  version,
+  onNotice,
+}: {
+  story: StoryRow;
+  version: number;
+  onNotice: (text: string) => void;
+}) {
+  // Read once per story: a reading or feedback change saves a new copy of it, but its words
+  // stay the same, so the list need not reload then.
+  const [glossary] = useState(story.glossary);
+  const [words, setWords] = useState<StoryNewWord[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(0);
+
+  useEffect(() => {
+    let alive = true;
+    void storyNewWords(glossary).then((w) => {
+      if (alive) setWords(w);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [glossary, version, done]);
+
+  if (!words || words.length === 0) return null;
+  const open = words.filter((w) => !w.queued && !w.mine);
+
+  const learn = async (list: StoryNewWord[]) => {
+    setBusy(true);
+    try {
+      let toLearn = 0;
+      let toMine = 0;
+      for (const w of list) {
+        const out = await learnStoryWord(w);
+        if (out === 'learn') toLearn++;
+        else if (out === 'mine') toMine++;
+      }
+      const parts = [toLearn ? `${toLearn} to Learn` : '', toMine ? `${toMine} to My words` : ''];
+      const said = parts.filter(Boolean).join(' and ');
+      onNotice(said ? `Added ${said}.` : 'Those are already added.');
+      setDone((n) => n + 1);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="panel" aria-labelledby="story-new-words">
+      <h3 id="story-new-words" className="h3-bold">
+        New words in this story
+      </h3>
+      <p className="body-small">
+        Course words go next in Learn. Others go to My words with the story’s meaning, tagged “
+        {STORY_TAG}”.
+      </p>
+      <ul className="story-new-words">
+        {words.map((w) => (
+          <li key={w.word} className="story-new-word">
+            <span>
+              <span className="body-bold" lang="rw">
+                {w.word}
+              </span>
+              <span className="body-small"> · {w.en}</span>
+            </span>
+            {w.queued ? (
+              <span className="body-small">In Learn</span>
+            ) : w.mine ? (
+              <span className="body-small">In My words</span>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-missed"
+                disabled={busy}
+                aria-label={`Learn ${w.word}`}
+                onClick={() => void learn([w])}
+              >
+                {w.itemId ? 'Learn' : 'Add'}
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+      {open.length > 1 ? (
+        <button
+          type="button"
+          className="btn btn-primary"
+          disabled={busy}
+          onClick={() => void learn(open)}
+        >
+          Learn all {open.length}
+        </button>
+      ) : null}
+    </section>
+  );
+}
+
+/** A word in a story: tap for its meaning, hold to add it to Learn or My words. */
 function WordButton({
   text,
   onTap,

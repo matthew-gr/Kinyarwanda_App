@@ -5,6 +5,7 @@ import type { Item, ItemForm } from '../engine/types';
 
 export function tagFor(item: Item): string {
   if (item.kind === 'phrase') return 'PHRASE';
+  if (item.source === 'learner') return 'MY WORD';
   return item.word_type === 'verb' ? 'VERB' : 'WORD';
 }
 

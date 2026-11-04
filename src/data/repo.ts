@@ -1,6 +1,6 @@
 // Repositories: the only code that reads and writes IndexedDB.
 
-import { createLearnState, learnConfigFor, type Deck } from '../engine/learn';
+import { createLearnState, learnConfigFor, reconcileOrder, type Deck } from '../engine/learn';
 import { dueCounts, type DueCounts } from '../engine/review';
 import type { Item, ItemForm } from '../engine/types';
 import { BANDS, bandFor, topicLabel } from '../engine/vocabulary';
@@ -14,8 +14,24 @@ import {
   type ReviewSessionRow,
 } from './db';
 import { numbersLearned, recallStatus, type NumbersLearned, type RecallStatus } from './drills';
+import { myWordCards } from './myWords';
 
-export const kindFor = (deck: Deck): Item['kind'] => (deck === 'words' ? 'word' : 'phrase');
+/** The kind of course item a deck teaches. My words are words, but not the course's. */
+export const kindFor = (deck: Deck): Item['kind'] => (deck === 'phrases' ? 'phrase' : 'word');
+
+/** A deck's cards: course items by rank, or the learner's own words in the order added. */
+export async function deckCards(
+  deck: Deck,
+  d: KinyaDb = db,
+): Promise<{ items: Item[]; forms: ItemForm[] }> {
+  if (deck === 'mine') return myWordCards(d);
+  const items = await d.items.where('kind').equals(kindFor(deck)).sortBy('rank');
+  const forms = await d.item_forms
+    .where('item_id')
+    .anyOf(items.map((i) => i.id))
+    .toArray();
+  return { items, forms };
+}
 
 export async function getProfile(d: KinyaDb = db): Promise<Profile> {
   return d.transaction('rw', d.profile, async () => {
@@ -55,13 +71,15 @@ export interface DeckData {
 }
 
 export async function loadDeck(deck: Deck, d: KinyaDb = db): Promise<DeckData> {
-  const items = await d.items.where('kind').equals(kindFor(deck)).sortBy('rank');
-  const forms = await d.item_forms
-    .where('item_id')
-    .anyOf(items.map((i) => i.id))
-    .toArray();
+  const { items, forms } = await deckCards(deck, d);
+  const saved = await d.learn_state.get(deck);
+  // My words change whenever the learner adds or removes one, so the deck follows the list.
+  if (saved && deck === 'mine') {
+    const state = reconcileOrder(saved.state, items);
+    if (state !== saved.state) return { items, forms, row: { ...saved, state } };
+  }
   const row =
-    (await d.learn_state.get(deck)) ??
+    saved ??
     ({
       deck,
       state: createLearnState(deck, items, learnConfigFor(deck)),
@@ -96,11 +114,8 @@ export async function loadDeckLearned(
   now: number,
   d: KinyaDb = db,
 ): Promise<{ today: number; total: number }> {
-  const [ids, reviews] = await Promise.all([
-    d.items.where('kind').equals(kindFor(deck)).primaryKeys(),
-    d.review_items.toArray(),
-  ]);
-  const inDeck = new Set(ids);
+  const [{ items }, reviews] = await Promise.all([deckCards(deck, d), d.review_items.toArray()]);
+  const inDeck = new Set(items.map((i) => i.id));
   const startOfDay = new Date(now).setHours(0, 0, 0, 0);
   const learned = reviews.filter((r) => inDeck.has(r.item_id));
   return {
@@ -124,19 +139,22 @@ export interface HomeStats {
   review: DueCounts;
   /** The topic chosen on the Topics screen, by its label, if any. */
   topic: string | null;
+  /** The learner's own words (decision 185): on the list, and in Review. */
+  myWords: { learned: number; total: number };
   /** The learner's name and picture from Profile, if set. */
   name: string | null;
   avatar: string | null;
 }
 
 export async function loadHomeStats(now: number, d: KinyaDb = db): Promise<HomeStats> {
-  const [items, reviews, profile, numbers, recall, wordState] = await Promise.all([
+  const [items, reviews, profile, numbers, recall, wordState, mine] = await Promise.all([
     d.items.toArray(),
     d.review_items.toArray(),
     getProfile(d),
     numbersLearned(d),
     recallStatus(d),
     d.learn_state.get('words'),
+    myWordCards(d),
   ]);
   const kindById = new Map(items.map((i) => [i.id, i.kind]));
   const startOfDay = new Date(now);
@@ -167,6 +185,10 @@ export async function loadHomeStats(now: number, d: KinyaDb = db): Promise<HomeS
     numbers,
     recall,
     topic: wordState?.state.topic ? topicLabel(wordState.state.topic) : null,
+    myWords: {
+      learned: mine.items.filter((i) => learnedIds.has(i.id)).length,
+      total: mine.items.length,
+    },
     name: profile.display_name ?? null,
     avatar: profile.avatar ?? null,
     review: dueCounts(
@@ -187,15 +209,20 @@ export interface ReviewData {
 export async function loadReview(d: KinyaDb = db): Promise<ReviewData> {
   const reviews = await d.review_items.toArray();
   const ids = reviews.map((r) => r.item_id);
-  const [items, forms, session] = await Promise.all([
+  const [items, forms, session, mine] = await Promise.all([
     d.items.bulkGet(ids),
     d.item_forms.where('item_id').anyOf(ids).toArray(),
     d.review_session.get('current'),
+    myWordCards(d),
   ]);
+  const inReview = new Set(ids);
   return {
     reviews,
-    items: items.filter((i): i is Item => i !== undefined),
-    forms,
+    items: [
+      ...items.filter((i): i is Item => i !== undefined),
+      ...mine.items.filter((i) => inReview.has(i.id)),
+    ],
+    forms: [...forms, ...mine.forms.filter((f) => inReview.has(f.item_id))],
     session: session ?? { id: 'current', card: null, last_item_id: null },
   };
 }

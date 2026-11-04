@@ -1,6 +1,6 @@
 // Quick Recall: the learner sees (or hears) a word they know well and picks its meaning from 4
-// as fast as they can. It measures reaction time, not knowledge, so results never touch the
-// Review schedule. A target time shrinks as the learner speeds up; a right answer slower than
+// as fast as they can. It measures reaction time. A right answer inside the target for a word due
+// today also counts as that word's review (decision 186); a wrong or slow one changes nothing. A target time shrinks as the learner speeds up; a right answer slower than
 // the target still counts as right, but not toward the speed score.
 
 import { median, SESSION_MS } from './drill';

@@ -13,9 +13,11 @@ import {
   type AnswerEvent,
   type DrillScoreRow,
   type KinyaDb,
+  type MyWordRow,
   type SyncStateRow,
 } from './db';
 import { forgetAccess, INVITE_ONLY } from './invites';
+import { removeFromReview } from './myWords';
 import { uploadNextDue } from './reminders';
 import { getProfile } from './repo';
 import { answerSaved, progressChanged } from './signals';
@@ -73,7 +75,14 @@ async function getSyncState(d: KinyaDb): Promise<SyncStateRow> {
   );
 }
 
-const countPending = (d: KinyaDb) => d.answer_events.where('synced').equals(0).count();
+/** Answers, and changes to My words, that the server does not have yet. */
+async function countPending(d: KinyaDb): Promise<number> {
+  const [answers, words] = await Promise.all([
+    d.answer_events.where('synced').equals(0).count(),
+    d.my_words.where('dirty').equals(1).count(),
+  ]);
+  return answers + words;
+}
 
 /** Removes this device's progress: used when another account signs in, and on sign out. */
 async function clearProgress(d: KinyaDb): Promise<void> {
@@ -88,9 +97,11 @@ async function clearProgress(d: KinyaDb): Promise<void> {
       d.verb_state,
       d.drill_scores,
       d.stories,
+      d.my_words,
     ],
     async () => {
       await Promise.all([
+        d.my_words.clear(),
         d.stories.clear(),
         d.drill_scores.clear(),
         d.verb_state.clear(),
@@ -296,6 +307,92 @@ async function pullStories(userId: string, d: KinyaDb): Promise<number> {
   return added;
 }
 
+const MY_WORD_COLUMNS = [
+  'id',
+  'form_id',
+  'rw',
+  'en',
+  'tags',
+  'created_at',
+  'updated_at',
+  'deleted',
+];
+
+/** Uploads words added, changed or removed on this device's list (decision 185). */
+async function pushMyWords(d: KinyaDb): Promise<void> {
+  const client = supabase!;
+  const dirty = await d.my_words.where('dirty').equals(1).toArray();
+  for (let i = 0; i < dirty.length; i += PUSH_BATCH) {
+    const batch = dirty.slice(i, i + PUSH_BATCH);
+    const { error } = await client.from('my_words').upsert(
+      batch.map((w) =>
+        Object.fromEntries(MY_WORD_COLUMNS.map((k) => [k, w[k as keyof MyWordRow]])),
+      ),
+      {
+        onConflict: 'id',
+      },
+    );
+    if (error) throw error;
+    for (const w of batch) {
+      // A change made while this one uploaded stays dirty for the next sync.
+      await d.my_words
+        .where('id')
+        .equals(w.id)
+        .and((now) => now.updated_at === w.updated_at && now.dirty === 1)
+        .modify({ dirty: 0 });
+    }
+  }
+}
+
+/** Downloads words changed on other devices. Changes here not yet sent are kept. */
+async function pullMyWords(userId: string, d: KinyaDb): Promise<number> {
+  const client = supabase!;
+  let changed = 0;
+  for (;;) {
+    const state = await getSyncState(d);
+    let q = client
+      .from('my_words')
+      .select(MY_WORD_COLUMNS.join(', '))
+      .eq('user_id', userId)
+      .order('updated_at')
+      .limit(PULL_BATCH);
+    if (state.my_words_cursor) q = q.gt('updated_at', state.my_words_cursor);
+    const { data, error } = await q;
+    if (error) throw error;
+    const rows = (data ?? []) as unknown as Omit<MyWordRow, 'dirty'>[];
+    if (rows.length === 0) break;
+    await d.transaction(
+      'rw',
+      [d.my_words, d.sync_state, d.review_items, d.review_session],
+      async () => {
+        const local = await d.my_words.bulkGet(rows.map((r) => r.id));
+        const fresh = rows
+          .filter(
+            (r, i) =>
+              local[i]?.dirty !== 1 &&
+              local[i]?.updated_at !== new Date(r.updated_at).toISOString(),
+          )
+          .map((r) => ({
+            ...r,
+            tags: r.tags ?? [],
+            created_at: new Date(r.created_at).toISOString(),
+            updated_at: new Date(r.updated_at).toISOString(),
+            dirty: 0 as const,
+          }));
+        await d.my_words.bulkPut(fresh);
+        await removeFromReview(
+          fresh.filter((w) => w.deleted).map((w) => w.id),
+          d,
+        );
+        changed += fresh.length;
+        await d.sync_state.put({ ...state, my_words_cursor: rows[rows.length - 1]!.updated_at });
+      },
+    );
+    if (rows.length < PULL_BATCH) break;
+  }
+  return changed;
+}
+
 /** True for the error a server without the stories table gives (before Prompt 10's update). */
 const noStoriesTable = (e: unknown) =>
   typeof e === 'object' &&
@@ -458,7 +555,17 @@ async function runOnce(d: KinyaDb): Promise<void> {
     } catch (e) {
       if (!noStoriesTable(e)) throw e;
     }
-    if ((scoresAdded > 0 || storiesAdded > 0) && added === 0) progressChanged.emit();
+    let wordsChanged = 0;
+    try {
+      await pushMyWords(d);
+      wordsChanged = await pullMyWords(userId, d);
+    } catch (e) {
+      // The list waits on this device until the server has its table (decision 185).
+      if (!noStoriesTable(e)) throw e;
+    }
+    if (wordsChanged > 0 && added === 0) await applyProgress(Date.now(), d);
+    if ((scoresAdded > 0 || storiesAdded > 0 || wordsChanged > 0) && added === 0)
+      progressChanged.emit();
     if (added > 0) {
       await applyProgress(Date.now(), d);
       progressChanged.emit();

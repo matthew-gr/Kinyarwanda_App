@@ -4,10 +4,16 @@
 
 import { bringForward, type Deck } from '../engine/learn';
 import { createAppRng } from '../engine/random';
-import { DEFAULT_STORY_MODEL, STORY_MODELS } from '../../supabase/functions/_shared/story';
+import {
+  DEFAULT_STORY_MODEL,
+  estimateCoverage,
+  knownShapes,
+  STORY_MODELS,
+} from '../../supabase/functions/_shared/story';
 import { afterRead, buildRequest, STORIES_OPEN_AT, type StoryFeedback } from '../engine/stories';
 import type { Item, ItemForm } from '../engine/types';
 import { db, type KinyaDb, type StoryRow } from './db';
+import { addMyWord, EN_MAX, findMyWord, listMyWords } from './myWords';
 import { getProfile, loadDeck, saveLearnRow } from './repo';
 import { progressChanged } from './signals';
 import { supabase } from './supabase';
@@ -41,9 +47,15 @@ async function knownWords(d: KinyaDb): Promise<string[]> {
   const ids = await d.review_items.toCollection().primaryKeys();
   const profile = await getProfile(d);
   const forms = await d.item_forms.where('item_id').anyOf(ids).toArray();
-  return forms
-    .filter((f) => !f.retired && (f.verb_level === null || f.verb_level <= profile.verb_level))
-    .map((f) => f.text);
+  const inReview = new Set(ids);
+  // Words from the learner's own list count once learned, so stories bring them back.
+  const mine = (await listMyWords(d)).filter((w) => inReview.has(w.id)).map((w) => w.rw);
+  return [
+    ...forms
+      .filter((f) => !f.retired && (f.verb_level === null || f.verb_level <= profile.verb_level))
+      .map((f) => f.text),
+    ...mine,
+  ];
 }
 
 /** Renamed when Sonnet became the default, so a choice saved before starts over on Sonnet. */
@@ -195,4 +207,85 @@ export async function addToLearn(itemId: string, d: KinyaDb = db): Promise<boole
   if (state === row.state) return false;
   await saveLearnRow({ ...row, state, updated_at: new Date().toISOString() }, d);
   return true;
+}
+
+/** The tag a word added from a story gets, so the learner can find those words together. */
+export const STORY_TAG = 'story';
+
+export interface StoryNewWord {
+  /** As written in the story, lowercase. */
+  word: string;
+  /** Its meaning in the story, from the glossary. */
+  en: string;
+  /** The course item it is a form of, if any. */
+  itemId: string | null;
+  /** Already coming up in Learn: introduced, or added from a story. */
+  queued: boolean;
+  /** Already on the learner's own list. */
+  mine: boolean;
+}
+
+/**
+ * The story's words the learner hasn't learned (decision 187), in the order the glossary gives
+ * them: course words not yet in Review, and words outside the course that look like nothing the
+ * learner knows. A word that is only a form of a known word (barakina, for gukina) is left out.
+ */
+export async function storyNewWords(
+  glossary: StoryRow['glossary'],
+  d: KinyaDb = db,
+): Promise<StoryNewWord[]> {
+  const [forms, reviewIds, known, words, phrases, mine] = await Promise.all([
+    d.item_forms.filter((f) => !f.retired).toArray(),
+    d.review_items.toCollection().primaryKeys(),
+    knownWords(d),
+    d.learn_state.get('words'),
+    d.learn_state.get('phrases'),
+    listMyWords(d),
+  ]);
+  const learned = new Set(reviewIds);
+  const itemOf = new Map<string, string>();
+  for (const f of forms) {
+    const key = f.text.toLowerCase();
+    if (!itemOf.has(key)) itemOf.set(key, f.item_id);
+  }
+  const queued = new Set<string>();
+  for (const row of [words, phrases]) {
+    if (!row) continue;
+    for (const id of row.state.order.slice(0, row.state.nextIndex)) queued.add(id);
+    for (const id of row.state.ahead ?? []) queued.add(id);
+  }
+  const myWords = new Set(mine.map((w) => w.rw.toLowerCase()));
+  const shapes = knownShapes(known);
+  const out: StoryNewWord[] = [];
+  const seen = new Set<string>();
+  for (const g of glossary) {
+    const word = g.word.toLowerCase().trim();
+    if (!word || seen.has(word)) continue;
+    seen.add(word);
+    const itemId = itemOf.get(word) ?? null;
+    if (itemId && learned.has(itemId)) continue;
+    if (!itemId && estimateCoverage([word], shapes) === 100) continue;
+    out.push({
+      word,
+      en: g.en,
+      itemId,
+      queued: itemId ? queued.has(itemId) : false,
+      mine: myWords.has(word),
+    });
+  }
+  return out;
+}
+
+/**
+ * Learns a story word: a course word goes next in Learn; any other goes on the learner's own
+ * list with the story's meaning, tagged "story". Returns what happened, for the notice.
+ */
+export async function learnStoryWord(
+  w: { word: string; en: string; itemId: string | null },
+  d: KinyaDb = db,
+): Promise<'learn' | 'mine' | 'already'> {
+  if (w.itemId) return (await addToLearn(w.itemId, d)) ? 'learn' : 'already';
+  if (await findMyWord(w.word, d)) return 'already';
+  await addMyWord({ rw: w.word, en: w.en.slice(0, EN_MAX), tags: [STORY_TAG] }, d);
+  return 'mine';
 }

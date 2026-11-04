@@ -17,6 +17,7 @@ import { VoiceTest } from './routes/admin/VoiceTest';
 import { History } from './routes/History';
 import { Home } from './routes/Home';
 import { Learn } from './routes/Learn';
+import { MyWords } from './routes/MyWords';
 import { NumberListening } from './routes/NumberListening';
 import { Profile } from './routes/Profile';
 import { QuickRecall } from './routes/QuickRecall';
@@ -85,6 +86,7 @@ export function App() {
             <Route path="review" element={<Review />} />
             <Route path="verbs" element={<VerbBuilder />} />
             <Route path="topics" element={<Topics />} />
+            <Route path="words" element={<MyWords />} />
             <Route path="placement" element={<Placement />} />
             <Route path="drills/speaking" element={<SpeedSpeaking />} />
             <Route path="drills/numbers" element={<NumberListening />} />

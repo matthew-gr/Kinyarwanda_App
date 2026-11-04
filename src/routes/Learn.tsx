@@ -5,6 +5,7 @@ import { Flashcard, type DeckTone } from '../components/Flashcard';
 import { FlashcardDeck } from '../components/FlashcardDeck';
 import { SessionHeader } from '../components/SessionHeader';
 import { LearnSession, type CardView } from '../data/learnSession';
+import { isMyWord } from '../data/myWords';
 import { loadDeckLearned } from '../data/repo';
 import type { AnswerResult, Deck } from '../engine/learn';
 import type { Item, ItemForm } from '../engine/types';
@@ -20,20 +21,22 @@ import {
 } from './cardText';
 import { useProgressVersion } from './useProgressVersion';
 
-const DECK_NAMES: Record<Deck, string> = { words: 'Words', phrases: 'Phrases' };
+const DECK_NAMES: Record<Deck, string> = { words: 'Words', phrases: 'Phrases', mine: 'My words' };
+const DECKS: readonly Deck[] = ['words', 'phrases', 'mine'];
 const GHOSTS: DeckTone[] = ['orange', 'blue', 'yellow'];
 const GRADUATION_NOTE = 'Learned. Back for review in 5 minutes.';
 
 export function Learn() {
   const { deck } = useParams();
-  if (deck !== 'words' && deck !== 'phrases') return <Navigate to="/" replace />;
-  return <LearnDeck key={deck} deck={deck} />;
+  if (!DECKS.includes(deck as Deck)) return <Navigate to="/" replace />;
+  const d = deck as Deck;
+  return <LearnDeck key={d} deck={d} />;
 }
 
 function DeckSwitch({ deck }: { deck: Deck }) {
   return (
     <nav className="deck-switch" aria-label="Deck">
-      {(['words', 'phrases'] as const).map((d) => (
+      {DECKS.map((d) => (
         <Link
           key={d}
           to={`/learn/${d}`}
@@ -177,7 +180,21 @@ function LearnDeck({ deck }: { deck: Deck }) {
           : ' '}
       </p>
 
-      {view === null ? null : view.step.type === 'done' ? (
+      {view === null ? null : view.step.type === 'done' && deck === 'mine' ? (
+        <section className="learn-done" aria-labelledby="done-title">
+          <h2 id="done-title" className="h2-bold">
+            {learned?.total ? 'All done for now' : 'Your own words'}
+          </h2>
+          <p className="body">
+            {learned?.total
+              ? 'You have learned every word on your list. Each one comes back in Review.'
+              : 'Add words you meet, in a story or anywhere else, and learn them here.'}
+          </p>
+          <button type="button" className="btn btn-primary" onClick={() => navigate('/words')}>
+            {learned?.total ? 'Add more words' : 'Add a word'}
+          </button>
+        </section>
+      ) : view.step.type === 'done' ? (
         <section className="learn-done" aria-labelledby="done-title">
           <h2 id="done-title" className="h2-bold">
             All done for now
@@ -288,9 +305,11 @@ function CardArea({
         level={`${view.inPlay} of ${view.maxPool} in play`}
         meta={
           isIntro
-            ? item.kind === 'word'
-              ? `New card · ${placeLabel(item)}`
-              : 'New card'
+            ? isMyWord(item)
+              ? 'New card · My words'
+              : item.kind === 'word'
+                ? `New card · ${placeLabel(item)}`
+                : 'New card'
             : `Streak ${view.streak} of ${view.graduateStreak}`
         }
         progress={isIntro ? 0 : view.streak / view.graduateStreak}
@@ -366,7 +385,9 @@ function CardArea({
             </button>
           </div>
         )}
-        {isIntro || flipped ? <ReportMistake item={item} form={form} module="learn" /> : null}
+        {(isIntro || flipped) && !isMyWord(item) ? (
+          <ReportMistake item={item} form={form} module="learn" />
+        ) : null}
       </div>
     </>
   );

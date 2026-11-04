@@ -4,6 +4,7 @@ import { AppBar } from '../components/AppBar';
 import { cx } from '../components/cx';
 import { Icon } from '../components/Icon';
 import {
+  countRecallAsReview,
   loadRecallPool,
   loadScores,
   recallOpen,
@@ -56,11 +57,13 @@ type Phase =
       target: TargetState;
       answers: RecallAnswer[];
       recent: string[];
+      /** Due Review words answered right in time, which counted as reviews. */
+      reviewed: number;
       /** The option tapped, once tapped. */
       picked?: string;
       last?: RecallAnswer;
     }
-  | { type: 'done'; level: number; score: DrillScore; before: DrillScore | null };
+  | { type: 'done'; level: number; score: DrillScore; before: DrillScore | null; reviewed: number };
 
 export function QuickRecall() {
   const navigate = useNavigate();
@@ -102,6 +105,7 @@ export function QuickRecall() {
         target: createTarget(),
         answers: [],
         recent: [],
+        reviewed: 0,
       });
     },
     [ask],
@@ -118,6 +122,14 @@ export function QuickRecall() {
         target: out.state,
         answers: [...phase.answers, out.answer],
       });
+      // Right inside the target counts as a review for a word due today; a miss does nothing.
+      if (out.answer.on_time) {
+        const id = phase.question.prompt.id;
+        void countRecallAsReview(id, Date.now()).then((counted) => {
+          if (counted)
+            setPhase((p) => (p.type === 'question' ? { ...p, reviewed: p.reviewed + 1 } : p));
+        });
+      }
     },
     [phase],
   );
@@ -138,7 +150,7 @@ export function QuickRecall() {
       };
       const before = await saveScore(score);
       setScores((s) => [...s, score]);
-      setPhase({ type: 'done', level: phase.level, score, before });
+      setPhase({ type: 'done', level: phase.level, score, before, reviewed: phase.reviewed });
       return;
     }
     const recent = [...phase.recent, phase.question.prompt.id].slice(-10);
@@ -151,6 +163,7 @@ export function QuickRecall() {
       target: phase.target,
       answers: phase.answers,
       recent,
+      reviewed: phase.reviewed,
     });
   }, [phase, pool, ask]);
 
@@ -199,7 +212,8 @@ function LevelList({ scores, onPick }: { scores: DrillScore[]; onPick: (level: n
       <h2 className="h2-bold">Pick the meaning, fast</h2>
       <p className="body">
         Words you know well, with 4 meanings to choose from. Answer inside the target time and it
-        gets shorter. About 2 minutes per session, and Review isn’t affected.
+        gets shorter. About 2 minutes per session. A word due for review today that you get right in
+        time counts as reviewed; a miss here doesn’t count against it.
       </p>
       <ol className="drill-levels">
         {RECALL_LEVELS.map((l) => {
@@ -348,6 +362,12 @@ function Results({
       <p className="body">
         {score.correct} of {score.answers} right ({Math.round(accuracy(score) * 100)}%)
       </p>
+      {phase.reviewed > 0 ? (
+        <p className="body">
+          {phase.reviewed} {phase.reviewed === 1 ? 'review' : 'reviews'} due today done along the
+          way
+        </p>
+      ) : null}
       {score.median_ms !== null ? (
         <p className="body">Median time: {secondsText(score.median_ms)}</p>
       ) : null}

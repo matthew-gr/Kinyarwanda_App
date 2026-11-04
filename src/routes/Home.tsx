@@ -239,6 +239,19 @@ export function Home() {
           onClick={() => navigate('/topics')}
         />
         <PracticeRow
+          title="My words"
+          tone="yellow"
+          subtitle={
+            !stats
+              ? ' '
+              : stats.myWords.total === 0
+                ? 'Add your own words to learn'
+                : `${stats.myWords.learned} of ${stats.myWords.total} learned`
+          }
+          progress={stats && stats.myWords.total ? stats.myWords.learned / stats.myWords.total : 0}
+          onClick={() => navigate('/words')}
+        />
+        <PracticeRow
           title="Phrases"
           tone="blue"
           subtitle={stats ? `${stats.phrases.learned} of ${stats.phrases.total} learned` : ' '}

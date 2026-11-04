@@ -67,6 +67,8 @@ export interface SyncStateRow {
   drill_cursor?: number;
   /** The newest stories `updated_at` downloaded. Missing before Prompt 10. */
   story_cursor?: string | null;
+  /** The newest my_words `updated_at` downloaded. Missing before decision 185. */
+  my_words_cursor?: string | null;
   last_synced_at: string | null;
 }
 
@@ -140,6 +142,25 @@ export interface StoryRow {
   dirty: 0 | 1;
 }
 
+/**
+ * A word on the learner's own list (decision 185): the Kinyarwanda and its English, with the
+ * learner's tags. It is learned in the My words deck and then reviewed like a course word. A
+ * removed word stays as a row, marked deleted, so every device learns that it is gone.
+ */
+export interface MyWordRow {
+  id: string;
+  /** The ID its one card form has, so answers can name a form like course answers do. */
+  form_id: string;
+  rw: string;
+  en: string;
+  tags: string[];
+  created_at: string;
+  updated_at: string;
+  deleted: boolean;
+  /** 1 after a change the server does not have yet. */
+  dirty: 0 | 1;
+}
+
 export interface Profile {
   id: string;
   verb_level: number;
@@ -167,6 +188,7 @@ export class KinyaDb extends Dexie {
   number_phrases!: EntityTable<NumberPhrase, 'id'>;
   drill_scores!: EntityTable<DrillScoreRow, 'id'>;
   stories!: EntityTable<StoryRow, 'id'>;
+  my_words!: EntityTable<MyWordRow, 'id'>;
 
   constructor(name = 'kinyarwanda') {
     super(name);
@@ -214,6 +236,8 @@ export class KinyaDb extends Dexie {
     this.version(6).stores({ number_phrases: 'id, level', drill_scores: 'id, drill, synced' });
     // Prompt 10: the learner's stories.
     this.version(7).stores({ stories: 'id, created_at, dirty' });
+    // Decision 185: the learner's own words.
+    this.version(8).stores({ my_words: 'id, dirty' });
   }
 }
 

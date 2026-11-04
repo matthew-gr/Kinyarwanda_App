@@ -134,7 +134,7 @@ body {
 
 .deck-switch {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 4px;
   padding: 4px;
   background: var(--surface);
@@ -1507,4 +1507,83 @@ textarea.field-input {
 .identity-upload:focus-within {
   outline: 2px solid var(--ink);
   outline-offset: 2px;
+}
+
+/* My words: the learner's own list (decision 185). */
+.mywords-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.mywords-tag {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  cursor: pointer;
+}
+.mywords-tag-on {
+  border-color: var(--green-card);
+  background: var(--green-card);
+  color: var(--green-on-card);
+}
+.mywords-tag:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+.mywords-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.mywords-item {
+  gap: 8px;
+  padding: 16px;
+}
+.mywords-rw {
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}
+.mywords-item-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.mywords-chip {
+  padding: 2px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+.mywords-status {
+  color: var(--ink);
+  opacity: 0.8;
+}
+
+/* Stories: the words a story has that the learner hasn't learned (decision 187). */
+.story-new-words {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.story-new-word {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+.story-new-word .btn {
+  width: auto;
+  min-height: 44px;
+  padding: 0 14px;
+  font-size: 15px;
 }
