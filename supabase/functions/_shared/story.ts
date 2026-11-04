@@ -27,8 +27,9 @@ export interface StoryRequest {
  * the app can't run up the bill on another model. Before launch this becomes a server setting.
  */
 export const STORY_MODELS = [
-  { id: 'claude-opus-5-5', label: 'Opus 5.5' },
+  // Sonnet first: it is the default (Matt, 5 November 2026: it does a good job).
   { id: 'claude-sonnet-5-5', label: 'Sonnet 5.5' },
+  { id: 'claude-opus-5-5', label: 'Opus 5.5' },
 ] as const;
 
 export const DEFAULT_STORY_MODEL = STORY_MODELS[0].id;
@@ -68,7 +69,14 @@ export function verbFormsFor(level: number): string {
     forms.push('the future with -za- (azakina)', 'the narrative "and then" with -ka- (akakina)');
   if (level >= 3)
     forms.push('object markers before the verb for me, you, him or her, us, you all and them');
-  if (level >= 4) forms.push('the past tense');
+  if (level >= 4)
+    forms.push(
+      'the past tense: earlier today with -a- (yakinnye) and before today with -a-ra- (yarakinnye)',
+    );
+  if (level >= 5)
+    forms.push(
+      'verb extensions: -ana for together or each other (barakinana), -ira or -era for someone (arakorera), -isha or -esha for making someone do it or using it (arakoresha)',
+    );
   return forms.join('; ');
 }
 

@@ -118,11 +118,11 @@ describe('Verb Builder levels', () => {
     expect(p.state.comeBack).toEqual([]);
   });
 
-  it('unlocks levels 2 and 3 in turn, then reports levels 1 to 3 finished once', () => {
+  it('unlocks each level in turn, then reports every level built finished once', () => {
     const { p, unlocked, finished } = play_(createVerbProgress(1), 600);
-    expect(unlocked).toEqual([2, 3]);
+    expect(unlocked).toEqual([2, 3, 4, 5]);
     expect(p.state.level).toBe(LEVELS_BUILT);
-    expect(p.intro_seen).toBe(3);
+    expect(p.intro_seen).toBe(LEVELS_BUILT);
     expect(finished).toBe(1);
     expect(p.finished_seen).toBe(true);
   });

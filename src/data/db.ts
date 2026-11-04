@@ -72,7 +72,8 @@ export interface SyncStateRow {
 
 /** How far the course download has got: "main" for words and phrases, "numbers" for drills. */
 export interface ContentStateRow {
-  id: 'main' | 'numbers';
+  /** bundle holds which bundled snapshot this device has loaded, in its cursor. */
+  id: 'main' | 'numbers' | 'bundle';
   /** The newest server `updated_at` already on this device. */
   cursor: string | null;
   last_checked_at: string | null;

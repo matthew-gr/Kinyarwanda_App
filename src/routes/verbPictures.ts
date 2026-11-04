@@ -1,7 +1,7 @@
 // Stand-in pictures for the Verb Builder until the drawn ones exist (the spec's flat
 // illustrations). Each is decorative: the label beside it always says what it means.
 
-import type { Slot, Verb, WhenKey, WhoKey, WhomKey } from '../engine/verbs';
+import type { FamilyKey, Slot, Verb, WhenKey, WhoKey, WhomKey } from '../engine/verbs';
 
 const WHO: Record<WhoKey, string> = {
   '1sg': '🙋',
@@ -18,6 +18,15 @@ const WHEN: Record<WhenKey, string> = {
   now: '⏱️',
   future: '📅',
   narrative: '➡️',
+  recent: '🕘',
+  past: '⏮️',
+};
+
+const FAMILY: Record<FamilyKey | 'none', string> = {
+  none: '∅',
+  ana: '🔁',
+  ira: '🎁',
+  isha: '🛠️',
 };
 
 const WHOM: Record<WhomKey | 'none', string> = {
@@ -48,6 +57,7 @@ const VERB: Record<string, string> = {
   gufasha: '🤝',
   kureba: '📺',
   guhamagara: '📞',
+  gukora: '🔨',
 };
 
 /** The picture for a tile's value in a slot. */
@@ -63,6 +73,8 @@ export function pictureFor(slot: Slot, value: string, verbs: readonly Verb[]): s
       const verb = verbs.find((v) => v.id === value);
       return verb ? (VERB[verb.infinitive] ?? '') : '';
     }
+    case 'family':
+      return FAMILY[value as FamilyKey | 'none'] ?? '';
     case 'ending':
       return '';
   }

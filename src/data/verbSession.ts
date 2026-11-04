@@ -44,7 +44,7 @@ export interface VerbAnswer {
   result: RoundResult;
   /** The level just unlocked, if any. */
   unlocked: number | null;
-  /** True the first time levels 1 to 3 are all done. */
+  /** True the first time every level built is done. */
   finished: boolean;
 }
 

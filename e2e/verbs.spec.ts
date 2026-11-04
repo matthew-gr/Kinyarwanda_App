@@ -16,7 +16,8 @@ test('Verb Builder: opening screen, guided rounds, a free round, and a reload', 
 }) => {
   await page.goto('/');
   const card = page.getByRole('listitem').filter({ hasText: 'Verb Builder' });
-  await expect(card).toContainText('Level 1');
+  // A first visit stores the whole course before Home can count it.
+  await expect(card).toContainText('Level 1', { timeout: 20_000 });
   await card.getByRole('button').click();
   await expect(page).toHaveURL(/\/verbs$/);
 
@@ -81,3 +82,78 @@ test('Verb Builder: opening screen, guided rounds, a free round, and a reload', 
   }
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/verb-free-round-2.png` });
 });
+
+/** Puts this device's profile at a Verb Builder level, as finishing the levels before would. */
+async function setVerbLevel(page: Page, level: number) {
+  await page.goto('/');
+  await expect(page.getByRole('listitem').filter({ hasText: 'Verb Builder' })).toContainText(
+    'Level 1',
+    { timeout: 20_000 },
+  );
+  await page.evaluate(
+    (lvl) =>
+      new Promise<void>((resolve, reject) => {
+        const open = indexedDB.open('kinyarwanda');
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+          const tx = open.result.transaction('profile', 'readwrite');
+          const store = tx.objectStore('profile');
+          const all = store.getAll();
+          all.onsuccess = () => {
+            for (const p of all.result) store.put({ ...p, verb_level: lvl });
+          };
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+        };
+      }),
+    level,
+  );
+}
+
+async function throughIntro(page: Page) {
+  const add = page.getByRole('button', { name: 'Add the next piece' });
+  for (;;) {
+    if (await page.getByRole('button', { name: 'Start practice' }).isVisible()) break;
+    if (await add.isVisible()) await add.click();
+    else await page.getByRole('button', { name: 'Next example' }).click();
+  }
+  await page.getByRole('button', { name: 'Start practice' }).click();
+}
+
+for (const [level, title, example, slot] of [
+  [4, "You've unlocked the past", 'nakinnye', 'Ending'],
+  [5, "You've unlocked verb families", 'turakinana', 'Family'],
+] as const) {
+  test(`Verb Builder level ${level}: its opening screen and a guided round with ${slot}`, async ({
+    page,
+  }) => {
+    await setVerbLevel(page, level);
+    await page.goto('/verbs');
+    await expect(page.getByRole('heading', { name: title })).toBeVisible();
+    await expect(page.locator('.verb-level-tag')).toHaveText(`Level ${level} of 5`);
+    const add = page.getByRole('button', { name: 'Add the next piece' });
+    while (await add.isVisible()) await add.click();
+    await expect(page.locator('.verb-example-word')).toContainText(example);
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/verb-intro-${level}.png` });
+    await throughIntro(page);
+
+    // Guided rounds at this level: until one asks for the new slot, pick the outlined tiles.
+    let asked = false;
+    for (let i = 0; i < 3; i++) {
+      // Wait for the round itself, not the last answer, before reading its tiles. Right after
+      // the reload the app may still be busy with its first course download, so allow longer.
+      await expect(page.getByText('Guided practice: the outlined tiles are right.')).toBeVisible({
+        timeout: 20_000,
+      });
+      await expect(page.getByRole('button', { name: 'Check' })).toBeDisabled();
+      const legends = await page.locator('.verb-tile-group legend').allTextContents();
+      if (legends.includes(slot)) asked = true;
+      if (SHOTS) await page.screenshot({ path: `${SHOTS}/verb-round-${level}-${i}.png` });
+      await pickHints(page);
+      await page.getByRole('button', { name: 'Check' }).click();
+      await expect(page.locator('.verb-verdict')).toContainText('Right', { timeout: 20_000 });
+      await page.getByRole('button', { name: 'Continue' }).click();
+    }
+    expect(asked).toBe(true);
+  });
+}

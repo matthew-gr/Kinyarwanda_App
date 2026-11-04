@@ -23,6 +23,7 @@ const SLOT_NAMES: Record<Slot, string> = {
   when: 'When',
   whom: 'To whom',
   action: 'Action',
+  family: 'Family',
   ending: 'Ending',
 };
 
@@ -282,6 +283,11 @@ function buildStrip(round: VerbRound, form: VerbForm, verb: Verb, choices: Choic
     const at = pieces.findIndex((p) => p.slot === 'action');
     pieces.splice(at, 0, { slot: 'whom', piece: '', label: '' });
   }
+  // Likewise a verb with a family still asks for one when this word is the plain verb.
+  if (round.slots.includes('family') && !pieces.some((p) => p.slot === 'family')) {
+    const at = pieces.findIndex((p) => p.slot === 'ending');
+    pieces.splice(at, 0, { slot: 'family', piece: '', label: '' });
+  }
   return pieces.map((p) => {
     if (!round.slots.includes(p.slot)) {
       return { slot: p.slot, piece: p.piece, label: p.label, fixed: true };
@@ -492,8 +498,8 @@ function Feedback({ view, feedback, verbs, audio, onNext }: FeedbackProps) {
         ) : null}
         {finished ? (
           <p className="body-bold verb-unlocked">
-            You&apos;ve finished levels 1 to {LEVELS_BUILT}. Keep practising here; the past tense
-            comes in a later update.
+            You&apos;ve finished levels 1 to {LEVELS_BUILT}. Keep practising here; level 6 (wishes,
+            ongoing actions and helper verbs) comes in a later update.
           </p>
         ) : null}
       </section>

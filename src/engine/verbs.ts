@@ -1,7 +1,7 @@
 // Module 4, Verb Builder. Pure functions: no React, no storage, no clock. Time and randomness
 // are passed in, so every rule can be tested exactly.
 //
-// Learners assemble a verb from tiles: who, when, whom, the action and the ending. Pieces
+// Learners assemble a verb from tiles: who, when, whom, the action, its family and the ending. Pieces
 // change sound when they join (n + ra is nda, ka is ga before a voiceless consonant), so the
 // answer is never computed from the tiles. Every full word is stored, and a round is graded
 // by comparing each chosen tile with the stored form's own slot values.
@@ -9,10 +9,16 @@
 import { pickOne, shuffle, type Rng } from './random';
 import type { ContentSource, ContentStatus } from './types';
 
-export type Slot = 'who' | 'when' | 'whom' | 'action' | 'ending';
+export type Slot = 'who' | 'when' | 'whom' | 'action' | 'family' | 'ending';
 /** Persons, plus "it" for iki nouns (class 7) and "they" for ibi nouns (class 8). */
 export type WhoKey = '1sg' | '2sg' | '3sg' | '1pl' | '2pl' | '3pl' | 'it7' | 'it8';
-export type WhenKey = 'now' | 'future' | 'narrative';
+/** Recent is earlier today (nakinnye); past is before today (narakinnye), both at level 4. */
+export type WhenKey = 'now' | 'future' | 'narrative' | 'recent' | 'past';
+/**
+ * A verb family's extension (level 5): ana is together or each other (gukinana), ira is for
+ * someone (gukorera), isha is making someone do it or using it (gukoresha).
+ */
+export type FamilyKey = 'ana' | 'ira' | 'isha';
 export type WhomKey = '1sg' | '2sg' | '3sg' | '1pl' | '3pl';
 export type Confidence = 'high' | 'medium' | 'low';
 
@@ -40,7 +46,10 @@ export interface VerbForm {
   who: WhoKey;
   when: WhenKey;
   whom: WhomKey | null;
-  ending: 'a';
+  /** The family extension, from level 5; null or missing for the plain verb. */
+  family?: FamilyKey | null;
+  /** a, or from level 4 the past ending that follows the root, such as nye in nakinnye. */
+  ending: string;
   /** The full word, which decides the answer. */
   word: string;
   en: string;
@@ -63,7 +72,8 @@ export interface Tile {
 }
 
 export const WHO_ORDER: WhoKey[] = ['1sg', '2sg', '3sg', '1pl', '2pl', '3pl', 'it7', 'it8'];
-export const WHEN_ORDER: WhenKey[] = ['now', 'future', 'narrative'];
+export const WHEN_ORDER: WhenKey[] = ['now', 'future', 'narrative', 'recent', 'past'];
+export const FAMILY_ORDER: FamilyKey[] = ['ana', 'ira', 'isha'];
 export const WHOM_ORDER: WhomKey[] = ['1sg', '2sg', '3sg', '1pl', '3pl'];
 
 /** The tiles' pieces as taught; joined words may sound different. */
@@ -81,6 +91,8 @@ export const WHEN_PIECES: Record<WhenKey, { piece: string; label: string }> = {
   now: { piece: 'ra', label: 'now' },
   future: { piece: 'za', label: 'tomorrow or later' },
   narrative: { piece: 'ka', label: 'and then' },
+  recent: { piece: 'a', label: 'earlier today' },
+  past: { piece: 'ara', label: 'before today' },
 };
 export const WHOM_PIECES: Record<WhomKey | 'none', { piece: string; label: string }> = {
   none: { piece: '', label: 'no one' },
@@ -91,12 +103,34 @@ export const WHOM_PIECES: Record<WhomKey | 'none', { piece: string; label: strin
   '3pl': { piece: 'ba', label: 'them' },
 };
 
-/** Level 1: who and the action. Level 2 adds when. Level 3 adds whom. */
+export const FAMILY_PIECES: Record<FamilyKey | 'none', { piece: string; label: string }> = {
+  none: { piece: '', label: 'plain' },
+  ana: { piece: 'an', label: 'together, each other' },
+  ira: { piece: 'ir', label: 'for someone' },
+  isha: { piece: 'ish', label: 'make someone, use' },
+};
+
+/**
+ * The family piece as it sounds after this root: ir and ish become er and esh after a root
+ * whose last vowel is e or o (gukorera, gukoresha).
+ */
+export function familyPiece(family: FamilyKey | 'none', root: string): string {
+  const piece = FAMILY_PIECES[family].piece;
+  const vowel = root.match(/[aeiou](?=[^aeiou]*$)/)?.[0];
+  return vowel === 'e' || vowel === 'o' ? piece.replace(/^i/, 'e') : piece;
+}
+
+/**
+ * Level 1: who and the action. Level 2 adds when. Level 3 adds whom. Level 4 adds the
+ * ending, for the past. Level 5 adds the family.
+ */
 export function slotsForLevel(level: number): Slot[] {
   const slots: Slot[] = ['who'];
   if (level >= 2) slots.push('when');
   if (level >= 3) slots.push('whom');
   slots.push('action');
+  if (level >= 5) slots.push('family');
+  if (level >= 4) slots.push('ending');
   return slots;
 }
 
@@ -116,6 +150,8 @@ export function slotValue(form: VerbForm, slot: Slot): string {
       return form.whom ?? 'none';
     case 'action':
       return form.verb_id;
+    case 'family':
+      return form.family ?? 'none';
     case 'ending':
       return form.ending;
   }
@@ -197,17 +233,25 @@ export function setLevel(state: VerbState, level: number): VerbState {
 
 const byId = <T extends { id: string }>(rows: readonly T[]) => new Map(rows.map((r) => [r.id, r]));
 
-/** The slots a round grades: the level's slots, without whom for a verb that never takes one. */
+/**
+ * The slots a round grades: the level's slots, without whom for a verb that never takes one
+ * and without family for a verb that has none.
+ */
 function roundSlots(
   level: number,
   direction: Direction,
   target: VerbForm,
   usable: readonly VerbForm[],
 ): Slot[] {
-  const transitive = usable.some((f) => f.verb_id === target.verb_id && f.whom !== null);
-  const slots = slotsForLevel(level).filter((s) => s !== 'whom' || transitive);
-  // A reverse round asks for the pictures: who, when and the action.
-  return direction === 'reverse' ? slots.filter((s) => s !== 'whom') : slots;
+  const own = usable.filter((f) => f.verb_id === target.verb_id);
+  const transitive = own.some((f) => f.whom !== null);
+  const hasFamily = own.some((f) => f.family);
+  const slots = slotsForLevel(level).filter(
+    (s) => (s !== 'whom' || transitive) && (s !== 'family' || hasFamily),
+  );
+  // A reverse round asks for the pictures: who, when, the action and the family. The ending
+  // follows from when, so it is not asked again.
+  return direction === 'reverse' ? slots.filter((s) => s !== 'whom' && s !== 'ending') : slots;
 }
 
 /** The tiles offered for one slot. Every tile but the action leads to a stored word. */
@@ -254,7 +298,29 @@ export function tilesFor(
       label: v.en,
     }));
   }
-  return [{ slot, value: 'a', piece: 'a', label: 'plain' }];
+  if (slot === 'family') {
+    const keys = new Set(sameVerb.map((f) => f.family ?? 'none'));
+    const root = verbs.find((v) => v.id === target.verb_id)?.root ?? '';
+    const values: (FamilyKey | 'none')[] = ['none', ...FAMILY_ORDER];
+    return values
+      .filter((k) => keys.has(k))
+      .map((k) => ({ slot, value: k, piece: familyPiece(k, root), label: FAMILY_PIECES[k].label }));
+  }
+  // The ending: a, this verb's past ending, and another verb's, so the past ending is recalled.
+  const pastOf = (list: readonly VerbForm[]) => [
+    ...new Set(list.map((f) => f.ending).filter((e) => e !== 'a')),
+  ];
+  const own = pastOf(sameVerb);
+  const others = shuffle(
+    pastOf(usable).filter((e) => !own.includes(e)),
+    rng,
+  ).slice(0, 1);
+  return ['a', ...own, ...others].map((e) => ({
+    slot,
+    value: e,
+    piece: e,
+    label: e === 'a' ? 'plain' : 'past ending',
+  }));
 }
 
 function isMastered(state: VerbState, form: VerbForm, slots: readonly Slot[]): boolean {
@@ -300,7 +366,8 @@ export function nextRound(
     const learning = fresh.filter((f) => !isMastered(state, f, levelSlots));
     const choices = learning.length > 0 ? learning : fresh;
     // From level 2, two rounds in three use a form the level itself adds (another time at 2,
-    // an object at 3), so its new idea isn't lost among the easier forms that come with it.
+    // an object at 3, the past at 4, a family at 5), so its new idea isn't lost among the
+    // easier forms that come with it.
     const own = (list: readonly VerbForm[]) => list.filter((f) => f.level === state.level);
     const wantOwn = state.level >= 2 && state.roundsIssued % 3 !== 2;
     const ownChoices = own(choices).length > 0 ? own(choices) : own(fresh);
@@ -433,6 +500,17 @@ export function formPieces(form: VerbForm, verb: Verb): Piece[] {
   ];
   if (form.whom) pieces.push({ slot: 'whom', ...WHOM_PIECES[form.whom] });
   pieces.push({ slot: 'action', piece: verb.root, label: verb.en });
-  pieces.push({ slot: 'ending', piece: form.ending, label: 'plain' });
+  if (form.family) {
+    pieces.push({
+      slot: 'family',
+      piece: familyPiece(form.family, verb.root),
+      label: FAMILY_PIECES[form.family].label,
+    });
+  }
+  pieces.push({
+    slot: 'ending',
+    piece: form.ending,
+    label: form.ending === 'a' ? 'plain' : 'past ending',
+  });
   return pieces;
 }

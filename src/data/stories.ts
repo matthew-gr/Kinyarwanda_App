@@ -46,7 +46,8 @@ async function knownWords(d: KinyaDb): Promise<string[]> {
     .map((f) => f.text);
 }
 
-const MODEL_KEY = 'story-model';
+/** Renamed when Sonnet became the default, so a choice saved before starts over on Sonnet. */
+const MODEL_KEY = 'story-model-2';
 
 /** The model picked for new stories on this device, while the two are being compared. */
 export function getStoryModel(): string {

@@ -20,8 +20,13 @@ export interface VerbProblem {
 const PERSONS: WhoKey[] = ['1sg', '2sg', '3sg', '1pl', '2pl', '3pl'];
 const IT: WhoKey[] = ['it7', 'it8'];
 
-/** The level a form belongs to, from its slots: objects at 3, other times at 2, else 1. */
-export function levelOf(form: Pick<VerbForm, 'when' | 'whom'>): number {
+/**
+ * The level a form belongs to, from its slots: a family at 5, the past at 4, objects at 3,
+ * other times at 2, else 1.
+ */
+export function levelOf(form: Pick<VerbForm, 'when' | 'whom' | 'family'>): number {
+  if (form.family) return 5;
+  if (form.when === 'recent' || form.when === 'past') return 4;
   if (form.whom) return 3;
   return form.when === 'now' ? 1 : 2;
 }
@@ -37,7 +42,8 @@ export function samePerson(who: WhoKey, whom: WhomKey): boolean {
   return OVERLAPS.has(`${who}/${whom}`);
 }
 
-const key = (who: string, when: string, whom: string | null) => `${who}/${when}/${whom ?? '-'}`;
+const key = (who: string, when: string, whom: string | null, family?: string | null) =>
+  `${who}/${when}/${whom ?? '-'}${family ? `/${family}` : ''}`;
 
 export function checkVerbs(verbs: readonly Verb[], forms: readonly VerbForm[]): VerbProblem[] {
   const out: VerbProblem[] = [];
@@ -51,13 +57,21 @@ export function checkVerbs(verbs: readonly Verb[], forms: readonly VerbForm[]): 
     const own = forms.filter((f) => f.verb_id === v.id);
     const seen = new Map<string, VerbForm>();
     for (const f of own) {
-      const k = key(f.who, f.when, f.whom);
+      const k = key(f.who, f.when, f.whom, f.family);
       if (seen.has(k)) out.push({ verbId: v.id, formId: f.id, message: `${k} is listed twice.` });
       seen.set(k, f);
       if (!f.word.trim()) out.push({ verbId: v.id, formId: f.id, message: `${k} has no word.` });
       if (!f.en.trim()) out.push({ verbId: v.id, formId: f.id, message: `${k} has no English.` });
       if (f.level !== levelOf(f)) {
         out.push({ verbId: v.id, formId: f.id, message: `${k} should be level ${levelOf(f)}.` });
+      }
+      const past = f.when === 'recent' || f.when === 'past';
+      if (past === (f.ending === 'a')) {
+        out.push({
+          verbId: v.id,
+          formId: f.id,
+          message: past ? `${k} needs its past ending.` : `${k} should end in a.`,
+        });
       }
       if (f.whom && samePerson(f.who, f.whom)) {
         out.push({ verbId: v.id, formId: f.id, message: `${k} needs a reflexive form.` });
@@ -67,7 +81,15 @@ export function checkVerbs(verbs: readonly Verb[], forms: readonly VerbForm[]): 
     const hasIt = own.some((f) => IT.includes(f.who));
     const subjects = hasIt ? [...PERSONS, ...IT] : PERSONS;
     const missing: string[] = [];
-    for (const when of ['now', 'future', 'narrative'] as WhenKey[]) {
+    // The past comes as a pair: a verb with earlier today has before today too.
+    const hasPast = own.some((f) => f.when === 'recent' || f.when === 'past');
+    const whens: WhenKey[] = [
+      'now',
+      'future',
+      'narrative',
+      ...(hasPast ? (['recent', 'past'] as const) : []),
+    ];
+    for (const when of whens) {
       for (const who of subjects)
         if (!seen.has(key(who, when, null))) missing.push(key(who, when, null));
     }

@@ -108,8 +108,20 @@ const newestStamp = (rows: readonly { updated_at: string }[], from = '') =>
     .map((r) => new Date(r.updated_at).toISOString())
     .reduce((max, t) => (t > max ? t : max), from);
 
+/**
+ * Which snapshot this build bundles. A device that has loaded it skips comparing every row on
+ * each start, which takes seconds with 1,500 words on a phone. A newer bundle compares again.
+ */
+const BUNDLE = [
+  bundledItems.length,
+  bundledForms.length,
+  bundledNumbers.length,
+  newestStamp([...bundledItems, ...bundledForms, ...bundledNumbers]),
+].join(':');
+
 /** Loads the bundled snapshot. Cheap when the device already has it. */
 export async function ensureSeeded(d: KinyaDb = db): Promise<void> {
+  if ((await d.content_state.get('bundle'))?.cursor === BUNDLE) return;
   await applyNumbers(bundledNumbers, d);
   if (!(await d.content_state.get('numbers'))) {
     await d.content_state.put({
@@ -126,6 +138,7 @@ export async function ensureSeeded(d: KinyaDb = db): Promise<void> {
     );
     await d.content_state.put({ id: 'main', cursor: newest || null, last_checked_at: null });
   }
+  await d.content_state.put({ id: 'bundle', cursor: BUNDLE, last_checked_at: null });
 }
 
 async function pullTable<T extends { id: string; updated_at: string }>(

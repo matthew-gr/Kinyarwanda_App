@@ -14,8 +14,8 @@ import {
   type VerbState,
 } from './verbs';
 
-/** Levels with screens so far. Levels 4 to 6 (past tense, families, advanced) come later. */
-export const LEVELS_BUILT = 3;
+/** Levels with screens so far. Level 6 (advanced) comes later. */
+export const LEVELS_BUILT = 5;
 /** Rounds after an opening screen that show hints and do not count toward mastery. */
 export const GUIDED_ROUNDS = 3;
 
@@ -24,7 +24,7 @@ export interface VerbProgress {
   /** The highest level whose opening screen the learner has been through; 0 before any. */
   intro_seen: number;
   guided_left: number;
-  /** True once the "levels 1 to 3 done" message has been shown. */
+  /** True once the "every level built is done" message has been shown. */
   finished_seen: boolean;
 }
 
@@ -51,6 +51,16 @@ export const LEVEL_INFO: Record<number, LevelInfo> = {
     name: 'Whom',
     title: "You've unlocked whom",
     body: 'Some actions are done to someone. Their piece goes just before the action: ku for you, mu for him or her, ba for them.',
+  },
+  4: {
+    name: 'Past',
+    title: "You've unlocked the past",
+    body: 'For earlier today, a goes after who and the verb takes its past ending: n + a + kin + nye is nakinnye, I played. For before today, add ra: narakinnye. Each verb has its own past ending, so learn it with the verb.',
+  },
+  5: {
+    name: 'Families',
+    title: "You've unlocked verb families",
+    body: 'One root, new meanings. A piece after the root changes what the verb says: an for together or each other (turakinana, we play together), ir for someone (arakorera, he or she works for), ish for making someone do it or using it (arakoresha, he or she uses).',
   },
 };
 
@@ -123,7 +133,8 @@ export function applyVerbAnswer(
 
 /**
  * Two or three words to build piece by piece on a level's opening screen. Each shows the
- * level's new idea, preferring gukina (to play) and, for whom, guseka (to laugh at).
+ * level's new idea, preferring gukina (to play), for whom guseka (to laugh at), and for
+ * families gukora (to work).
  */
 export function workedExamples(
   level: number,
@@ -131,22 +142,33 @@ export function workedExamples(
   forms: readonly VerbForm[],
 ): VerbForm[] {
   const verbId = (inf: string) => verbs.find((v) => v.infinitive === inf)?.id;
-  const wanted: [string, Partial<VerbForm>][] =
-    level <= 1
-      ? [
-          ['gukina', { who: '3pl', when: 'now', whom: null }],
-          ['gukina', { who: '1sg', when: 'now', whom: null }],
-          ['kwiruka', { who: '3sg', when: 'now', whom: null }],
-        ]
-      : level === 2
-        ? [
-            ['gukina', { who: '1sg', when: 'future', whom: null }],
-            ['gukina', { who: '3sg', when: 'narrative', whom: null }],
-          ]
-        : [
-            ['guseka', { who: '1sg', when: 'now', whom: '2sg' }],
-            ['guseka', { who: '3sg', when: 'now', whom: '3pl' }],
-          ];
+  const EXAMPLES: Record<number, [string, Partial<VerbForm>][]> = {
+    1: [
+      ['gukina', { who: '3pl', when: 'now', whom: null }],
+      ['gukina', { who: '1sg', when: 'now', whom: null }],
+      ['kwiruka', { who: '3sg', when: 'now', whom: null }],
+    ],
+    2: [
+      ['gukina', { who: '1sg', when: 'future', whom: null }],
+      ['gukina', { who: '3sg', when: 'narrative', whom: null }],
+    ],
+    3: [
+      ['guseka', { who: '1sg', when: 'now', whom: '2sg' }],
+      ['guseka', { who: '3sg', when: 'now', whom: '3pl' }],
+    ],
+    // Earlier today, then before today straight after, as the spec's two lessons.
+    4: [
+      ['gukina', { who: '1sg', when: 'recent', whom: null }],
+      ['gukina', { who: '1sg', when: 'past', whom: null }],
+      ['kugenda', { who: '3pl', when: 'recent', whom: null }],
+    ],
+    5: [
+      ['gukina', { who: '1pl', when: 'now', whom: null, family: 'ana' }],
+      ['gukora', { who: '3sg', when: 'now', whom: null, family: 'ira' }],
+      ['gukora', { who: '3sg', when: 'now', whom: null, family: 'isha' }],
+    ],
+  };
+  const wanted = EXAMPLES[Math.min(Math.max(level, 1), 5)]!;
   const out: VerbForm[] = [];
   for (const [inf, want] of wanted) {
     const id = verbId(inf);
@@ -156,7 +178,8 @@ export function workedExamples(
         f.level <= level &&
         f.who === want.who &&
         f.when === want.when &&
-        f.whom === want.whom,
+        f.whom === want.whom &&
+        (f.family ?? null) === (want.family ?? null),
     );
     if (form) out.push(form);
   }
