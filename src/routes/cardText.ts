@@ -21,6 +21,9 @@ export function pronunciationFor(item: Item, form: ItemForm): string {
   return form.text === item.base && item.pronunciation ? item.pronunciation : syllables(form.text);
 }
 
+/** True when a learner's own word has a picture or emoji to show (decision 188). */
+export const hasPicture = (item: Item) => Boolean(item.picture || item.emoji);
+
 export const hasNotes = (item: Item) => Boolean(item.breakdown?.length || item.example);
 
 /** Clips loaded and ready to play, newest last. Kept to a few dozen. */

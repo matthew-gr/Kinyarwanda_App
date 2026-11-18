@@ -4,6 +4,37 @@ import { expect, test, type Page } from '@playwright/test';
 /** Set SHOTS to a folder to save screenshots of My words for a visual check. */
 const SHOTS = process.env.SHOTS;
 
+// A pretend microphone, so a recording can be made without a person or a prompt.
+test.use({
+  permissions: ['microphone'],
+  launchOptions: {
+    args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'],
+  },
+});
+
+/** A 2 × 2 red PNG, as a picture chosen from the phone. */
+const PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP8z8DAwMDAxMDAwMDAAAANHQEDasKb6QAAAABJRU5ErkJggg==',
+  'base64',
+);
+
+/** How many pictures and recordings this device keeps for own words. */
+const mediaCount = (page: Page) =>
+  page.evaluate(
+    () =>
+      new Promise<number>((resolve, reject) => {
+        const open = indexedDB.open('kinyarwanda');
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+          const count = open.result
+            .transaction(['my_word_media'], 'readonly')
+            .objectStore('my_word_media')
+            .count();
+          count.onsuccess = () => resolve(count.result);
+        };
+      }),
+  );
+
 /** What the device holds for the learner's own words: the list, and which are in Review. */
 async function stored(page: Page) {
   return page.evaluate(
@@ -79,46 +110,87 @@ async function putStory(page: Page) {
   );
 }
 
-test('My words: add, tag, edit, learn into Review, and remove', async ({ page }) => {
-  test.setTimeout(120_000);
+test('My words: add with a picture and a recording, tag, edit, learn into Review, and remove', async ({
+  page,
+}) => {
+  test.setTimeout(150_000);
   await page.goto('/');
   const row = page.getByRole('button', { name: /^My words/ });
   await expect(row).toContainText('Add your own words to learn', { timeout: 20_000 });
   await row.click();
 
-  await page.getByLabel('Kinyarwanda').fill('isoko');
-  await page.getByLabel('English').fill('market');
-  await page.getByLabel(/Tags/).fill('Town, food');
+  // A word the course has is turned away, with the course's word to learn instead.
+  await page.getByLabel('Kinyarwanda').fill('Isoko');
+  await page.getByLabel('English').fill('market place');
   await page.getByRole('button', { name: 'Add to my words' }).click();
-  await expect(page.getByText('Added isoko. It’s next in My words.')).toBeVisible();
+  await expect(page.getByRole('alert')).toHaveText('Isoko is already in the course (market).');
+  await page.getByRole('button', { name: 'Learn isoko next instead' }).click();
+  await expect(page.getByText('isoko is next in Learn, from the course.')).toBeVisible();
+  await expect(page.getByLabel('Kinyarwanda')).toHaveValue('');
+  // So is a verb's root.
+  await page.getByLabel('Kinyarwanda').fill('kina');
+  await page.getByLabel('English').fill('play');
+  await page.getByRole('button', { name: 'Add to my words' }).click();
+  await expect(page.getByRole('alert')).toHaveText(
+    'kina is already in the course as gukina (to play).',
+  );
+
+  // A word with an emoji and a picture.
+  await page.getByLabel('Kinyarwanda').fill('inkongoro');
+  await page.getByLabel('English').fill('milk pot');
+  await page.getByLabel(/Tags/).fill('Home, food');
+  await page.getByLabel('Emoji').fill('milk');
+  await page.getByRole('button', { name: 'Add to my words' }).click();
+  await expect(page.getByRole('alert')).toHaveText(
+    'Only emoji go in this box. Put words in English.',
+  );
+  await page.getByLabel('Emoji').fill('🥛');
+  await page.getByLabel('Add a photo or GIF').setInputFiles({
+    name: 'pot.png',
+    mimeType: 'image/png',
+    buffer: PNG,
+  });
+  await expect(page.getByAltText('The picture for this word')).toBeVisible();
+  await page.getByRole('button', { name: 'Add to my words' }).click();
+  await expect(page.getByText('Added inkongoro. It’s next in My words.')).toBeVisible();
+  await expect(page.getByLabel('Kinyarwanda')).toHaveValue('');
 
   // The same word twice is turned away.
-  await page.getByLabel('Kinyarwanda').fill('Isoko');
-  await page.getByLabel('English').fill('a market');
+  await page.getByLabel('Kinyarwanda').fill('Inkongoro');
+  await page.getByLabel('English').fill('a pot');
   await page.getByRole('button', { name: 'Add to my words' }).click();
-  await expect(page.getByRole('alert')).toHaveText('Isoko is already on your list.');
-  await page.getByLabel('Kinyarwanda').fill('umuceri');
-  await page.getByLabel('English').fill('rice');
+  await expect(page.getByRole('alert')).toHaveText('Inkongoro is already on your list.');
+
+  // A word with a recording.
+  await page.getByLabel('Kinyarwanda').fill('amatunda');
+  await page.getByLabel('English').fill('passion fruit');
   await page.getByLabel(/Tags/).fill('food');
+  await page.getByRole('button', { name: 'Record', exact: true }).click();
+  await page.getByRole('button', { name: /^Stop/ }).click();
+  await expect(page.getByRole('button', { name: 'Play', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Add to my words' }).click();
-  await expect(page.getByText('Added umuceri. It’s next in My words.')).toBeVisible();
+  await expect(page.getByText('Added amatunda. It’s next in My words.')).toBeVisible();
+  expect(await mediaCount(page)).toBe(2);
 
   const list = page.getByRole('list', { name: 'Your words' });
   await expect(list.getByRole('listitem')).toHaveCount(2);
   await expect(list).toContainText('New: next in My words');
+  await expect(list.locator('img.mywords-thumb')).toHaveCount(1);
+  await expect(list.getByRole('button', { name: 'Play amatunda' })).toBeVisible();
 
   // Tags filter the list.
-  await page.getByRole('button', { name: 'town', exact: true }).click();
+  await page.getByRole('button', { name: 'home', exact: true }).click();
   await expect(list.getByRole('listitem')).toHaveCount(1);
-  await expect(page.getByText('1 tagged town, of 2 words')).toBeVisible();
+  await expect(page.getByText('1 tagged home, of 2 words')).toBeVisible();
   await page.getByRole('button', { name: 'All', exact: true }).click();
   await expect(list.getByRole('listitem')).toHaveCount(2);
 
-  // Edit the meaning.
-  await page.getByRole('button', { name: 'Edit isoko' }).click();
-  await list.getByLabel('English').fill('the market');
+  // Edit the meaning; the picture stays.
+  await page.getByRole('button', { name: 'Edit inkongoro' }).click();
+  await list.getByLabel('English').fill('milk jug');
   await list.getByRole('button', { name: 'Save' }).click();
-  await expect(list).toContainText('the market');
+  await expect(list).toContainText('milk jug');
+  await expect(list.locator('img.mywords-thumb')).toHaveCount(1);
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/mywords-list.png`, fullPage: true });
 
   // Learn them: in the My words deck, then into Review.
@@ -129,6 +201,8 @@ test('My words: add, tag, edit, learn into Review, and remove', async ({ page })
     'page',
   );
   await expect(page.getByText('New card · My words')).toBeVisible();
+  // The first introduced is inkongoro, with its picture.
+  await expect(page.locator('.kn-flash-picture img')).toBeVisible();
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/mywords-learn.png` });
   // Own words have nothing to report to the course's reviewers.
   await expect(page.getByRole('button', { name: 'Report a mistake' })).toHaveCount(0);
@@ -136,9 +210,12 @@ test('My words: add, tag, edit, learn into Review, and remove', async ({ page })
   const done = page.getByRole('heading', { name: 'All done for now' });
   const next = page.getByRole('button', { name: 'Next' });
   const flip = page.getByRole('button', { name: /Tap to reveal meaning/ });
+  let heard = false;
   for (let i = 0; i < 20 && !(await done.isVisible()); i++) {
     await expect(next.or(flip).or(done)).toBeVisible();
     if (await done.isVisible()) break;
+    if ((await page.locator('.kn-flash-word').first().textContent()) === 'amatunda')
+      heard ||= await page.getByRole('button', { name: 'Play pronunciation' }).isVisible();
     const before = await page.locator('[data-card]').getAttribute('data-card');
     if (await next.isVisible()) await next.click();
     else {
@@ -148,23 +225,26 @@ test('My words: add, tag, edit, learn into Review, and remove', async ({ page })
     await expect(page.locator(`[data-card]:not([data-card="${before}"])`).or(done)).toBeVisible();
   }
   await expect(done).toBeVisible();
+  // The recording plays on its card.
+  expect(heard).toBe(true);
 
   const after = await stored(page);
   expect(after.review).toHaveLength(2);
   await page.goto('/words');
   await expect(list.getByText('In Review · stage 1')).toHaveCount(2);
 
-  // Removing a word takes it out of Review too.
-  await page.getByRole('button', { name: 'Remove umuceri' }).click();
+  // Removing a word takes it out of Review, and its files with it.
+  await page.getByRole('button', { name: 'Remove amatunda' }).click();
   await page.getByRole('button', { name: 'Remove', exact: true }).click();
   await expect(list.getByRole('listitem')).toHaveCount(1);
   const gone = await stored(page);
-  const umuceri = gone.words.find((w) => w.rw === 'umuceri')!;
-  expect(umuceri.deleted).toBe(true);
-  expect(gone.review).not.toContain(umuceri.id);
-  const isoko = gone.words.find((w) => w.rw === 'isoko')!;
-  expect(isoko.tags).toEqual(['town', 'food']);
-  expect(gone.review).toContain(isoko.id);
+  const amatunda = gone.words.find((w) => w.rw === 'amatunda')!;
+  expect(amatunda.deleted).toBe(true);
+  expect(gone.review).not.toContain(amatunda.id);
+  expect(await mediaCount(page)).toBe(1);
+  const inkongoro = gone.words.find((w) => w.rw === 'inkongoro')!;
+  expect(inkongoro.tags).toEqual(['home', 'food']);
+  expect(gone.review).toContain(inkongoro.id);
 });
 
 test('A story’s new words can be learned: held, from the list, or all at once', async ({

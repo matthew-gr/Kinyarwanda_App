@@ -16,6 +16,11 @@ export interface FlashcardProps {
   notes?: ReactNode;
   /** Word-type tag: WORD, VERB or PHRASE. */
   tag?: string;
+  /**
+   * A picture or emoji for the meaning, shown with the meaning: on an introduction and on the
+   * back, never on the front, where it would give the answer away.
+   */
+  picture?: ReactNode;
   tone?: DeckTone;
   /** `both` shows front and back together, for an introduction. */
   side: 'front' | 'back' | 'both';
@@ -76,6 +81,7 @@ export function Flashcard({
   detail,
   notes,
   tag,
+  picture,
   tone = 'green',
   side,
   hint = 'Tap to reveal meaning',
@@ -107,6 +113,7 @@ export function Flashcard({
             <p className="kn-flash-word flash-word">{word}</p>
             {phonetic ? <p className="kn-flash-phonetic phonetic">{phonetic}</p> : null}
             <SwitchButton toggle={toggle} />
+            {picture ? <div className="kn-flash-picture">{picture}</div> : null}
             <span className="kn-flash-rule" />
             <p className="kn-flash-translation flash-translation">{translation}</p>
             {detail ? <p className="kn-flash-detail body">{detail}</p> : null}
@@ -158,6 +165,7 @@ export function Flashcard({
           <div className="kn-flash-center">
             <p className="kn-flash-backword flash-word">{word}</p>
             <SwitchButton toggle={toggle} hidden={!isBack} />
+            {picture ? <div className="kn-flash-picture">{picture}</div> : null}
             <span className="kn-flash-rule" />
             <p className="kn-flash-translation flash-translation">{translation}</p>
             {detail ? <p className="kn-flash-detail body">{detail}</p> : null}

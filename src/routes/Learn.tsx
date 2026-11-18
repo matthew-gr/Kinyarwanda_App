@@ -10,10 +10,11 @@ import { loadDeckLearned } from '../data/repo';
 import type { AnswerResult, Deck } from '../engine/learn';
 import type { Item, ItemForm } from '../engine/types';
 import { placeLabel } from '../engine/vocabulary';
-import { CardNotes, ReportMistake } from './CardExtras';
+import { CardNotes, CardPicture, ReportMistake } from './CardExtras';
 import {
   dictionaryLine,
   hasNotes,
+  hasPicture,
   playAudio,
   preloadAudio,
   pronunciationFor,
@@ -335,6 +336,7 @@ function CardArea({
             }
             notes={hasNotes(item) ? <CardNotes item={item} /> : undefined}
             tag={tagFor(item)}
+            picture={hasPicture(item) ? <CardPicture item={item} /> : undefined}
             hint="Tap to reveal meaning"
             onFlip={onFlip}
             onSpeak={audio ? () => playAudio(audio) : undefined}

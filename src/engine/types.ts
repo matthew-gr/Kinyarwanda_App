@@ -46,6 +46,12 @@ export interface Item {
   updated_at: string;
   /** Removed from the course. Kept as a row so every device learns that it is gone. */
   retired: boolean;
+  /**
+   * On the learner's own words only (decision 188), never on course rows: an emoji, and a URL
+   * for the picture on this device.
+   */
+  emoji?: string | null;
+  picture?: string | null;
 }
 
 export interface ItemForm {

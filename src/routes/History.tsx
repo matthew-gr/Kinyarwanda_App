@@ -3,6 +3,7 @@ import { SectionHeader } from '../components/SectionHeader';
 import { StatRow } from '../components/StatRow';
 import { loadProgressStats, type ProgressStats } from '../data/progressStats';
 import { DayBars } from './DayBars';
+import { TimeSpent } from './TimeSpent';
 import { useProgressVersion } from './useProgressVersion';
 
 const percent = (x: number | null) => (x === null ? 'None yet' : `${Math.round(x * 100)}%`);
@@ -25,6 +26,7 @@ export function History() {
   return (
     <div className="stack">
       <SectionHeader as="h1" size="large" title="History" subtitle="Your last two weeks" />
+      <TimeSpent version={version} />
       {stats === null ? null : stats.totalAnswers === 0 ? (
         <section className="panel">
           <p className="body">

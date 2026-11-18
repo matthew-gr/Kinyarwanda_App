@@ -65,3 +65,45 @@ describe('My words', () => {
     expect(reconcileOrder(state, [cards[1]!]).order).toEqual(['id-b']);
   });
 });
+
+describe('My words: pictures and duplicates', () => {
+  it('compares words without case, spacing, apostrophe style or hyphens', async () => {
+    const { wordKey } = await import('./myWords');
+    expect(wordKey('  -Kin- ')).toBe('kin');
+    expect(wordKey('N’abana')).toBe("n'abana");
+    expect(wordKey('Isoko')).toBe(wordKey('isoko'));
+  });
+
+  it('takes one to three emoji, and nothing else', async () => {
+    const { emojiProblem } = await import('./myWordMedia');
+    expect(emojiProblem('🥛')).toBeNull();
+    expect(emojiProblem('🇷🇼')).toBeNull();
+    expect(emojiProblem('👨‍👩‍👧')).toBeNull();
+    expect(emojiProblem('🥛🍌🍍')).toBeNull();
+    expect(emojiProblem('🥛🍌🍍🥔')).toMatch(/one to three/);
+    expect(emojiProblem('milk')).toMatch(/Only emoji/);
+    expect(emojiProblem('')).toBeNull();
+  });
+
+  it('cards carry the picture, emoji and recording this device has', async () => {
+    const { myWordCard } = await import('./myWords');
+    const w = {
+      ...word('inkongoro', '2026-11-05T10:00:00.000Z'),
+      emoji: '🥛',
+      picture_path: 'id/picture-1.jpg',
+      audio_path: 'id/audio-1.webm',
+    };
+    const urls = new Map([
+      ['id/picture-1.jpg', 'blob:picture'],
+      ['id/audio-1.webm', 'blob:audio'],
+    ]);
+    const { item, form } = myWordCard(w, urls);
+    expect(item.picture).toBe('blob:picture');
+    expect(item.emoji).toBe('🥛');
+    expect(form.audio_path).toBe('blob:audio');
+    // Not downloaded yet: no picture or audio, the emoji still shows.
+    const bare = myWordCard(w);
+    expect(bare.item.picture).toBeNull();
+    expect(bare.form.audio_path).toBeNull();
+  });
+});

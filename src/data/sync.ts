@@ -17,6 +17,8 @@ import {
   type SyncStateRow,
 } from './db';
 import { forgetAccess, INVITE_ONLY } from './invites';
+import { pullActivity, pushActivity } from './activity';
+import { pullMedia, pushMedia } from './myWordMedia';
 import { removeFromReview } from './myWords';
 import { uploadNextDue } from './reminders';
 import { getProfile } from './repo';
@@ -98,10 +100,14 @@ async function clearProgress(d: KinyaDb): Promise<void> {
       d.drill_scores,
       d.stories,
       d.my_words,
+      d.my_word_media,
+      d.activity,
     ],
     async () => {
       await Promise.all([
         d.my_words.clear(),
+        d.my_word_media.clear(),
+        d.activity.clear(),
         d.stories.clear(),
         d.drill_scores.clear(),
         d.verb_state.clear(),
@@ -317,6 +323,12 @@ const MY_WORD_COLUMNS = [
   'updated_at',
   'deleted',
 ];
+/** Newer columns (decision 188): the server has them once its migration is pushed. */
+const MY_WORD_MEDIA_COLUMNS = ['emoji', 'picture_path', 'audio_path'];
+let wordMediaOnServer = true;
+const myWordColumns = () =>
+  wordMediaOnServer ? [...MY_WORD_COLUMNS, ...MY_WORD_MEDIA_COLUMNS] : MY_WORD_COLUMNS;
+const hasMedia = (w: MyWordRow) => Boolean(w.emoji || w.picture_path || w.audio_path);
 
 /** Uploads words added, changed or removed on this device's list (decision 185). */
 async function pushMyWords(d: KinyaDb): Promise<void> {
@@ -324,16 +336,22 @@ async function pushMyWords(d: KinyaDb): Promise<void> {
   const dirty = await d.my_words.where('dirty').equals(1).toArray();
   for (let i = 0; i < dirty.length; i += PUSH_BATCH) {
     const batch = dirty.slice(i, i + PUSH_BATCH);
+    const columns = myWordColumns();
     const { error } = await client.from('my_words').upsert(
       batch.map((w) =>
-        Object.fromEntries(MY_WORD_COLUMNS.map((k) => [k, w[k as keyof MyWordRow]])),
+        Object.fromEntries(columns.map((k) => [k, w[k as keyof MyWordRow] ?? null])),
       ),
-      {
-        onConflict: 'id',
-      },
+      { onConflict: 'id' },
     );
+    if (error && wordMediaOnServer && missingColumn(error)) {
+      wordMediaOnServer = false;
+      i -= PUSH_BATCH;
+      continue;
+    }
     if (error) throw error;
     for (const w of batch) {
+      // A picture, emoji or recording the server can't hold yet stays marked, to go up later.
+      if (!wordMediaOnServer && hasMedia(w)) continue;
       // A change made while this one uploaded stays dirty for the next sync.
       await d.my_words
         .where('id')
@@ -352,18 +370,22 @@ async function pullMyWords(userId: string, d: KinyaDb): Promise<number> {
     const state = await getSyncState(d);
     let q = client
       .from('my_words')
-      .select(MY_WORD_COLUMNS.join(', '))
+      .select(myWordColumns().join(', '))
       .eq('user_id', userId)
       .order('updated_at')
       .limit(PULL_BATCH);
     if (state.my_words_cursor) q = q.gt('updated_at', state.my_words_cursor);
     const { data, error } = await q;
+    if (error && wordMediaOnServer && missingColumn(error)) {
+      wordMediaOnServer = false;
+      continue;
+    }
     if (error) throw error;
     const rows = (data ?? []) as unknown as Omit<MyWordRow, 'dirty'>[];
     if (rows.length === 0) break;
     await d.transaction(
       'rw',
-      [d.my_words, d.sync_state, d.review_items, d.review_session],
+      [d.my_words, d.my_word_media, d.sync_state, d.review_items, d.review_session],
       async () => {
         const local = await d.my_words.bulkGet(rows.map((r) => r.id));
         const fresh = rows
@@ -380,6 +402,15 @@ async function pullMyWords(userId: string, d: KinyaDb): Promise<number> {
             dirty: 0 as const,
           }));
         await d.my_words.bulkPut(fresh);
+        // Files this device kept for words changed elsewhere, that the words no longer name.
+        for (const w of fresh) {
+          const keep = new Set([w.picture_path, w.audio_path].filter(Boolean));
+          await d.my_word_media
+            .where('word_id')
+            .equals(w.id)
+            .and((m) => m.uploaded === 1 && !keep.has(m.path))
+            .delete();
+        }
         await removeFromReview(
           fresh.filter((w) => w.deleted).map((w) => w.id),
           d,
@@ -557,12 +588,18 @@ async function runOnce(d: KinyaDb): Promise<void> {
     }
     let wordsChanged = 0;
     try {
+      // Pictures and recordings go up before the words that name them (decision 188).
+      await pushMedia(userId, d).catch(() => undefined);
       await pushMyWords(d);
       wordsChanged = await pullMyWords(userId, d);
+      wordsChanged += await pullMedia(userId, d).catch(() => 0);
     } catch (e) {
       // The list waits on this device until the server has its table (decision 185).
       if (!noStoriesTable(e)) throw e;
     }
+    // Time spent learning (decision 190): waits here until the server has its table.
+    await pushActivity(userId, d).catch(() => undefined);
+    await pullActivity(userId, d).catch(() => undefined);
     if (wordsChanged > 0 && added === 0) await applyProgress(Date.now(), d);
     if ((scoresAdded > 0 || storiesAdded > 0 || wordsChanged > 0) && added === 0)
       progressChanged.emit();

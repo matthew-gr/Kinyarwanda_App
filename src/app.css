@@ -1587,3 +1587,96 @@ textarea.field-input {
   padding: 0 14px;
   font-size: 15px;
 }
+
+/* My words: pictures, emoji and recordings (decision 188), and course duplicates (189). */
+.mywords-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.mywords-words {
+  flex: 1;
+  min-width: 0;
+}
+.mywords-thumb {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
+  object-fit: cover;
+}
+.mywords-thumb-emoji {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+}
+.mywords-play {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  color: var(--ink);
+}
+.mywords-dup {
+  font-weight: 700;
+}
+.mywords-media {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-field);
+}
+.mywords-media legend {
+  padding: 0 4px;
+}
+.mywords-emoji-input {
+  max-width: 120px;
+  font-size: 24px;
+}
+.mywords-preview {
+  display: block;
+  max-width: 160px;
+  max-height: 140px;
+  border-radius: 10px;
+  object-fit: contain;
+}
+.mywords-file {
+  cursor: pointer;
+}
+.mywords-file:focus-within {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+.recorder {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* History: time spent learning (decision 190). */
+.time-switch {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+.time-totals {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  margin: 0;
+}
+.time-totals div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.time-totals dt {
+  color: var(--ink);
+}
+.time-totals dd {
+  margin: 0;
+}

@@ -458,6 +458,10 @@ export function StoryReader() {
               initial={{ rw: word.word, en: meaning ?? '', tags: [STORY_TAG] }}
               submitLabel="Add to my words"
               onCancel={() => setAdding(false)}
+              onLearnCourseWord={async (item) => {
+                await add(item.id, item.base);
+                setAdding(false);
+              }}
               onSubmit={async (input) => {
                 const row = await addMyWord(input);
                 setAdding(false);

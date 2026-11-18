@@ -10,6 +10,7 @@ import {
 } from 'react-router';
 import { BottomNav } from './components/BottomNav';
 import { ensureSeeded } from './data/content';
+import { startActivityTracking } from './data/activity';
 import { startSync } from './data/sync';
 import { AdminHome } from './routes/admin/AdminHome';
 import { AdminItem } from './routes/admin/AdminItem';
@@ -56,6 +57,7 @@ export function App() {
       () => {
         setReady(true);
         startSync();
+        startActivityTracking();
       },
       (e: unknown) => setError(e instanceof Error ? e.message : String(e)),
     );

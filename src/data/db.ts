@@ -154,10 +154,46 @@ export interface MyWordRow {
   rw: string;
   en: string;
   tags: string[];
+  /** An emoji shown with the word (decision 188). */
+  emoji?: string | null;
+  /** Its picture and recording, as paths in the my-words bucket below the learner's folder. */
+  picture_path?: string | null;
+  audio_path?: string | null;
   created_at: string;
   updated_at: string;
   deleted: boolean;
   /** 1 after a change the server does not have yet. */
+  dirty: 0 | 1;
+}
+
+/**
+ * A picture or recording for one of the learner's words (decision 188), kept on this device so
+ * it works offline. `path` is where it lives in the bucket, below the learner's own folder.
+ */
+export interface MyWordMediaRow {
+  path: string;
+  word_id: string;
+  kind: 'picture' | 'audio';
+  /** The file; null once it is only waiting to be removed from the server. */
+  blob: Blob | null;
+  /** 1 once the server has it. */
+  uploaded: 0 | 1;
+  /** 1 when it was replaced or removed and should go from the server too. */
+  deleted: 0 | 1;
+}
+
+/**
+ * Time spent learning on one day on one device (decision 190), in milliseconds. A day is the
+ * device's local date, YYYY-MM-DD. Other devices' rows arrive by sync; a learner's time on a
+ * day is the sum over devices.
+ */
+export interface ActivityRow {
+  /** device_id and day, joined with "|". */
+  key: string;
+  device_id: string;
+  day: string;
+  ms: number;
+  /** 1 after this device added time the server does not have yet. */
   dirty: 0 | 1;
 }
 
@@ -189,6 +225,8 @@ export class KinyaDb extends Dexie {
   drill_scores!: EntityTable<DrillScoreRow, 'id'>;
   stories!: EntityTable<StoryRow, 'id'>;
   my_words!: EntityTable<MyWordRow, 'id'>;
+  my_word_media!: EntityTable<MyWordMediaRow, 'path'>;
+  activity!: EntityTable<ActivityRow, 'key'>;
 
   constructor(name = 'kinyarwanda') {
     super(name);
@@ -238,6 +276,11 @@ export class KinyaDb extends Dexie {
     this.version(7).stores({ stories: 'id, created_at, dirty' });
     // Decision 185: the learner's own words.
     this.version(8).stores({ my_words: 'id, dirty' });
+    // Decisions 188 and 190: pictures and recordings for own words, and time spent learning.
+    this.version(9).stores({
+      my_word_media: 'path, word_id, uploaded, deleted',
+      activity: 'key, day, dirty',
+    });
   }
 }
 

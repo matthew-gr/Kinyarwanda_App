@@ -423,6 +423,24 @@
   margin: 0;
   color: var(--text-card-back);
 }
+/* A learner's own picture or emoji for the meaning (decision 188). */
+.kn-flash-picture {
+  display: flex;
+  justify-content: center;
+  margin-top: 12px;
+}
+.kn-flash-picture img {
+  display: block;
+  max-width: 140px;
+  max-height: 120px;
+  border-radius: 12px;
+  object-fit: contain;
+  background: var(--surface);
+}
+.kn-flash-emoji {
+  font-size: 56px;
+  line-height: 1.1;
+}
 .kn-flash-rule {
   display: block;
   width: 65px;

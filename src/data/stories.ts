@@ -13,7 +13,7 @@ import {
 import { afterRead, buildRequest, STORIES_OPEN_AT, type StoryFeedback } from '../engine/stories';
 import type { Item, ItemForm } from '../engine/types';
 import { db, type KinyaDb, type StoryRow } from './db';
-import { addMyWord, EN_MAX, findMyWord, listMyWords } from './myWords';
+import { addMyWord, EN_MAX, findMyWord, InCourseError, listMyWords } from './myWords';
 import { getProfile, loadDeck, saveLearnRow } from './repo';
 import { progressChanged } from './signals';
 import { supabase } from './supabase';
@@ -286,6 +286,12 @@ export async function learnStoryWord(
 ): Promise<'learn' | 'mine' | 'already'> {
   if (w.itemId) return (await addToLearn(w.itemId, d)) ? 'learn' : 'already';
   if (await findMyWord(w.word, d)) return 'already';
-  await addMyWord({ rw: w.word, en: w.en.slice(0, EN_MAX), tags: [STORY_TAG] }, d);
+  try {
+    await addMyWord({ rw: w.word, en: w.en.slice(0, EN_MAX), tags: [STORY_TAG] }, d);
+  } catch (e) {
+    // A form of a course word the story spelled another way: learn the course's (decision 189).
+    if (e instanceof InCourseError) return (await addToLearn(e.item.id, d)) ? 'learn' : 'already';
+    throw e;
+  }
   return 'mine';
 }
