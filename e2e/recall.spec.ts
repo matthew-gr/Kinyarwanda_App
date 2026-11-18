@@ -211,6 +211,10 @@ test('Quick Recall counts a right answer in time as the review of a word due tod
   test.setTimeout(90_000);
   await page.clock.install();
   await page.goto('/');
+  // The course is loaded before words are put in Review.
+  await expect(
+    page.getByRole('list', { name: 'Modules' }).getByRole('button', { name: /^Quick Recall/ }),
+  ).toContainText('0 of 20 in Review');
   // 20 well-known words, all due a minute ago.
   await putInReview(page, 20, 3, -60_000);
   await page.goto('/drills/recall');

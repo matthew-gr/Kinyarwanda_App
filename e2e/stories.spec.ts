@@ -25,8 +25,11 @@ async function learnHundredWords(page: Page): Promise<{ id: string; text: string
           tx.onerror = () => reject(tx.error);
           const go = () => {
             if (items.readyState !== 'done' || forms.readyState !== 'done') return;
-            const words = (items.result as { id: string; kind: string; rank: number; en: string }[])
-              .filter((i) => i.kind === 'word')
+            // One-word entries only: a story splits "hamwe na hamwe" into three words.
+            const words = (
+              items.result as { id: string; kind: string; rank: number; en: string; base: string }[]
+            )
+              .filter((i) => i.kind === 'word' && !/\s/.test(i.base))
               .sort((a, b) => a.rank - b.rank);
             const later = new Date(Date.now() + 864e5).toISOString();
             for (const w of words.slice(0, 100)) {
