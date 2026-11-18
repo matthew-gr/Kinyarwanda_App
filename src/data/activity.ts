@@ -47,6 +47,40 @@ export function recordInteraction(now: number): void {
   for (const { day, ms } of out.credit) pending.set(day, (pending.get(day) ?? 0) + ms);
 }
 
+/** While audio plays, time counts as if the learner were tapping this often. */
+const LISTEN_TICK_MS = 5_000;
+const playing = new Set<HTMLMediaElement>();
+let listenTimer: ReturnType<typeof setInterval> | null = null;
+
+const onScreen = () => typeof document === 'undefined' || document.visibilityState === 'visible';
+
+/**
+ * Counts listening as active time (decision 191): while `audio` plays with the app on screen,
+ * the time counts even without taps, such as a story playing to the end.
+ */
+export function countWhilePlaying(audio: HTMLMediaElement): void {
+  const tick = () => {
+    if (onScreen()) recordInteraction(Date.now());
+  };
+  const start = () => {
+    tick();
+    playing.add(audio);
+    listenTimer ??= setInterval(tick, LISTEN_TICK_MS);
+  };
+  const stop = () => {
+    if (!playing.delete(audio)) return;
+    tick();
+    if (playing.size === 0 && listenTimer !== null) {
+      clearInterval(listenTimer);
+      listenTimer = null;
+    }
+  };
+  audio.addEventListener('playing', start);
+  audio.addEventListener('pause', stop);
+  audio.addEventListener('ended', stop);
+  audio.addEventListener('error', stop);
+}
+
 /** Starts counting: taps and key presses while the app is on screen. */
 export function startActivityTracking(): void {
   if (started || typeof window === 'undefined') return;

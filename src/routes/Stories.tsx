@@ -5,6 +5,7 @@ import { Badge } from '../components/Badge';
 import { cx } from '../components/cx';
 import { Icon } from '../components/Icon';
 import type { StoryRow } from '../data/db';
+import { countWhilePlaying } from '../data/activity';
 import { addMyWord, findMyWord } from '../data/myWords';
 import { STORY_MODELS, storyModelLabel } from '../../supabase/functions/_shared/story';
 import {
@@ -279,6 +280,7 @@ export function StoryReader() {
       const playPart = (path: string, i: number, toEnd = false) => {
         const [startAt, endAt] = sentenceSpan(story, i);
         const audio = new Audio(path);
+        countWhilePlaying(audio);
         let stopped = false;
         stopRef.current = () => {
           stopped = true;

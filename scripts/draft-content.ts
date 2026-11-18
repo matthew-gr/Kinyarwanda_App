@@ -22,6 +22,7 @@ import { COMMON_800 } from './vocabulary/common-800.ts';
 import { COMMON_1000 } from './vocabulary/common-1000.ts';
 import { COMMON_1200 } from './vocabulary/common-1200.ts';
 import { COMMON_1500 } from './vocabulary/common-1500.ts';
+import { COMMON_2000 } from './vocabulary/common-2000.ts';
 import { presentForms, type Word } from './vocabulary/words.ts';
 
 const VERB_TABLE = new URL('../src/data/seed/verbs.json', import.meta.url);
@@ -940,6 +941,7 @@ for (const cluster of [
   ...COMMON_1000,
   ...COMMON_1200,
   ...COMMON_1500,
+  ...COMMON_2000,
 ]) {
   for (const w of cluster.words) addWord(w, ++rank, cluster.topic, cluster.picturable);
 }
