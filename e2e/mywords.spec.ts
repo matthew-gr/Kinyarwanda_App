@@ -139,12 +139,12 @@ test('My words: add with a picture and a recording, tag, edit, learn into Review
   await page.getByLabel('Kinyarwanda').fill('inkongoro');
   await page.getByLabel('English').fill('milk pot');
   await page.getByLabel(/Tags/).fill('Home, food');
-  await page.getByLabel('Emoji').fill('milk');
+  await page.getByLabel(/^Emoji/).fill('milk');
   await page.getByRole('button', { name: 'Add to my words' }).click();
   await expect(page.getByRole('alert')).toHaveText(
     'Only emoji go in this box. Put words in English.',
   );
-  await page.getByLabel('Emoji').fill('🥛');
+  await page.getByLabel(/^Emoji/).fill('🥛');
   await page.getByLabel('Add a photo or GIF').setInputFiles({
     name: 'pot.png',
     mimeType: 'image/png',

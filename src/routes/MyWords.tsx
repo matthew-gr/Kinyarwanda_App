@@ -435,14 +435,13 @@ export function WordForm({
       <fieldset className="mywords-media">
         <legend className="body-small-bold">Picture (optional): an emoji, a photo or a GIF</legend>
         <label className="field">
-          <span className="body-small">Emoji</span>
+          <span className="body-small">Emoji, for example 🥛</span>
           <input
             className="field-input mywords-emoji-input"
             autoComplete="off"
             maxLength={16}
             value={emoji}
             onChange={(e) => setEmoji(e.target.value)}
-            placeholder="🥛"
           />
         </label>
         {pictureUrl ? (
