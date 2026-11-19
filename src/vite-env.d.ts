@@ -10,3 +10,6 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+/** This build's version, package version and commit, such as 0.1.0+1b56573 (vite.config.ts). */
+declare const __APP_VERSION__: string;
