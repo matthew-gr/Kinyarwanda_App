@@ -27,6 +27,7 @@ import { Search } from './routes/Search';
 import { SpeedSpeaking } from './routes/SpeedSpeaking';
 import { Stories, StoryReader } from './routes/Stories';
 import { Placement } from './routes/Placement';
+import { StreakFreezeNotice } from './routes/StreakFreezeNotice';
 import { Topics } from './routes/Topics';
 import { VerbBuilder } from './routes/VerbBuilder';
 import { UpdateBanner } from './routes/Update';
@@ -100,6 +101,7 @@ export function App() {
             <Route path="admin/voices" element={<VoiceTest />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          <StreakFreezeNotice />
         </BrowserRouter>
       </AccessGate>
     </>

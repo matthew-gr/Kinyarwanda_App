@@ -84,38 +84,76 @@ export function lastDays(
   });
 }
 
+/** The Monday that starts the week holding `key`, as YYYY-MM-DD. Weeks run Monday to Sunday. */
+export function weekOf(key: string): string {
+  const [y, m, d] = key.split('-').map(Number) as [number, number, number];
+  const weekday = new Date(y, m - 1, d, 12).getDay(); // 0 is Sunday
+  return shiftDay(key, -((weekday + 6) % 7));
+}
+
 export interface Streak {
   /** Days in a row with any practice, ending today, or yesterday if today has none yet. */
   current: number;
   best: number;
   practicedToday: boolean;
+  /**
+   * Days without practice that a streak freeze covered and that are part of the current
+   * streak, oldest first. Empty when no freeze is holding the current streak together.
+   */
+  frozenDays: string[];
+  /**
+   * The latest frozen day, while there has been no practice since it (today included), so
+   * the learner has not been back since the freeze saved their streak. Otherwise null.
+   */
+  freshFreeze: string | null;
 }
 
-/** Any answer, in Learn or Review, keeps the day. */
+/**
+ * Any answer, in Learn or Review, keeps the day. Once a week (Monday to Sunday), a single day
+ * without practice is covered by a streak freeze: the streak carries on, but the frozen day
+ * does not add to it. Two days in a row without practice, or a second such day in the same
+ * week, break the streak.
+ * Freezes are worked out from the practice days alone, so every device agrees on them.
+ */
 export function dayStreak(activeDays: Iterable<string>, now: number): Streak {
   const active = new Set(activeDays);
   const today = dayKey(now);
   const practicedToday = active.has(today);
 
-  let current = 0;
-  let day = practicedToday ? today : shiftDay(today, -1);
-  while (active.has(day)) {
-    current++;
-    day = shiftDay(day, -1);
-  }
-
+  // Walk every day from the first practice up to yesterday; today is not over yet.
+  const first = [...active].filter((d) => d < today).sort()[0];
+  const frozenWeeks = new Set<string>();
+  let run = 0;
   let best = 0;
-  for (const d of active) {
-    if (active.has(shiftDay(d, -1))) continue; // not the start of a run
-    let run = 0;
-    let x = d;
-    while (active.has(x)) {
+  let frozenDays: string[] = [];
+  for (let day = first; day !== undefined && day < today; day = shiftDay(day, 1)) {
+    if (active.has(day)) {
       run++;
-      x = shiftDay(x, 1);
+    } else if (
+      run > 0 &&
+      frozenDays.at(-1) !== shiftDay(day, -1) &&
+      !frozenWeeks.has(weekOf(day))
+    ) {
+      frozenWeeks.add(weekOf(day));
+      frozenDays.push(day);
+    } else {
+      run = 0;
+      frozenDays = [];
     }
     best = Math.max(best, run);
   }
-  return { current, best, practicedToday };
+
+  const current = practicedToday ? run + 1 : run;
+  const lastFrozen = current > 0 ? frozenDays.at(-1) : undefined;
+  const practicedSince =
+    lastFrozen !== undefined && [...active].some((d) => d > lastFrozen && d <= today);
+  return {
+    current,
+    best: Math.max(best, current),
+    practicedToday,
+    frozenDays: current > 0 ? frozenDays : [],
+    freshFreeze: lastFrozen !== undefined && !practicedSince ? lastFrozen : null,
+  };
 }
 
 export interface BadgeState {
