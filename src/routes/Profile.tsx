@@ -20,6 +20,7 @@ import {
 import { createInvite, listInvites, type InviteRow, type NewInvite } from '../data/invites';
 import { useAdmin } from './admin/useAdmin';
 import { EmailSignIn } from './EmailSignIn';
+import { FeedbackPanel } from './FeedbackPanel';
 import { PhonePanel } from './PhonePanel';
 import { waitInWords } from './cardText';
 import { lastPlacement } from '../data/placement';
@@ -184,6 +185,7 @@ export function Profile() {
         />
       )}
       {status.email ? <Invites email={status.email} /> : null}
+      {status.state === 'unavailable' ? null : <FeedbackPanel signedIn={!!status.email} />}
       <AdminLink email={status.email} />
     </div>
   );
