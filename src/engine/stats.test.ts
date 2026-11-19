@@ -8,6 +8,7 @@ import {
   lastDays,
   reviewAccuracy,
   shiftDay,
+  weekOf,
 } from './stats';
 
 /** Local time, so day boundaries hold in any time zone the tests run in. */
@@ -33,6 +34,7 @@ describe('days', () => {
 });
 
 describe('dayStreak', () => {
+  // 10 March 2026 is a Tuesday; that week runs from Monday 9 March.
   const now = at(2026, 3, 10, 18);
 
   it('counts days in a row ending today', () => {
@@ -40,6 +42,8 @@ describe('dayStreak', () => {
       current: 3,
       best: 3,
       practicedToday: true,
+      frozenDays: [],
+      freshFreeze: null,
     });
   });
 
@@ -47,23 +51,116 @@ describe('dayStreak', () => {
     expect(dayStreak(['2026-03-08', '2026-03-09'], now)).toMatchObject({
       current: 2,
       practicedToday: false,
+      frozenDays: [],
     });
   });
 
-  it('breaks after a whole day without practice, and remembers the best run', () => {
+  it('breaks after two days in a row without practice, and remembers the best run', () => {
+    // Saturday 7 March, then nothing on Sunday or Monday: the freeze covers one day only,
+    // even though the two days fall in different weeks.
     const days = [
       '2026-02-01',
       '2026-02-02',
       '2026-02-03',
       '2026-02-04',
+      '2026-03-06',
       '2026-03-07',
-      '2026-03-08',
     ];
-    expect(dayStreak(days, now)).toEqual({ current: 0, best: 4, practicedToday: false });
+    expect(dayStreak(days, now)).toEqual({
+      current: 0,
+      best: 4,
+      practicedToday: false,
+      frozenDays: [],
+      freshFreeze: null,
+    });
   });
 
   it('is zero with no practice at all', () => {
-    expect(dayStreak([], now)).toEqual({ current: 0, best: 0, practicedToday: false });
+    expect(dayStreak([], now)).toEqual({
+      current: 0,
+      best: 0,
+      practicedToday: false,
+      frozenDays: [],
+      freshFreeze: null,
+    });
+  });
+
+  it("covers one missed day with the week's freeze, without adding it to the streak", () => {
+    // Friday to Sunday, then nothing on Monday 9 March.
+    expect(dayStreak(['2026-03-06', '2026-03-07', '2026-03-08'], now)).toEqual({
+      current: 3,
+      best: 3,
+      practicedToday: false,
+      frozenDays: ['2026-03-09'],
+      freshFreeze: '2026-03-09',
+    });
+  });
+
+  it('keeps the frozen day in the streak but stops calling it news once practice resumes', () => {
+    expect(dayStreak(['2026-03-06', '2026-03-07', '2026-03-08', '2026-03-10'], now)).toMatchObject({
+      current: 4,
+      practicedToday: true,
+      frozenDays: ['2026-03-09'],
+      freshFreeze: null,
+    });
+  });
+
+  it('breaks on a second missed day in the same week', () => {
+    // Week of 2 March: Wednesday is frozen, then Saturday is missed too.
+    const days = [
+      '2026-03-02',
+      '2026-03-03',
+      '2026-03-05',
+      '2026-03-06',
+      '2026-03-08',
+      '2026-03-09',
+      '2026-03-10',
+    ];
+    expect(dayStreak(days, now)).toEqual({
+      current: 3,
+      best: 4,
+      practicedToday: true,
+      frozenDays: [],
+      freshFreeze: null,
+    });
+  });
+
+  it('gives a new freeze each week', () => {
+    // Wednesday 4 March is frozen, and so is Monday 9 March in the next week.
+    const days = [
+      '2026-03-02',
+      '2026-03-03',
+      '2026-03-05',
+      '2026-03-06',
+      '2026-03-07',
+      '2026-03-08',
+    ];
+    expect(dayStreak(days, now)).toEqual({
+      current: 6,
+      best: 6,
+      practicedToday: false,
+      frozenDays: ['2026-03-04', '2026-03-09'],
+      freshFreeze: '2026-03-09',
+    });
+  });
+
+  it('has nothing to freeze before the first day of practice', () => {
+    expect(dayStreak(['2026-03-10'], now)).toEqual({
+      current: 1,
+      best: 1,
+      practicedToday: true,
+      frozenDays: [],
+      freshFreeze: null,
+    });
+  });
+});
+
+describe('weekOf', () => {
+  it('starts each week on Monday', () => {
+    expect(weekOf('2026-03-09')).toBe('2026-03-09');
+    expect(weekOf('2026-03-10')).toBe('2026-03-09');
+    expect(weekOf('2026-03-08')).toBe('2026-03-02');
+    expect(weekOf('2027-01-01')).toBe('2026-12-28');
   });
 });
 

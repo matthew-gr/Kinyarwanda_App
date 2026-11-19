@@ -499,7 +499,8 @@ body {
   outline-offset: 2px;
 }
 
-.report-dialog {
+.report-dialog,
+.freeze-dialog {
   width: min(360px, calc(100vw - 32px));
   padding: var(--space-20);
   border: 0;
@@ -508,12 +509,15 @@ body {
   color: var(--ink);
 }
 
-.report-dialog::backdrop {
+.report-dialog::backdrop,
+.freeze-dialog::backdrop {
   background: rgb(0 0 0 / 0.4);
 }
 
 .report-dialog h2,
-.report-dialog p {
+.report-dialog p,
+.freeze-dialog h2,
+.freeze-dialog p {
   margin: 0;
 }
 
