@@ -14,3 +14,8 @@ message. Every message is also kept in the `feedback` table in Supabase.
 <!-- feedback:02e782cf-3022-4dfa-af9b-794f1ca016f9 -->
 
 > An exercise to practice noun classes would be helpful.
+
+### 2026-11-20 14:06 UTC · Learn · 0.1.0+698069f
+<!-- feedback:f84ebfc7-e041-43bc-b78e-38f930ccbd30 -->
+
+> More phrases would be great, especially proverbs.
