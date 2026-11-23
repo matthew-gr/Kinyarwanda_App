@@ -50,3 +50,8 @@ message. Every message is also kept in the `feedback` table in Supabase.
 <!-- feedback:030a2a54-d94d-4632-8807-de539063c008 -->
 
 > The speed recall offers words as choices that have not been lerned yet. Because I can just look for the word(s) I already know, the exercise becomes too easy.
+
+### 2026-11-23 14:10 UTC · General · 0.1.0+698069f
+<!-- feedback:4481f551-0e22-4bdb-a896-cb6ec4e90b2e -->
+
+> A button to download the progress as a file could be helpful to have a backup.
