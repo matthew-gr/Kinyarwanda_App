@@ -45,3 +45,8 @@ message. Every message is also kept in the `feedback` table in Supabase.
 > \- the current review frequency (e.g., 3.4 days)
 > the new review frequency when I get it right (e.g., 6.8 days)
 > \- the new review frequency when I get it wrong (e.g., 5 min)
+
+### 2026-11-23 11:42 UTC · Drills · 0.1.0+698069f
+<!-- feedback:030a2a54-d94d-4632-8807-de539063c008 -->
+
+> The speed recall offers words as choices that have not been lerned yet. Because I can just look for the word(s) I already know, the exercise becomes too easy.
