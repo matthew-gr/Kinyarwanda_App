@@ -19,3 +19,8 @@ message. Every message is also kept in the `feedback` table in Supabase.
 <!-- feedback:f84ebfc7-e041-43bc-b78e-38f930ccbd30 -->
 
 > More phrases would be great, especially proverbs.
+
+### 2026-11-23 06:47 UTC · General · 0.1.0+698069f
+<!-- feedback:9e1e8690-e995-4465-9610-a3389e5f51d5 -->
+
+> A toggle for a dark mode would be nice.
