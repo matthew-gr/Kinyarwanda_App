@@ -24,3 +24,10 @@ message. Every message is also kept in the `feedback` table in Supabase.
 <!-- feedback:9e1e8690-e995-4465-9610-a3389e5f51d5 -->
 
 > A toggle for a dark mode would be nice.
+
+### 2026-11-23 10:09 UTC · Review · 0.1.0+698069f
+<!-- feedback:9d6495bb-84a5-447b-bba6-5408c487adb8 -->
+
+> Expected behavior: If I get a word wrong, the next time I see it should be the exact same form of that word.
+>
+> Actual behavior: If I get a word wrong, the next time I see it is often a different/easier form of that word.
