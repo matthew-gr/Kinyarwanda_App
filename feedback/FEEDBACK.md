@@ -31,3 +31,17 @@ message. Every message is also kept in the `feedback` table in Supabase.
 > Expected behavior: If I get a word wrong, the next time I see it should be the exact same form of that word.
 >
 > Actual behavior: If I get a word wrong, the next time I see it is often a different/easier form of that word.
+
+### 2026-11-23 10:22 UTC · Review · 0.1.0+698069f
+<!-- feedback:2aeff6e5-bd7b-48d9-838a-dda6557cb243 -->
+
+> My impression is that the scheduler schedules too many reviews.
+>
+> I like Anki's scheduler. This is open-source app has a sophisticated algorithm. For example, when a card is scheduled for review after 4 hours, but I review it only after 3 days and get it right, the scheduler won't schedule the next review after 1 day, but 6 days or something similar. Instead of fixed intervals, the intervals are tailored to each card.
+>
+> It would be great to have an option to turn Anki's algorithm on and off to test if it works as expected.
+>
+> Also, it would be helpful to see for each card
+> \- the current review frequency (e.g., 3.4 days)
+> the new review frequency when I get it right (e.g., 6.8 days)
+> \- the new review frequency when I get it wrong (e.g., 5 min)
