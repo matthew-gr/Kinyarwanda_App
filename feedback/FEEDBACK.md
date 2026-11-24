@@ -60,3 +60,8 @@ message. Every message is also kept in the `feedback` table in Supabase.
 <!-- feedback:818142e1-b9cf-4cdf-81af-375317d4b5a2 -->
 
 > Idea: Shuffle cards before review so that they do not appear in the same order again after answering them correctly.
+
+### 2026-11-24 08:42 UTC · Review · 0.1.0+698069f
+<!-- feedback:b9749edf-70db-4338-9823-6b5a1b8c1545 -->
+
+> Idea: Show also the plural form of a singular noun on the card's back side. (The singular form is already being shown on a plural noun's back side.)
