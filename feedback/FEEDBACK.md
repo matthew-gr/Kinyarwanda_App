@@ -65,3 +65,8 @@ message. Every message is also kept in the `feedback` table in Supabase.
 <!-- feedback:b9749edf-70db-4338-9823-6b5a1b8c1545 -->
 
 > Idea: Show also the plural form of a singular noun on the card's back side. (The singular form is already being shown on a plural noun's back side.)
+
+### 2026-11-24 08:57 UTC · Stories · 0.1.0+698069f
+<!-- feedback:c53b6b25-404e-4081-87ab-159e21dbeda5 -->
+
+> Idea: Adjust the reading speed. It is currently too fast for me.
