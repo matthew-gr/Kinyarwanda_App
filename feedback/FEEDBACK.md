@@ -70,3 +70,8 @@ message. Every message is also kept in the `feedback` table in Supabase.
 <!-- feedback:c53b6b25-404e-4081-87ab-159e21dbeda5 -->
 
 > Idea: Adjust the reading speed. It is currently too fast for me.
+
+### 2026-11-24 10:30 UTC · General · 0.1.0+698069f
+<!-- feedback:74ddff2f-9de8-48ae-8d0a-b0fedf0fc90a -->
+
+> The audio sometimes not matches the text (on \~20 % of the cards).
