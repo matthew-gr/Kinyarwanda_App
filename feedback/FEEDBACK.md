@@ -75,3 +75,10 @@ message. Every message is also kept in the `feedback` table in Supabase.
 <!-- feedback:74ddff2f-9de8-48ae-8d0a-b0fedf0fc90a -->
 
 > The audio sometimes not matches the text (on \~20 % of the cards).
+
+### 2026-11-24 12:43 UTC · General · 0.1.0+698069f
+<!-- feedback:8f16b967-04bb-4a83-a6b6-10f8ef9d2317 -->
+
+> The audio that does not match the text is caused by splitting the audio at the wrong places. This is currently visible in the story mode, when more or less than the highlighted line is being read.
+>
+> If it is difficult to find a tool that splits the audio at the right places, a reliable solution is to apply TTS by making one API request for each word (or line in story mode) instead of making a single API request for a long text passage and split it later on. However, this approach might increase cost.
