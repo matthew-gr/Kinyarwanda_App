@@ -55,3 +55,8 @@ message. Every message is also kept in the `feedback` table in Supabase.
 <!-- feedback:4481f551-0e22-4bdb-a896-cb6ec4e90b2e -->
 
 > A button to download the progress as a file could be helpful to have a backup.
+
+### 2026-11-24 08:41 UTC · Review · 0.1.0+698069f
+<!-- feedback:818142e1-b9cf-4cdf-81af-375317d4b5a2 -->
+
+> Idea: Shuffle cards before review so that they do not appear in the same order again after answering them correctly.
