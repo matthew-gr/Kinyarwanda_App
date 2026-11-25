@@ -87,3 +87,8 @@ message. Every message is also kept in the `feedback` table in Supabase.
 <!-- feedback:d000bda9-ddd9-424a-a5b9-c930acccb556 -->
 
 > It appears that the story builder disregards the feedback for stories that have been read before.
+
+### 2026-11-25 13:20 UTC · Stories · 0.1.0+698069f
+<!-- feedback:c6117c90-ade0-466e-8ce2-a2190089aa89 -->
+
+> Idea: Answer 5 - 10 instead of 3 multiple choice questions to get a more precise assessment.
