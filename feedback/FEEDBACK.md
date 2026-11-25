@@ -82,3 +82,8 @@ message. Every message is also kept in the `feedback` table in Supabase.
 > The audio that does not match the text is caused by splitting the audio at the wrong places. This is currently visible in the story mode, when more or less than the highlighted line is being read.
 >
 > If it is difficult to find a tool that splits the audio at the right places, a reliable solution is to apply TTS by making one API request for each word (or line in story mode) instead of making a single API request for a long text passage and split it later on. However, this approach might increase cost.
+
+### 2026-11-25 09:18 UTC · Stories · 0.1.0+698069f
+<!-- feedback:d000bda9-ddd9-424a-a5b9-c930acccb556 -->
+
+> It appears that the story builder disregards the feedback for stories that have been read before.
