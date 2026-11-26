@@ -44,6 +44,8 @@ interface AudioRun {
   stopped?: string | null;
   /** Pindo bills each request as a minute, so the cost can be shown. */
   pindo: boolean;
+  /** Batches said together that cut cleanly, and why the others didn't. */
+  clean: number;
   notes: string[];
 }
 
@@ -155,6 +157,7 @@ function Course() {
       failed: 0,
       started: Date.now(),
       pindo: false,
+      clean: 0,
       notes: [],
     };
     setMaking(run);
@@ -167,7 +170,8 @@ function Course() {
         requests: run.requests + (batch.requests ?? 0),
         failed: run.failed + (batch.failed?.length ?? 0),
         pindo: run.pindo || batch.provider === 'pindo',
-        notes: [...run.notes, ...notes],
+        clean: run.clean + notes.filter((n) => n.endsWith('cut cleanly')).length,
+        notes: [...run.notes, ...notes.filter((n) => !n.endsWith('cut cleanly'))],
       };
       setMaking(run);
     };
@@ -274,9 +278,11 @@ function Course() {
                 audio carries on. ({finished.stopped})
               </p>
             ) : null}
-            {finished.notes.length > 0 ? (
+            {finished.clean + finished.notes.length > 0 ? (
               <details className="body-small">
-                <summary>Notes from the voice</summary>
+                <summary>
+                  {finished.clean} of {finished.clean + finished.notes.length} batches cut cleanly
+                </summary>
                 <ul lang="rw">
                   {finished.notes.map((n, i) => (
                     <li key={i}>{n}</li>
@@ -451,8 +457,8 @@ function ReportCard({ report, onDone }: { report: ReportView; onDone: () => void
 }
 
 /**
- * The re-record queue (decisions 175 and 195): learners' requests to approve or reject, and
- * any forms still waiting to be recorded.
+ * The re-record queue (decision 175): learners' requests to approve or reject, and the forms
+ * waiting to be recorded together once there are 15.
  */
 function Rerecords() {
   const [requests, setRequests] = useState<AudioRequestView[] | null>(null);
@@ -477,16 +483,17 @@ function Rerecords() {
     };
   }, [reload]);
 
-  /** Records the queue and says what happened. */
-  const run = async () => {
+  /** Records the queue if 15 wait, or now when forced, and says what happened. */
+  const run = async (force: boolean) => {
     setBusy(true);
     setError(null);
     try {
-      const r = await runRerecords();
+      const r = await runRerecords(force);
       setNote(
-        `Re-recorded ${r.rerecorded ?? 0} clips with ${r.requests ?? 0} requests to the voice.` +
-          (r.failed?.length ? ` ${r.failed.length} couldn't be voiced.` : '') +
-          (r.stopped ? ` Stopped: ${r.stopped}` : ''),
+        r.waiting !== undefined
+          ? `${r.waiting} waiting; the queue is recorded once ${r.batch ?? 15} wait.`
+          : `Re-recorded ${r.rerecorded ?? 0} clips with ${r.requests ?? 0} requests to the voice.` +
+              (r.stopped ? ` Stopped: ${r.stopped}` : ''),
       );
     } catch (e) {
       setError(errorText(e));
@@ -500,7 +507,7 @@ function Rerecords() {
     setError(null);
     try {
       await decideAudioRequest(id, approve);
-      if (approve) await run();
+      if (approve) await run(false);
       else setReload((n) => n + 1);
     } catch (e) {
       setError(errorText(e));
@@ -513,15 +520,15 @@ function Rerecords() {
         Re-recording
       </h2>
       <p className="body">
-        {queued} {queued === 1 ? 'clip waits' : 'clips wait'} to be re-recorded. Approved requests
-        are recorded straight away; this records any left over.
+        {queued} {queued === 1 ? 'clip waits' : 'clips wait'} to be re-recorded; they are made
+        together once 15 wait.
       </p>
       <div className="admin-actions">
         <button
           type="button"
           className="btn btn-missed"
           disabled={busy || queued === 0}
-          onClick={() => void run()}
+          onClick={() => void run(true)}
         >
           {busy ? 'Recording…' : 'Record them now'}
         </button>

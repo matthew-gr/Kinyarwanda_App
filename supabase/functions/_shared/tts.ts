@@ -4,6 +4,8 @@
 // Gemini, IjwiLab and Proto were tried and dropped (decision 156).
 
 import { spokenSpelling } from './spoken.ts';
+import { fitCuts } from './fit.ts';
+import { readWav, writeWav, type Pcm } from './split.ts';
 
 export type Voice =
   | {
@@ -19,6 +21,12 @@ export type Voice =
 
 /** Voices that read Kinyarwanda as written. */
 export const readsKinyarwanda = (v: Pick<Voice, 'provider'>) => v.provider === 'pindo';
+
+/**
+ * Pindo charges a minute for each request, however short, so it gets this many items at a
+ * time, said together and cut apart.
+ */
+export const batchSize = (v: Pick<Voice, 'provider'>) => (v.provider === 'pindo' ? 15 : 1);
 
 /** A secret pasted with a line break, spaces or quotes around it would break the request header. */
 export const env = (name: string) => (Deno.env.get(name) ?? '').trim().replace(/^["']|["']$/g, '');
@@ -76,10 +84,12 @@ export const cleanLabel = (s: string) =>
 export async function speak(
   voice: Voice,
   text: string,
+  /** A batch's script, whose "..." are the pauses between items and must stay. */
+  script = false,
   count: Count = { requests: 0, notes: [] },
 ): Promise<{ bytes: Uint8Array; type: string }> {
   // The "..." in a phrase like "Nitwa ..." is a gap for the learner's own word, not speech.
-  const plain = text.replace(/\.{3}|…/g, '').trim();
+  const plain = script ? text : text.replace(/\.{3}|…/g, '').trim();
   if (count.stop) throw new OutOfCredit(count.stop);
   if (voice.provider === 'pindo') return speakPindo(voice, plain, count);
   if (voice.provider !== 'elevenlabs')
@@ -153,36 +163,156 @@ async function speakPindo(
   };
 }
 
-/** What happened to an item: its clip, or the error that left it silent. */
-export type Spoken = { bytes: Uint8Array; type: string } | { error: string };
+/**
+ * What happened to an item: its clip, an error, or `pending`, meaning its takes didn't agree
+ * and it should ride in the caller's next batch (decision 173).
+ */
+export type Spoken = { bytes: Uint8Array; type: string } | { error: string } | { pending: true };
 
 /** One item on its own. Running out of credit isn't a failed item: it ends the run. */
 const one = (voice: Voice, text: string, count: Count): Promise<Spoken> =>
-  speak(voice, text, count).catch((e: unknown) => {
+  speak(voice, text, false, count).catch((e: unknown) => {
     if (e instanceof OutOfCredit) throw e;
     return { error: e instanceof Error ? e.message : String(e) };
   });
 
 /**
- * Voices several items, each in a request of its own, so every clip holds exactly its item
- * (decision 195). Batches of 15 said together and cut apart (decisions 147 to 175) left about
- * one clip in five holding part of a neighbour. If the voice runs out of credit, the rest are
- * left unvoiced and `stopped` says why.
+ * Voices several items. A voice that charges per request is sent them in batches of 15, said
+ * once and cut to fit (see oneTake). An item the cutter doubts goes to the back of the queue
+ * and rides in a later batch; one it has doubted MAX_TRIES times is voiced on its own. Items left when too few remain for a batch come
+ * back `pending`, for the caller's next call, unless `last` is set, when they are voiced
+ * alone. `tries[i]` is how many batches an item already failed in earlier calls. If the voice runs out
+ * of credit, the rest are left unvoiced and `stopped` says why.
  */
 export async function speakMany(
   voice: Voice,
   texts: string[],
-): Promise<{ spoken: Spoken[]; requests: number; notes: string[]; stopped?: string }> {
+  opts: { tries?: readonly number[]; last?: boolean } = {},
+): Promise<{
+  spoken: Spoken[];
+  /** For each item, how many pairs of takes it has now failed. */
+  tries: number[];
+  requests: number;
+  notes: string[];
+  stopped?: string;
+}> {
+  const size = batchSize(voice);
   const count: Count = { requests: 0, notes: [] };
   const spoken: Spoken[] = texts.map(() => ({ error: 'not voiced' }));
-  const done = () => ({ spoken, requests: count.requests, notes: count.notes });
+  const tries = texts.map((_, i) => opts.tries?.[i] ?? 0);
+  const done = () => ({ spoken, tries, requests: count.requests, notes: count.notes });
   try {
-    for (const [i, t] of texts.entries()) spoken[i] = await one(voice, t, count);
+    if (size <= 1) {
+      for (const [i, t] of texts.entries()) spoken[i] = await one(voice, t, count);
+      return done();
+    }
+    const queue = texts.map((_, i) => i);
+    const alone: number[] = [];
+    while (queue.length >= MIN_BATCH) {
+      const batch = queue.splice(0, size);
+      const kept = await oneTake(
+        voice,
+        batch.map((i) => texts[i]!),
+        count,
+      );
+      batch.forEach((i, k) => {
+        const clip = kept[k];
+        if (clip) spoken[i] = clip;
+        else if (++tries[i]! >= MAX_TRIES) alone.push(i);
+        else queue.push(i);
+      });
+    }
+    // Failed every try: likely a word the cutter can't place (a very short one), so alone.
+    for (const i of alone) spoken[i] = await one(voice, texts[i]!, count);
+    for (const i of queue)
+      spoken[i] = opts.last ? await one(voice, texts[i]!, count) : { pending: true };
+    if (queue.length > 0)
+      count.notes.push(
+        opts.last
+          ? `${queue.length} left over, made one at a time`
+          : `${queue.length} left over, carried into the next batch`,
+      );
   } catch (e) {
     if (!(e instanceof OutOfCredit)) throw e;
+    for (const [i, s] of spoken.entries()) if (!('bytes' in s)) spoken[i] = { error: e.message };
     return { ...done(), stopped: e.message };
   }
   return done();
+}
+
+/**
+ * What goes between items in a batch; each item also ends with a full stop. With Pindo the
+ * ellipsis left pauses of 230 to 420 ms between words, where a full stop or a line break left
+ * almost none.
+ */
+const SEPARATOR = ' ... ';
+
+/** An item as said in a batch: no gap marks, and a full stop if it has no end mark. */
+const sayable = (t: string) =>
+  t
+    .replace(/\.{3}|…/g, '')
+    .trim()
+    .replace(/[.?!]*$/, (m) => m || '.');
+
+/** A batch's recording, or null when there is none to cut. Running out of credit ends the run. */
+async function take(
+  voice: Voice,
+  texts: readonly string[],
+  count: Count,
+  label: string,
+): Promise<Pcm | null> {
+  const script = texts.map(sayable).join(SEPARATOR);
+  // A server error isn't billed, so a take that hits one is asked for once more rather than
+  // losing the whole batch while the other take was paid for.
+  const say = () => speak(voice, script, true, count);
+  try {
+    const { bytes } = await say().catch((e: unknown) => {
+      if (e instanceof OutOfCredit) throw e;
+      return say();
+    });
+    const pcm = readWav(bytes);
+    if (!pcm) {
+      const head = String.fromCharCode(...bytes.subarray(0, 4));
+      count.notes.push(`${label}: not a WAV we can read (starts "${head}")`);
+    }
+    return pcm;
+  } catch (e) {
+    if (e instanceof OutOfCredit) throw e;
+    count.notes.push(`${label}: ${e instanceof Error ? e.message.slice(0, 120) : e}`);
+    return null;
+  }
+}
+
+const letters = (texts: readonly string[]) => texts.map((t) => t.replace(/[^a-zA-Z]/g, '').length);
+
+/** Batches an item may fail before it is voiced on its own. */
+const MAX_TRIES = 3;
+
+/** Fewer items than this aren't worth a batch; they wait for more, or go alone. */
+const MIN_BATCH = 5;
+
+/**
+ * Says a batch once and cuts it to fit the items' expected lengths (fit.ts; decision 175).
+ * Returns a clip for each item the cutter is sure of, and null for those it doubts. A second
+ * take to check against was tried (decision 171) but kept few more right words for its cost;
+ * a clip that is still wrong is re-recorded from its card.
+ */
+async function oneTake(
+  voice: Voice,
+  texts: readonly string[],
+  count: Count,
+): Promise<(Spoken | null)[]> {
+  const label = `${texts.length} items (${texts[0]} … ${texts.at(-1)})`;
+  const pcm = await take(voice, texts, count, label);
+  const fit = pcm ? fitCuts(pcm, letters(texts)) : null;
+  if (!fit || 'reason' in fit) {
+    if (fit) count.notes.push(`${label}: ${fit.reason}`);
+    return texts.map(() => null);
+  }
+  count.notes.push(`${label}: ${texts.length - fit.doubtful.length} of ${texts.length} cut`);
+  return fit.clips.map((c, i) =>
+    fit.doubtful.includes(i) ? null : { bytes: writeWav(c), type: 'audio/wav' },
+  );
 }
 
 export const extension = (type: string) =>

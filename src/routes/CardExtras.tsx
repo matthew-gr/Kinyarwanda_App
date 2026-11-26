@@ -78,11 +78,9 @@ function RerecordLink({ form }: { form: ItemForm }) {
       setState(
         !r.queued
           ? 'Re-record requested; an admin will check it'
-          : r.stopped
-            ? `Queued; the voice stopped: ${r.stopped}`
-            : r.rerecorded
-              ? 'Re-recorded'
-              : 'Queued, but the voice couldn’t say it; try again from Admin',
+          : r.waiting === undefined
+            ? 'Re-recorded with the queue'
+            : `Queued for re-recording (${r.waiting} of ${r.batch ?? 15})`,
       );
     } catch (e) {
       setState(`Couldn’t send: ${errorText(e)}`);

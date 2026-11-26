@@ -1,10 +1,13 @@
 // Makes AI audio, for admins only. Audio is never made while a learner waits: an admin makes
 // it once, it is stored as a file, and every device caches it.
 //
-//   { action: "forms", form_ids: [...] }  voices each form with the chosen voice, one
-//                                          request per form, keeps the clip in audio_clips,
-//                                          and points the form at it
-//   { action: "rerecord" }               records the re-record queue (audio_requests)
+//   { action: "forms", form_ids: [...], tries?, last? }
+//                                          voices each form with the chosen voice, keeps the
+//                                          clip in audio_clips, and points the form at it;
+//                                          forms whose two takes disagreed come back in
+//                                          `pending` for the next call, unless `last`
+//   { action: "rerecord", force? }       records the re-record queue (audio_requests) once
+//                                          15 wait, or now with `force`; else says how many
 //   { action: "numbers", number_ids: [...] }
 //                                          the same for the drills' numbers (number_phrases)
 //   { action: "sample", voice, items }     the listening test: voices the same items with any
@@ -22,11 +25,9 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { cleanLabel, env, extension, speakMany, type Voice } from '../_shared/tts.ts';
 
-/**
- * Items voiced per call. Each is a request of its own, a few seconds with Pindo, so a call
- * stays well inside the server function's time limit.
- */
-const MAX_PER_CALL = 10;
+const MAX_PER_CALL = 25;
+/** Re-record requests wait until there are this many, enough for a batch. */
+const RERECORD_BATCH = 15;
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -74,10 +75,12 @@ Deno.serve(async (req) => {
       const label = cleanLabel(voice.label);
       const out = [];
       const failed: { key: string; error: string }[] = [];
-      // One item the voice can't say shouldn't lose the rest of the samples.
+      // One item the voice can't say shouldn't lose the rest of the samples. Voices that charge
+      // per request get the items in one batch, cut into clips afterwards.
       const { spoken, requests, notes, stopped } = await speakMany(
         voice,
         items.map((it) => it.text),
+        { last: true },
       );
       for (const [i, it] of items.entries()) {
         try {
@@ -108,22 +111,31 @@ Deno.serve(async (req) => {
 
       /**
        * Voices rows of a table and points each at its new clip; every earlier clip is kept in
-       * audio_clips.
+       * audio_clips. Rows whose cut was doubted come back `pending` for the next call, unless
+       * this is the run's last.
        */
       const voiceRows = async (
         table: 'item_forms' | 'number_phrases',
         rows: { id: string; text: string }[],
+        tries: Record<string, number>,
+        last: boolean,
       ) => {
         const folder = table === 'number_phrases' ? 'numbers' : 'forms';
         const owner = table === 'number_phrases' ? 'number_phrase_id' : 'form_id';
         const done = [];
         const failed: { id: string; error: string }[] = [];
+        const pending: { id: string; tries: number }[] = [];
         const said = await speakMany(
           voice,
           rows.map((r) => r.text),
+          { tries: rows.map((r) => tries[r.id] ?? 0), last },
         );
         for (const [i, r] of rows.entries()) {
           const one = said.spoken[i]!;
+          if ('pending' in one) {
+            pending.push({ id: r.id, tries: said.tries[i]! });
+            continue;
+          }
           // A row the voice couldn't say stays silent, for the next Make missing audio.
           if ('error' in one) {
             failed.push({ id: r.id, error: one.error });
@@ -152,13 +164,12 @@ Deno.serve(async (req) => {
           done.push({ [owner]: r.id, audio_path: url, audio_source: source });
         }
         const { requests, notes, stopped } = said;
-        // `stopped` says not to send another call.
-        return { done, failed, requests, notes, stopped, provider: voice.provider };
+        // `pending` rows go in the next call's batch; `stopped` says not to send one.
+        return { done, failed, pending, requests, notes, stopped, provider: voice.provider };
       };
 
       if (body.action === 'rerecord') {
-        // The re-record queue (decision 175). Each clip is its own request (decision 195), so
-        // nothing is gained by waiting for more; it is recorded as soon as it is asked for.
+        // The re-record queue (decision 175): recorded once 15 wait, or now when `force` is set.
         const { data: queued, error } = await service
           .from('audio_requests')
           .select('id, form_id, item_forms!inner(text)')
@@ -167,11 +178,13 @@ Deno.serve(async (req) => {
           .limit(MAX_PER_CALL);
         if (error) throw error;
         const waiting = queued ?? [];
+        if (waiting.length < RERECORD_BATCH && body.force !== true)
+          return json({ waiting: waiting.length, batch: RERECORD_BATCH });
         const rows = waiting.map((q) => ({
           id: q.form_id as string,
           text: (q.item_forms as unknown as { text: string }).text,
         }));
-        const result = await voiceRows('item_forms', rows);
+        const result = await voiceRows('item_forms', rows, {}, true);
         const voiced = new Set(result.done.map((d) => d.form_id as string));
         const finished = waiting.filter((q) => voiced.has(q.form_id as string)).map((q) => q.id);
         if (finished.length > 0) {
@@ -190,7 +203,9 @@ Deno.serve(async (req) => {
       const ids = ((numbers ? body.number_ids : body.form_ids) as string[]).slice(0, MAX_PER_CALL);
       const { data: rows, error } = await service.from(table).select('id, text').in('id', ids);
       if (error) throw error;
-      return json(await voiceRows(table, rows ?? []));
+      // Rows the cutter doubted in earlier calls carry their count of tries.
+      const tries = (body.tries as Record<string, number> | undefined) ?? {};
+      return json(await voiceRows(table, rows ?? [], tries, body.last === true));
     }
 
     return json({ error: 'Unknown action' }, 400);

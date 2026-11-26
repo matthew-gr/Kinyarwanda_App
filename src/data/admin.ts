@@ -224,23 +224,21 @@ async function callAudio<T>(body: object): Promise<T> {
 export interface AudioBatch {
   requests?: number;
   failed?: { id: string; error: string }[];
-  /** Anything worth knowing about the call. */
+  /** How each batch of items said together went. */
   notes?: string[];
   /** Set when the voice ran out of credit; nothing more is sent. */
   stopped?: string;
   provider?: string;
+  /** Items whose two takes disagreed, to go in the next call's batch. */
+  pending?: { id: string; tries: number }[];
 }
 
 /**
- * Items sent per call to the audio function. Each is a request of its own to the voice
- * (decision 195), so a call stays well inside the function's time limit. The server takes no
- * more than this.
- */
-const AUDIO_PER_CALL = 10;
-
-/**
- * Sends ids to the audio function a few at a time. Ends early, with the reason, when the
- * voice runs out of credit or `stop` says so; either way the clips made so far are kept.
+ * Sends ids to the audio function 25 at a time. Items whose two takes disagreed come back
+ * pending and go at the front of the next call, so they ride in a batch with new items rather
+ * than being voiced alone (decision 173); the last call voices any still left. Ends early,
+ * with the reason, when the voice runs out of credit or `stop` says so; either way the
+ * clips made so far are kept.
  */
 async function voiceInGroups(
   action: 'forms' | 'numbers',
@@ -249,17 +247,28 @@ async function voiceInGroups(
   stop?: () => boolean,
 ): Promise<string | null> {
   let why: string | null = null;
-  const todo = [...ids];
+  // Shuffled, so a batch mixes different words instead of 15 forms of one verb, whose clips
+  // are too alike in length for the cutter to place.
+  const todo = [...ids].sort(() => Math.random() - 0.5);
+  const tries: Record<string, number> = {};
   let settled = 0;
   while (todo.length > 0) {
     if (stop?.()) {
       why = 'Stopped.';
       break;
     }
-    const slice = todo.splice(0, AUDIO_PER_CALL);
-    const call = { action, [action === 'forms' ? 'form_ids' : 'number_ids']: slice };
+    const slice = todo.splice(0, 25);
+    const call = {
+      action,
+      [action === 'forms' ? 'form_ids' : 'number_ids']: slice,
+      tries: Object.fromEntries(slice.filter((id) => tries[id]).map((id) => [id, tries[id]])),
+      last: todo.length === 0,
+    };
     const batch = (await callAudio<AudioBatch>(call)) ?? {};
-    settled += slice.length;
+    const pending = batch.pending ?? [];
+    for (const p of pending) tries[p.id] = p.tries;
+    todo.unshift(...pending.map((p) => p.id));
+    settled += slice.length - pending.length;
     onProgress?.(Math.min(ids.length, settled), batch);
     if (batch.stopped) {
       why = batch.stopped;
@@ -304,8 +313,9 @@ export function makeSample(voice: SampleVoice, items: { key: string; text: strin
     label: string;
     clips: { key: string; url: string }[];
     failed?: { key: string; error: string }[];
-    /** Requests the voice was sent, one per item plus any retries. */
+    /** Requests the voice was sent; for a batched voice, 1 means the batch cut cleanly. */
     requests?: number;
+    /** For a batched voice, how each batch went. */
     notes?: string[];
     /** Set when the voice ran out of credit. */
     stopped?: string;
@@ -327,26 +337,19 @@ export interface AudioRequestView {
   created_at: string;
 }
 
-/** Answers a re-record run: what was recorded. */
+/** Answers a re-record run: how many wait for a batch, or what was recorded. */
 export interface RerecordResult extends AudioBatch {
+  waiting?: number;
+  batch?: number;
   rerecorded?: number;
 }
 
 /**
- * Records the re-record queue (decisions 175 and 195), a few clips per call, until it is
- * empty, a call records nothing, or the voice runs out of credit.
+ * Records the re-record queue once 15 wait (decision 175), or now when `force` is set.
+ * Without enough waiting, says how many there are.
  */
-export async function runRerecords(): Promise<RerecordResult> {
-  const result: RerecordResult = { rerecorded: 0, requests: 0, failed: [], notes: [] };
-  for (;;) {
-    const r = (await callAudio<RerecordResult>({ action: 'rerecord' })) ?? {};
-    result.rerecorded! += r.rerecorded ?? 0;
-    result.requests! += r.requests ?? 0;
-    result.failed!.push(...(r.failed ?? []));
-    result.notes!.push(...(r.notes ?? []));
-    if (r.stopped) result.stopped = r.stopped;
-    if (r.stopped || !r.rerecorded || (await countQueuedRerecords()) === 0) break;
-  }
+export async function runRerecords(force = false): Promise<RerecordResult> {
+  const result = await callAudio<RerecordResult>({ action: 'rerecord', force });
   if (result.rerecorded) await pullContent(undefined, true);
   return result;
 }
@@ -363,12 +366,12 @@ export async function countQueuedRerecords(): Promise<number> {
 
 /**
  * Asks for a form's audio to be made again. An admin's request goes straight into the queue,
- * which is recorded at once; anyone else's waits for an admin. Asking again while a request
- * is open changes nothing. Returns where the request stands.
+ * which is recorded once 15 wait; anyone else's waits for an admin. Asking again while a
+ * request is open changes nothing. Returns where the request stands.
  */
 export async function requestRerecord(
   formId: string,
-): Promise<{ queued: boolean; rerecorded?: number; stopped?: string }> {
+): Promise<{ queued: boolean; waiting?: number; batch?: number }> {
   const admin = await isAdmin();
   const { error } = await client()
     .from('audio_requests')
@@ -377,7 +380,7 @@ export async function requestRerecord(
   if (error && error.code !== '23505') throw error;
   if (!admin) return { queued: false };
   const run = await runRerecords();
-  return { queued: true, rerecorded: run.rerecorded, stopped: run.stopped };
+  return { queued: true, waiting: run.waiting, batch: run.batch };
 }
 
 /** Learners' re-record requests waiting for an admin, oldest first. */
