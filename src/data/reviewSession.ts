@@ -6,7 +6,9 @@ import { pickForm } from '../engine/forms';
 import type { AnswerResult } from '../engine/learn';
 import { createAppRng, type Rng } from '../engine/random';
 import {
+  addInterval,
   applyReview,
+  intervalOf,
   dueCounts,
   nextDue,
   type DueCounts,
@@ -23,6 +25,12 @@ export interface ReviewCard {
   form: ItemForm;
   stage: number;
   recheckStep: 0 | 1 | 2;
+  /** A noun shown in the singular: its plural, for the back of the card. Else null. */
+  plural: string | null;
+  /** The wait at the card's stage, in ms: how often it comes back now. */
+  every: number;
+  /** How long until the card comes back after each answer, in ms (learner feedback). */
+  wait: Record<AnswerResult, number>;
 }
 
 export interface ReviewView {
@@ -107,6 +115,12 @@ export class ReviewSession {
             form,
             stage: review.stage,
             recheckStep: review.recheck_step,
+            plural: pluralOf(item, form, this.forms),
+            every: addInterval(now, intervalOf(review.stage)) - now,
+            wait: {
+              got: applyReview(toSchedule(review), 'got', now).dueAt - now,
+              missed: applyReview(toSchedule(review), 'missed', now).dueAt - now,
+            },
           }
         : null;
     const due = refs.filter((r) => r.dueAt <= now).length;
@@ -196,7 +210,7 @@ export class ReviewSession {
     const refs = [...this.reviews.values()]
       .filter((r) => this.itemsById.has(r.item_id))
       .map((r) => ({ itemId: r.item_id, dueAt: Date.parse(r.due_at) }));
-    const next = nextDue(refs, now, this.session.last_item_id);
+    const next = nextDue(refs, now, this.session.last_item_id, this.rng);
     if (!next) {
       if (current) {
         this.session = { ...this.session, card: null };
@@ -210,7 +224,13 @@ export class ReviewSession {
     const form = pickForm(
       item,
       this.forms,
-      { verbLevel: this.verbLevel, isIntro: false, lastFormId: review.last_form_id },
+      {
+        verbLevel: this.verbLevel,
+        isIntro: false,
+        lastFormId: review.last_form_id,
+        // A recheck after a miss asks the same form again.
+        repeatLast: review.recheck_step > 0,
+      },
       this.rng,
     );
     const session: ReviewSessionRow = {
@@ -222,4 +242,11 @@ export class ReviewSession {
     this.session = session;
     this.reviews.set(updated.item_id, updated);
   }
+}
+
+/** A noun's plural, when the card shows it in the singular and the plural is spelled differently. */
+export function pluralOf(item: Item, form: ItemForm, forms: readonly ItemForm[]): string | null {
+  if (item.word_type !== 'noun' || form.number === 'plural') return null;
+  const plural = forms.find((f) => f.item_id === item.id && f.number === 'plural');
+  return plural && plural.text !== form.text ? plural.text : null;
 }

@@ -34,6 +34,8 @@ export type StoryFeedback = 'too_hard' | 'too_easy' | 'just_right';
 /** What a story needs for these rules: its feedback and its reading history. */
 export interface StoryProgress {
   created_at: string;
+  /** Changes when the learner reads or rates the story; ratings are ordered by it. */
+  updated_at?: string;
   feedback: StoryFeedback | null;
   feedback_note: string | null;
   reads: number;
@@ -66,14 +68,18 @@ export function shareFor(stories: readonly Pick<StoryProgress, 'created_at' | 'f
 export const lengthLimit = (wordsLearned: number) =>
   Math.max(20, Math.min(MAX_LENGTH, 2 * wordsLearned - 1));
 
-/** The latest Too hard or Too easy, with its note, which the next story is told about. */
+/**
+ * The latest Too hard or Too easy, with its note, which the next story is told about. Latest by
+ * when the story was last changed, so a rating given on a re-read older story counts (learner
+ * feedback, 25 November 2026); stories without that time are ordered by when they were made.
+ */
 export function latestFeedback(stories: readonly StoryProgress[]): {
   feedback: 'too_hard' | 'too_easy' | null;
   note: string | null;
 } {
   const last = [...stories]
     .filter((s) => s.feedback !== null)
-    .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+    .sort((a, b) => (b.updated_at ?? b.created_at).localeCompare(a.updated_at ?? a.created_at))[0];
   if (!last) return { feedback: null, note: null };
   const note = last.feedback_note?.trim().slice(0, MAX_NOTE) || null;
   return { feedback: last.feedback === 'just_right' ? null : last.feedback, note };

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { createSeededRng } from './random';
 import {
   addInterval,
   applyReview,
@@ -150,6 +151,18 @@ describe('Review queue', () => {
     expect(nextDue(items, now, 'a')?.itemId).toBe('b');
     expect(nextDue([items[0]!], now, 'c')?.itemId).toBe('c');
     expect(nextDue([items[2]!], now, null)).toBeNull();
+  });
+
+  it('with a random source, deals any due item but never the last one twice in a row', () => {
+    const rng = createSeededRng(4);
+    const seen = new Set<string>();
+    for (let i = 0; i < 200; i++) {
+      const next = nextDue(items, now, 'a', rng)!;
+      expect(['b', 'c', 'exact']).toContain(next.itemId);
+      seen.add(next.itemId);
+    }
+    expect(seen).toEqual(new Set(['b', 'c', 'exact']));
+    expect(nextDue([items[0]!], now, 'c', rng)?.itemId).toBe('c');
   });
 
   it('counts overdue, due now, later today, tomorrow and the total', () => {

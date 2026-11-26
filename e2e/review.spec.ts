@@ -34,7 +34,7 @@ test('Review: a learned word is due 5 minutes later, moves up, and a miss is rec
 
   await reviewRow(page).click();
   await expect(page).toHaveURL(/\/review$/);
-  await expect(page.getByText('Stage 1 of 11')).toBeVisible();
+  await expect(page.getByText('Stage 1 of 11 · every 5 minutes')).toBeVisible();
   await expect(page.getByText('1 due', { exact: true })).toBeVisible();
 
   // A reload lands on the same card.
@@ -48,7 +48,7 @@ test('Review: a learned word is due 5 minutes later, moves up, and a miss is rec
 
   // Fifteen minutes on, it is back at stage 2. A miss drops it to stage 1 with a recheck.
   await page.clock.fastForward('15:01');
-  await expect(page.getByText('Stage 2 of 11')).toBeVisible();
+  await expect(page.getByText('Stage 2 of 11 · every 15 minutes')).toBeVisible();
   await grade(page, 'missed');
   await expect(page.getByRole('status')).toContainText('Down to stage 1. Recheck in 5 minutes.');
 

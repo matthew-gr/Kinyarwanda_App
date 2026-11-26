@@ -11,6 +11,19 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '0.3.0',
+    date: '2026-11-26',
+    changes: [
+      'Review: a word you miss comes back in the same form you missed, not an easier one.',
+      'Review: due cards come in a random order, so you can’t answer by remembering the order.',
+      'Review: the back of the card shows when the card comes back if you knew it and if you didn’t, and the header shows how often it comes now.',
+      'Review: a singular noun shows its plural on the back of the card.',
+      'Quick Recall: the wrong answers are meanings of words you’ve learned, so the right one doesn’t stand out.',
+      'Stories: a rating you give when reading an older story again now counts for the next story.',
+      'Profile: Download my progress saves your words, reviews, stories and settings as one file.',
+    ],
+  },
+  {
     version: '0.2.0',
     date: '2026-11-26',
     changes: [

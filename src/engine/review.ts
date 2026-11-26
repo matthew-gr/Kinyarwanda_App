@@ -7,6 +7,7 @@
 // A miss on either recheck drops one more stage and restarts the rechecks. Stage 1 is the floor.
 
 import type { AnswerResult } from './learn';
+import { pickOne, type Rng } from './random';
 
 const MINUTE = 60 * 1000;
 
@@ -102,15 +103,20 @@ export function dueQueue<T extends DueRef>(items: readonly T[], now: number): T[
 
 /**
  * The next item to review. Skips the item answered last when another is due, so the same card
- * is never shown twice in a row while there is a choice.
+ * is never shown twice in a row while there is a choice. With `rng`, any due item may come
+ * next, so cards don't come back in the order they were answered (learner feedback, 24
+ * November 2026); without it, the one due longest.
  */
 export function nextDue<T extends DueRef>(
   items: readonly T[],
   now: number,
   lastItemId: string | null,
+  rng?: Rng,
 ): T | null {
   const queue = dueQueue(items, now);
-  return queue.find((i) => i.itemId !== lastItemId) ?? queue[0] ?? null;
+  const others = queue.filter((i) => i.itemId !== lastItemId);
+  if (rng && others.length > 0) return pickOne(others, rng);
+  return others[0] ?? queue[0] ?? null;
 }
 
 export interface DueCounts {

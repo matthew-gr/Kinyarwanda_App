@@ -24,6 +24,7 @@ import { FeedbackPanel } from './FeedbackPanel';
 import { APP_VERSION } from '../data/feedback';
 import { PhonePanel } from './PhonePanel';
 import { SpeedSelect } from './SpeedButton';
+import { downloadProgress } from '../data/backup';
 import { waitInWords } from './cardText';
 import { lastPlacement } from '../data/placement';
 import { useProgressVersion } from './useProgressVersion';
@@ -131,6 +132,7 @@ function Progress() {
           Slows down every word, phrase and story you hear, without changing the voice. Stories also
           have a Speed button. Kept on this device.
         </p>
+        <BackupButton />
       </section>
     </>
   );
@@ -520,5 +522,39 @@ function Invites({ email }: { email: string }) {
         </ul>
       ) : null}
     </section>
+  );
+}
+
+/** Downloads everything learned on this device as one file, to keep as a backup. */
+function BackupButton() {
+  const [state, setState] = useState<'idle' | 'busy' | 'done' | 'failed'>('idle');
+  const save = async () => {
+    setState('busy');
+    try {
+      await downloadProgress();
+      setState('done');
+    } catch {
+      setState('failed');
+    }
+  };
+  return (
+    <div className="field">
+      <span className="body-bold">Backup</span>
+      <button
+        type="button"
+        className="btn btn-missed"
+        disabled={state === 'busy'}
+        onClick={() => void save()}
+      >
+        {state === 'busy' ? 'Preparing…' : 'Download my progress'}
+      </button>
+      <p className="body-small" role="status">
+        {state === 'done'
+          ? 'Saved to your downloads.'
+          : state === 'failed'
+            ? 'The file could not be made. Try again.'
+            : 'One file with your words, reviews, stories and settings on this device. Pictures and recordings on My words are not included.'}
+      </p>
+    </div>
   );
 }

@@ -226,7 +226,7 @@ function ReviewCardArea({
   const meta =
     card.recheckStep > 0
       ? `Recheck ${card.recheckStep} of 2`
-      : `Stage ${card.stage} of ${TOP_STAGE}`;
+      : `Stage ${card.stage} of ${TOP_STAGE} · every ${waitInWords(card.every)}`;
 
   return (
     <>
@@ -245,7 +245,11 @@ function ReviewCardArea({
             word={form.text}
             phonetic={pronunciationFor(item, form)}
             translation={form.en}
-            detail={dictionaryLine(item, form)}
+            detail={
+              [dictionaryLine(item, form), card.plural && `Plural: ${card.plural}`]
+                .filter(Boolean)
+                .join(' · ') || undefined
+            }
             notes={hasNotes(item) ? <CardNotes item={item} /> : undefined}
             tag={tagFor(item)}
             picture={hasPicture(item) ? <CardPicture item={item} /> : undefined}
@@ -270,6 +274,7 @@ function ReviewCardArea({
               onClick={() => void onAnswer('missed')}
             >
               <span aria-hidden="true">✗</span> I didn&apos;t
+              <span className="grade-wait">in {waitInWords(card.wait.missed)}</span>
             </button>
             <button
               ref={gotRef}
@@ -278,6 +283,7 @@ function ReviewCardArea({
               onClick={() => void onAnswer('got')}
             >
               <span aria-hidden="true">✓</span> I knew it
+              <span className="grade-wait">in {waitInWords(card.wait.got)}</span>
             </button>
           </div>
         ) : (

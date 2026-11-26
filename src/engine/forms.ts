@@ -10,6 +10,11 @@ export interface PickFormOptions {
   isIntro: boolean;
   /** The form shown last time for this item, if any. */
   lastFormId: string | null;
+  /**
+   * Show the form shown last time again, when it is still allowed: a word missed in Review is
+   * rechecked in the form that was missed (learner feedback, 23 November 2026).
+   */
+  repeatLast?: boolean;
 }
 
 type ItemLike = Pick<Item, 'id' | 'base' | 'word_type'>;
@@ -22,7 +27,7 @@ function isInfinitive(item: ItemLike, form: ItemForm): boolean {
 export function pickForm<F extends ItemForm>(
   item: ItemLike,
   forms: readonly F[],
-  { verbLevel, isIntro, lastFormId }: PickFormOptions,
+  { verbLevel, isIntro, lastFormId, repeatLast }: PickFormOptions,
   rng: Rng,
 ): F {
   const own = forms.filter((f) => f.item_id === item.id);
@@ -37,6 +42,8 @@ export function pickForm<F extends ItemForm>(
   const allowed = own.filter((f) => (f.verb_level ?? 0) <= verbLevel && !isInfinitive(item, f));
   if (allowed.length === 0) return base;
 
+  const last = repeatLast ? allowed.find((f) => f.id === lastFormId) : undefined;
+  if (last) return last;
   const fresh = allowed.filter((f) => f.id !== lastFormId);
   return pickOne(fresh.length > 0 ? fresh : allowed, rng);
 }

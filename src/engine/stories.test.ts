@@ -86,6 +86,22 @@ describe('story settings', () => {
         story({ created_at: '2026-11-03T00:00:00Z' }),
       ]),
     ).toEqual({ feedback: 'too_hard', note: 'too many new verbs' });
+    // Rated on a re-read after a newer story was rated: the newer rating wins.
+    expect(
+      latestFeedback([
+        story({
+          created_at: '2026-11-01T00:00:00Z',
+          updated_at: '2026-11-05T00:00:00Z',
+          feedback: 'too_easy',
+          feedback_note: 'read it again, easy now',
+        }),
+        story({
+          created_at: '2026-11-02T00:00:00Z',
+          updated_at: '2026-11-02T00:10:00Z',
+          feedback: 'too_hard',
+        }),
+      ]),
+    ).toEqual({ feedback: 'too_easy', note: 'read it again, easy now' });
     expect(latestFeedback([story({ feedback: 'just_right' })])).toEqual({
       feedback: null,
       note: null,

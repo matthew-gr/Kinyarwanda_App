@@ -188,6 +188,21 @@ body {
   width: 100%;
 }
 
+/* Under Review's answers: when the card comes back after each (learner feedback). */
+.grade .btn:has(.grade-wait) {
+  flex-wrap: wrap;
+  column-gap: var(--space-9);
+  row-gap: 2px;
+  padding-block: var(--space-9);
+}
+
+.grade-wait {
+  flex-basis: 100%;
+  font-size: 13px;
+  font-weight: 400;
+  text-align: center;
+}
+
 .learn-tip {
   margin: 0;
   text-align: center;

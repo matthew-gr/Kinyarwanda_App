@@ -133,16 +133,27 @@ async function coursePrompts(d: KinyaDb): Promise<RecallPrompt[]> {
 export interface RecallPool {
   /** The words and phrases asked about: in Review at stage 3 or above. */
   prompts: RecallPrompt[];
-  /** Every meaning in the course, for the wrong options. */
+  /**
+   * The meanings the wrong options come from: words and phrases the learner has learned, so
+   * the right one can't be spotted as the only familiar word (learner feedback, 23 November
+   * 2026). Every meaning in the course while fewer than MIN_LEARNED_OPTIONS are learned.
+   */
   meanings: RecallPrompt[];
 }
 
+/** Learned words needed before the wrong options come only from them. */
+export const MIN_LEARNED_OPTIONS = 12;
+
 export async function loadRecallPool(d: KinyaDb = db): Promise<RecallPool> {
-  const meanings = await coursePrompts(d);
-  const known = new Set(
-    (await d.review_items.toArray()).filter((r) => r.stage >= MIN_STAGE).map((r) => r.item_id),
-  );
-  return { prompts: meanings.filter((m) => known.has(m.id)), meanings };
+  const all = await coursePrompts(d);
+  const reviews = await d.review_items.toArray();
+  const learned = new Set(reviews.map((r) => r.item_id));
+  const known = new Set(reviews.filter((r) => r.stage >= MIN_STAGE).map((r) => r.item_id));
+  const learnedMeanings = all.filter((m) => learned.has(m.id));
+  return {
+    prompts: all.filter((m) => known.has(m.id)),
+    meanings: learnedMeanings.length >= MIN_LEARNED_OPTIONS ? learnedMeanings : all,
+  };
 }
 
 /**

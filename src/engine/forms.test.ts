@@ -91,6 +91,21 @@ describe('pickForm', () => {
     expect(seen).toEqual(new Set(['singular', 'plural']));
   });
 
+  it('repeats the form shown last when asked, as on a recheck after a miss', () => {
+    const rng = createSeededRng(3);
+    for (const last of ['n1-sg', 'n1-pl']) {
+      for (let i = 0; i < 20; i++) {
+        const f = pickForm(
+          child,
+          childForms,
+          { verbLevel: 1, isIntro: false, lastFormId: last, repeatLast: true },
+          rng,
+        );
+        expect(f.id).toBe(last);
+      }
+    }
+  });
+
   it('never picks a form above the learner verb level', () => {
     const rng = createSeededRng(2);
     let last: string | null = null;
