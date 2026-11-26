@@ -9,8 +9,8 @@ import { playAudio } from '../cardText';
 import { AdminShell, ErrorLine } from './AdminShell';
 
 const STORE = 'kinyarwanda.voice-test';
-/** Items voiced per server call; Pindo gets them in batches of 15, cut apart. */
-const SAMPLE_BATCH = 25;
+/** Items voiced per server call, each its own request to the voice; the server takes 10. */
+const SAMPLE_BATCH = 10;
 const LINES_STORE = 'kinyarwanda.voice-test-lines';
 const DEFAULT_LINES = 'ku isoko\nibiryo\narateka';
 const MODELS = ['eleven_v3', 'eleven_multilingual_v2', 'eleven_flash_v2_5'];
@@ -260,9 +260,6 @@ export function VoiceTest() {
         {requests !== null ? (
           <p className="body-small" role="status">
             The last run sent {requests} {requests === 1 ? 'request' : 'requests'} to the voice.
-            {readsKinyarwanda(provider)
-              ? ' Items are sent together and cut apart; more than one request per batch means some had to be split smaller.'
-              : ''}
           </p>
         ) : null}
         {notes.length > 0 ? (

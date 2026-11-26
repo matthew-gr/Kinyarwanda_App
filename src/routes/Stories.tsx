@@ -189,11 +189,12 @@ function StoryList({ stories, now }: { stories: StoryRow[]; now: number }) {
 }
 
 /**
- * The whole story in one take, which the server saves beside the first sentence's clip.
- * Stories made before it existed don't have one, so playing it can fail.
+ * The whole story in one take, which older Pindo stories have instead of a clip per sentence.
+ * New stories get a clip per sentence (decision 195); when a story has those, they are used,
+ * because a sentence's place in the whole take can only be guessed from its length.
  */
 const wholeTake = (s: StoryRow) =>
-  s.audio_path ?? s.sentences[0]?.audio_path?.replace(/\/0\.(\w+)(\?.*)?$/, '/story.$1') ?? null;
+  s.sentences.some((x) => x.audio_path) ? null : (s.audio_path ?? null);
 
 /** Where sentence `i` starts and ends in the whole take, as shares of it, judged by length. */
 function sentenceSpan(s: StoryRow, i: number): [number, number] {
@@ -265,8 +266,9 @@ export function StoryReader() {
       const go = (i: number) => {
         const path = story.sentences[i]?.audio_path;
         if (!path) {
-          // No clip of its own (a Pindo story): play its part of the whole take.
-          if (whole && !onwards) playPart(whole, i);
+          // No clip of its own (an older Pindo story): play its part of the whole take.
+          if (whole) playPart(whole, i, onwards);
+          else if (onwards && i + 1 < story.sentences.length) go(i + 1);
           else setPlaying(null);
           return;
         }
@@ -299,18 +301,13 @@ export function StoryReader() {
           } else setPlaying(sentenceAt(story, at));
         });
         audio.addEventListener('ended', () => setPlaying(null));
-        // If the take isn't there, fall back to one sentence at a time.
         const fail = () => {
-          if (stopped) return;
-          if (story.sentences.some((x) => x.audio_path)) go(i);
-          else setPlaying(null);
+          if (!stopped) setPlaying(null);
         };
         audio.addEventListener('error', fail);
         audio.play().catch(fail);
       };
-      // The whole take reads evenly, so Play the story uses it when there is one.
-      if (whole && onwards && from === 0) playPart(whole, 0, true);
-      else go(from);
+      go(from);
     },
     [story],
   );

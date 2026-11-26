@@ -3,6 +3,7 @@
 // much of the story the learner should understand, and asks again once if it falls more than
 // 10 points under the target. The story is saved to the learner's stories, returned, and then
 // read aloud sentence by sentence in the background, so the learner doesn't wait for the audio.
+// Each sentence is its own request to the voice (decision 195).
 //
 // Secrets (set with `supabase secrets set`):
 //   ANTHROPIC_API_KEY
@@ -25,7 +26,7 @@ import {
   type StoryRequest,
   type StoryText,
 } from '../_shared/story.ts';
-import { env, extension, speak, type Voice } from '../_shared/tts.ts';
+import { env, extension, OutOfCredit, speak, type Count, type Voice } from '../_shared/tts.ts';
 
 /** Stories one learner can make in 24 hours, to keep the bill bounded. */
 const DAILY_LIMIT = 10;
@@ -87,9 +88,10 @@ async function askClaude(
 }
 
 /**
- * Reads the story aloud: first all of it in one take, saved beside the sentence clips as
- * story.mp3, so Play the story flows evenly; then each sentence on its own, for replaying one.
- * Failures leave that part silent.
+ * Reads the story aloud, each sentence in a request of its own, so a sentence's clip holds
+ * exactly that sentence and Play the story highlights the line being read (decision 195).
+ * Each clip is saved as soon as it is made, so the learner can start listening before the
+ * last one is done. Failures leave that sentence silent.
  */
 async function voiceStory(
   service: ReturnType<typeof createClient>,
@@ -100,30 +102,10 @@ async function voiceStory(
   if (!raw) return;
   const voice = JSON.parse(raw) as Voice;
   const done = [...sentences];
-  try {
-    const { bytes, type } = await speak(voice, sentences.map((s) => s.rw).join(' '));
-    const path = `stories/${id}/story.${extension(type)}`;
-    const up = await service.storage
-      .from('audio')
-      .upload(path, bytes, { contentType: type, upsert: true });
-    if (up.error) throw up.error;
-    // Saved straight away, so the learner can play the story before the sentences are done.
-    await service
-      .from('stories')
-      .update({
-        audio_path: service.storage.from('audio').getPublicUrl(path).data.publicUrl,
-        audio_source: `ai:${voice.label}`,
-      })
-      .eq('id', id);
-  } catch (e) {
-    console.error('story audio, whole story', id, e);
-  }
-  // Pindo charges a minute for every request, so its stories have only the whole take, and a
-  // sentence replays from its part of it.
-  if (voice.provider === 'pindo') return;
+  const count: Count = { requests: 0, notes: [] };
   for (let i = 0; i < done.length; i++) {
     try {
-      const { bytes, type } = await speak(voice, done[i]!.rw);
+      const { bytes, type } = await speak(voice, done[i]!.rw, count);
       const path = `stories/${id}/${i}.${extension(type)}`;
       const up = await service.storage
         .from('audio')
@@ -135,13 +117,16 @@ async function voiceStory(
       };
     } catch (e) {
       console.error('story audio', id, i, e);
+      // Out of credit: every later sentence would be refused too.
+      if (e instanceof OutOfCredit) break;
+      continue;
     }
+    const { error } = await service
+      .from('stories')
+      .update({ sentences: done, audio_source: `ai:${voice.label}` })
+      .eq('id', id);
+    if (error) console.error('story audio save', id, i, error);
   }
-  const { error } = await service
-    .from('stories')
-    .update({ sentences: done, audio_source: `ai:${voice.label}` })
-    .eq('id', id);
-  if (error) console.error('story audio save', id, error);
 }
 
 Deno.serve(async (req) => {
