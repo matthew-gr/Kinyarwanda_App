@@ -66,10 +66,11 @@ describe('story settings', () => {
     ).toBe(65);
   });
 
-  it('keeps the length under 2 times the words learned, up to 300', () => {
+  it('keeps the length under 2 times the words learned, up to 200', () => {
+    expect(lengthLimit(80)).toBe(159);
     expect(lengthLimit(100)).toBe(199);
-    expect(lengthLimit(120)).toBe(239);
-    expect(lengthLimit(500)).toBe(300);
+    expect(lengthLimit(120)).toBe(200);
+    expect(lengthLimit(500)).toBe(200);
   });
 
   it('passes on the latest Too hard or Too easy and its note', () => {

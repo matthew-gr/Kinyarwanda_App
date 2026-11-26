@@ -128,20 +128,43 @@ export async function newStory(
   return { type: 'story', story };
 }
 
-/** Fetches a story again, for its audio, which arrives after the text. Local changes are kept. */
-export async function refreshStory(id: string, d: KinyaDb = db): Promise<StoryRow | undefined> {
-  if (!supabase) return d.stories.get(id);
-  const { data } = await supabase.from('stories').select('*').eq('id', id);
-  const row = data?.[0] as StoryRow | undefined;
-  const fresh = row
-    ? {
-        sentences: row.sentences,
-        audio_source: row.audio_source,
-        audio_path: row.audio_path ?? null,
-      }
-    : undefined;
-  if (fresh) await d.stories.update(id, fresh);
-  return d.stories.get(id);
+/**
+ * Asks the server to read a story aloud, the first time the learner presses Play (decision
+ * 197): one take of the whole story. While another tap is already being voiced it waits for
+ * that one. Returns the story with its audio, or a message to show.
+ */
+export async function requestStoryAudio(
+  id: string,
+  d: KinyaDb = db,
+): Promise<{ story: StoryRow } | { message: string }> {
+  if (!supabase) return { message: 'Audio needs a connection to the server.' };
+  for (let tries = 0; tries < 30; tries++) {
+    const { data, error } = await supabase.functions.invoke<{
+      story?: Omit<StoryRow, 'dirty'>;
+      pending?: boolean;
+    }>('generate-story', { body: { action: 'voice', story_id: id } });
+    if (error) {
+      const ctx = (error as { context?: Response } | null)?.context;
+      const said =
+        ctx && typeof ctx.json === 'function'
+          ? ((await ctx.json().catch(() => null)) as { error?: string } | null)
+          : null;
+      return { message: said?.error ?? 'The audio could not be made. Try again in a minute.' };
+    }
+    if (data?.story) {
+      const s = data.story;
+      await d.stories.update(id, {
+        sentences: s.sentences,
+        audio_path: s.audio_path ?? null,
+        audio_source: s.audio_source,
+      });
+      const story = await d.stories.get(id);
+      if (story) return { story };
+    }
+    // Being voiced from another tap or device: ask again shortly.
+    await new Promise((r) => setTimeout(r, 3000));
+  }
+  return { message: 'The audio is taking longer than usual. Try again in a minute.' };
 }
 
 async function change(id: string, f: (s: StoryRow) => StoryRow, d: KinyaDb): Promise<StoryRow> {

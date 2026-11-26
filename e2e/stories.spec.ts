@@ -181,8 +181,23 @@ test('Stories open at 100 words; a story reads, explains words, asks questions a
   await expect(page.getByText(`Added ${word.text} to Learn, as the next new word.`)).toBeVisible();
   await unknown.getByRole('button', { name: 'Close' }).click();
 
-  // English on request; no audio yet.
-  await expect(page.getByRole('button', { name: 'Audio coming…' })).toBeDisabled();
+  // No audio yet: the first Play asks for it (decision 197). The server is faked to fail here,
+  // so the learner sees why and can press Play again.
+  let voiceRequest: unknown = null;
+  await page.route('**/functions/v1/generate-story', async (route) => {
+    voiceRequest = route.request().postDataJSON();
+    await route.fulfill({
+      status: 502,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: 'The audio could not be made. Try again in a minute.' }),
+    });
+  });
+  await page.getByRole('button', { name: 'Play the story' }).click();
+  await expect(page.getByText('The audio could not be made. Try again in a minute.')).toBeVisible();
+  expect(voiceRequest).toEqual({ action: 'voice', story_id: STORY_ID });
+  await expect(page.getByRole('button', { name: 'Play the story' })).toBeEnabled();
+
+  // English on request.
   await page.getByRole('button', { name: 'Show English' }).click();
   await expect(page.getByText('The child plays.')).toBeVisible();
 

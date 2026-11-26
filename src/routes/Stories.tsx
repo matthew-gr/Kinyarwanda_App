@@ -19,7 +19,7 @@ import {
   loadStories,
   loadStory,
   newStory,
-  refreshStory,
+  requestStoryAudio,
   saveFeedback,
   setStoryModel,
   storiesOpen,
@@ -247,18 +247,10 @@ export function StoryReader() {
     };
   }, [id]);
 
-  // Audio is recorded after the text arrives, so a new story checks back for it for a while.
-  const silent = story ? !story.audio_path && story.sentences.every((s) => !s.audio_path) : false;
-  const young = story ? Date.now() - Date.parse(story.created_at) < 10 * 60_000 : false;
-  useEffect(() => {
-    if (!silent || !young) return;
-    const t = setInterval(() => {
-      void refreshStory(id).then((s) => {
-        if (s && (s.audio_path || s.sentences.some((x) => x.audio_path))) setStory(s);
-      });
-    }, 5000);
-    return () => clearInterval(t);
-  }, [id, silent, young]);
+  /** The story's audio is being made, after its first Play (decision 197). */
+  const [voicing, setVoicing] = useState(false);
+  /** Play the story once its audio arrives. */
+  const playWhenReady = useRef(false);
 
   const play = useCallback(
     (from: number, onwards: boolean) => {
@@ -315,6 +307,32 @@ export function StoryReader() {
     [story],
   );
 
+  // Audio made on the first Play: start it as soon as the story has it.
+  useEffect(() => {
+    if (!playWhenReady.current || !story?.audio_path) return;
+    playWhenReady.current = false;
+    play(0, true);
+  }, [story, play]);
+
+  /** Plays the story, first asking for its audio if it has none yet. */
+  const playStory = async () => {
+    if (!story) return;
+    if (story.audio_path || story.sentences.some((s) => s.audio_path)) {
+      play(0, true);
+      return;
+    }
+    setVoicing(true);
+    setNotice('');
+    const got = await requestStoryAudio(story.id);
+    setVoicing(false);
+    if ('message' in got) {
+      setNotice(got.message);
+      return;
+    }
+    playWhenReady.current = true;
+    setStory(got.story);
+  };
+
   const show = async (w: string) => {
     setNotice('');
     setAdding(false);
@@ -359,7 +377,6 @@ export function StoryReader() {
     ? (story.glossary.find((g) => g.word.toLowerCase() === word.word)?.en ??
       (word.course ? word.course.form.en : null))
     : null;
-  const hasAudio = !!story.audio_path || story.sentences.some((s) => s.audio_path);
 
   return (
     <main className="screen screen-learn screen-stories">
@@ -384,12 +401,12 @@ export function StoryReader() {
         <button
           type="button"
           className="btn btn-missed story-tool"
-          disabled={!hasAudio}
+          disabled={voicing}
           onClick={() =>
-            playing === null ? play(0, true) : (stopRef.current?.(), setPlaying(null))
+            playing === null ? void playStory() : (stopRef.current?.(), setPlaying(null))
           }
         >
-          {playing === null ? (hasAudio ? 'Play the story' : 'Audio coming…') : 'Stop'}
+          {playing !== null ? 'Stop' : voicing ? 'Making audio…' : 'Play the story'}
         </button>
         <button
           type="button"

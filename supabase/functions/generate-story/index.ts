@@ -1,9 +1,16 @@
 // Writes a story for one signed-in learner. The app sends the settings (StoryRequest in
 // _shared/story.ts); this function builds the spec's prompt from them, asks Claude, checks how
 // much of the story the learner should understand, and asks again once if it falls more than
-// 10 points under the target. The story is saved to the learner's stories, returned, and then
-// read aloud sentence by sentence in the background, so the learner doesn't wait for the audio.
-// Each sentence is its own request to the voice (decision 195).
+// 10 points under the target. The story is saved to the learner's stories and returned.
+//
+//   { action: "voice", story_id }   reads one of the caller's stories aloud, the first time
+//                                   they press Play: the whole story in one take, so it costs
+//                                   one request to the voice (decision 197). A story is voiced
+//                                   at most once; a second call while it is being voiced
+//                                   answers { pending: true }.
+//
+// Every request for a new story counts towards the daily limit, failed ones included, and a
+// learner has at most one story being written at a time (story_attempts, decision 197).
 //
 // Secrets (set with `supabase secrets set`):
 //   ANTHROPIC_API_KEY
@@ -26,10 +33,14 @@ import {
   type StoryRequest,
   type StoryText,
 } from '../_shared/story.ts';
-import { env, extension, OutOfCredit, speak, type Count, type Voice } from '../_shared/tts.ts';
+import { env, extension, speak, type Voice } from '../_shared/tts.ts';
 
-/** Stories one learner can make in 24 hours, to keep the bill bounded. */
+/** Requests for a new story one learner can make in 24 hours, failed ones included. */
 const DAILY_LIMIT = 10;
+/** The longest story written, in words, whatever an older app asks for. */
+const MAX_WORDS = 200;
+/** A story still marked as being written or voiced after this long is taken as failed. */
+const STALE_MS = 5 * 60_000;
 /** A second try starts only if the first finished within this long. */
 const RETRY_WITHIN_MS = 60_000;
 const CORS = {
@@ -43,8 +54,6 @@ const json = (body: unknown, status = 200) =>
     status,
     headers: { ...CORS, 'Content-Type': 'application/json' },
   });
-
-declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void } | undefined;
 
 interface ClaudeResponse {
   model: string;
@@ -87,47 +96,109 @@ async function askClaude(
   return { story, model: out.model };
 }
 
+type Service = ReturnType<typeof createClient>;
+
 /**
- * Reads the story aloud, each sentence in a request of its own, so a sentence's clip holds
- * exactly that sentence and Play the story highlights the line being read (decision 195).
- * Each clip is saved as soon as it is made, so the learner can start listening before the
- * last one is done. Failures leave that sentence silent.
+ * Reads one of the caller's stories aloud, in one take (decisions 148 and 197). The story is
+ * claimed first, by marking its audio_source "voicing:<time>", so two taps on Play never pay
+ * twice; a claim older than STALE_MS is taken as failed and may be claimed again.
  */
-async function voiceStory(
-  service: ReturnType<typeof createClient>,
-  id: string,
-  sentences: { rw: string; en: string; audio_path: string | null }[],
-): Promise<void> {
+async function voiceStory(service: Service, userId: string, storyId: string): Promise<Response> {
   const raw = env('STORY_VOICE') || env('TTS_VOICE');
-  if (!raw) return;
+  if (!raw) return json({ error: 'Story audio is not set up yet' }, 503);
   const voice = JSON.parse(raw) as Voice;
-  const done = [...sentences];
-  const count: Count = { requests: 0, notes: [] };
-  for (let i = 0; i < done.length; i++) {
-    try {
-      const { bytes, type } = await speak(voice, done[i]!.rw, count);
-      const path = `stories/${id}/${i}.${extension(type)}`;
-      const up = await service.storage
-        .from('audio')
-        .upload(path, bytes, { contentType: type, upsert: true });
-      if (up.error) throw up.error;
-      done[i] = {
-        ...done[i]!,
-        audio_path: service.storage.from('audio').getPublicUrl(path).data.publicUrl,
-      };
-    } catch (e) {
-      console.error('story audio', id, i, e);
-      // Out of credit: every later sentence would be refused too.
-      if (e instanceof OutOfCredit) break;
-      continue;
-    }
-    const { error } = await service
+
+  const { data: story, error } = await service
+    .from('stories')
+    .select('id, user_id, sentences, audio_path, audio_source')
+    .eq('id', storyId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!story || story.user_id !== userId) return json({ error: 'No such story' }, 404);
+  const sentences = story.sentences as { rw: string; audio_path: string | null }[];
+  // Voiced already: as one take, or sentence by sentence before decision 197.
+  if (story.audio_path || sentences.some((s) => s.audio_path)) {
+    const { data } = await service.from('stories').select('*').eq('id', storyId).single();
+    return json({ story: data });
+  }
+
+  const now = new Date();
+  const stale = `voicing:${new Date(now.getTime() - STALE_MS).toISOString()}`;
+  const { data: claimed, error: claimError } = await service
+    .from('stories')
+    .update({ audio_source: `voicing:${now.toISOString()}` })
+    .eq('id', storyId)
+    .is('audio_path', null)
+    .or(`audio_source.is.null,and(audio_source.like.voicing:*,audio_source.lt."${stale}")`)
+    .select('id');
+  if (claimError) throw claimError;
+  if (!claimed?.length) return json({ pending: true }, 202);
+
+  try {
+    const { bytes, type } = await speak(voice, sentences.map((s) => s.rw).join(' '));
+    const path = `stories/${storyId}/story.${extension(type)}`;
+    const up = await service.storage
+      .from('audio')
+      .upload(path, bytes, { contentType: type, upsert: true });
+    if (up.error) throw up.error;
+    const { data, error: saveError } = await service
       .from('stories')
-      .update({ sentences: done, audio_source: `ai:${voice.label}` })
-      .eq('id', id);
-    if (error) console.error('story audio save', id, i, error);
+      .update({
+        audio_path: service.storage.from('audio').getPublicUrl(path).data.publicUrl,
+        audio_source: `ai:${voice.label}`,
+      })
+      .eq('id', storyId)
+      .select('*')
+      .single();
+    if (saveError) throw saveError;
+    return json({ story: data });
+  } catch (e) {
+    // Let the next Play try again.
+    await service.from('stories').update({ audio_source: null }).eq('id', storyId);
+    console.error('story audio', storyId, e);
+    return json({ error: 'The audio could not be made. Try again in a minute.' }, 502);
   }
 }
+
+/**
+ * Logs a request for a new story before Claude is asked. Returns the attempt's id, or the
+ * response to send when the learner is over the daily limit or already has one being written.
+ */
+async function startAttempt(service: Service, userId: string): Promise<string | Response> {
+  // A request whose function died without finishing would otherwise block the learner for good.
+  const stale = new Date(Date.now() - STALE_MS).toISOString();
+  await service
+    .from('story_attempts')
+    .update({ status: 'failed', finished_at: new Date().toISOString() })
+    .eq('user_id', userId)
+    .eq('status', 'running')
+    .lt('started_at', stale);
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { count, error } = await service
+    .from('story_attempts')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .gte('started_at', since);
+  if (error) throw error;
+  if ((count ?? 0) >= DAILY_LIMIT)
+    return json({ error: `That's ${DAILY_LIMIT} new stories today. Try again tomorrow.` }, 429);
+  const { data, error: insertError } = await service
+    .from('story_attempts')
+    .insert({ user_id: userId })
+    .select('id')
+    .single();
+  // 23505: one is already being written (story_attempts_one_running).
+  if (insertError?.code === '23505')
+    return json({ error: 'A story is already being written. Wait for it to finish.' }, 409);
+  if (insertError) throw insertError;
+  return data.id as string;
+}
+
+const finishAttempt = (service: Service, id: string, ok: boolean) =>
+  service
+    .from('story_attempts')
+    .update({ status: ok ? 'done' : 'failed', finished_at: new Date().toISOString() })
+    .eq('id', id);
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
@@ -149,18 +220,32 @@ Deno.serve(async (req) => {
     .eq('user_id', userId)
     .maybeSingle();
   if (!member) return json({ error: 'Stories are for invited members' }, 403);
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  const { count } = await service
-    .from('stories')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .gte('created_at', since);
-  if ((count ?? 0) >= DAILY_LIMIT)
-    return json({ error: `That's ${DAILY_LIMIT} new stories today. Try again tomorrow.` }, 429);
 
-  const request = (await req.json().catch(() => null)) as StoryRequest | null;
+  const body = (await req.json().catch(() => null)) as
+    (StoryRequest & { action?: undefined }) | { action: 'voice'; story_id?: unknown } | null;
+  if (body?.action === 'voice') {
+    if (typeof body.story_id !== 'string') return json({ error: 'Bad request: story_id' }, 400);
+    try {
+      return await voiceStory(service, userId, body.story_id);
+    } catch (e) {
+      console.error('story audio', e);
+      return json({ error: e instanceof Error ? e.message : String(e) }, 502);
+    }
+  }
+  const request = body as StoryRequest | null;
   const problem = request ? requestProblem(request) : 'body';
   if (!request || problem) return json({ error: `Bad request: ${problem}` }, 400);
+  // Older apps ask for up to 300 words.
+  request.limit = Math.min(request.limit, MAX_WORDS);
+
+  let attempt: string | Response;
+  try {
+    attempt = await startAttempt(service, userId);
+  } catch (e) {
+    console.error('story attempt', e);
+    return json({ error: 'Stories are not available right now. Try again later.' }, 503);
+  }
+  if (attempt instanceof Response) return attempt;
 
   try {
     const prompt = buildStoryPrompt(request);
@@ -208,13 +293,10 @@ Deno.serve(async (req) => {
     };
     const { data, error } = await service.from('stories').insert(row).select('*').single();
     if (error) throw error;
-
-    const voicing = voiceStory(service, id, sentences);
-    if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(voicing);
-    else await voicing;
-
+    await finishAttempt(service, attempt, true);
     return json({ story: data });
   } catch (e) {
+    await finishAttempt(service, attempt, false);
     console.error('generate-story', e);
     return json({ error: e instanceof Error ? e.message : String(e) }, 502);
   }

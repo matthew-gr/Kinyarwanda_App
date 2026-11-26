@@ -17,8 +17,8 @@ export const STORIES_OPEN_AT = 100;
 export const START_SHARE = 70;
 export const SHARE_STEP = 5;
 
-/** The longest story asked for, whatever the words learned. */
-export const MAX_LENGTH = 300;
+/** The longest story asked for, whatever the words learned (200 since decision 197). */
+export const MAX_LENGTH = 200;
 
 /** Once past tense is unlocked, about this share of stories are told in the past. */
 export const PAST_SHARE = 0.3;
@@ -62,7 +62,7 @@ export function shareFor(stories: readonly Pick<StoryProgress, 'created_at' | 'f
     );
 }
 
-/** Under 2 times the words learned, up to 300 words. */
+/** Under 2 times the words learned, up to 200 words. */
 export const lengthLimit = (wordsLearned: number) =>
   Math.max(20, Math.min(MAX_LENGTH, 2 * wordsLearned - 1));
 
