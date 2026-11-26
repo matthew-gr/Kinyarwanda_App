@@ -1690,3 +1690,15 @@ textarea.field-input {
 .time-totals dd {
   margin: 0;
 }
+
+/* What's new (src/routes/Changelog.tsx) and the version line at the foot of Profile. */
+.changelog-list {
+  margin: 0;
+  padding-left: 1.25em;
+  display: grid;
+  gap: var(--space-9);
+}
+
+.profile-version {
+  text-align: center;
+}

@@ -26,6 +26,7 @@ import { Review } from './routes/Review';
 import { Search } from './routes/Search';
 import { SpeedSpeaking } from './routes/SpeedSpeaking';
 import { Stories, StoryReader } from './routes/Stories';
+import { Changelog } from './routes/Changelog';
 import { Placement } from './routes/Placement';
 import { StreakFreezeNotice } from './routes/StreakFreezeNotice';
 import { Topics } from './routes/Topics';
@@ -91,6 +92,7 @@ export function App() {
             <Route path="topics" element={<Topics />} />
             <Route path="words" element={<MyWords />} />
             <Route path="placement" element={<Placement />} />
+            <Route path="changelog" element={<Changelog />} />
             <Route path="drills/speaking" element={<SpeedSpeaking />} />
             <Route path="drills/numbers" element={<NumberListening />} />
             <Route path="drills/recall" element={<QuickRecall />} />

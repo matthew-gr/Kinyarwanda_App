@@ -21,6 +21,7 @@ import { createInvite, listInvites, type InviteRow, type NewInvite } from '../da
 import { useAdmin } from './admin/useAdmin';
 import { EmailSignIn } from './EmailSignIn';
 import { FeedbackPanel } from './FeedbackPanel';
+import { APP_VERSION } from '../data/feedback';
 import { PhonePanel } from './PhonePanel';
 import { SpeedSelect } from './SpeedButton';
 import { waitInWords } from './cardText';
@@ -196,6 +197,9 @@ export function Profile() {
       {status.email ? <Invites email={status.email} /> : null}
       {status.state === 'unavailable' ? null : <FeedbackPanel signedIn={!!status.email} />}
       <AdminLink email={status.email} />
+      <p className="body-small profile-version">
+        Version {APP_VERSION} · <Link to="/changelog">What’s new</Link>
+      </p>
     </div>
   );
 }
