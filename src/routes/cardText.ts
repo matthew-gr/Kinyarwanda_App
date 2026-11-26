@@ -1,5 +1,6 @@
 // Text and audio for flashcards, shared by Learn and Review.
 
+import { applyAudioSpeed } from '../data/audioSpeed';
 import { syllables } from '../engine/pronunciation';
 import type { Item, ItemForm } from '../engine/types';
 
@@ -68,6 +69,7 @@ export function playAudio(path: string): void {
   if (canLoad()) keep(path, audio);
   // Played before its download finished: load it now rather than wait.
   if (!audio.src) audio.src = path;
+  applyAudioSpeed(audio);
   audio.currentTime = 0;
   void audio.play().catch(() => {
     // Autoplay can be blocked until the learner taps; the play button still works.

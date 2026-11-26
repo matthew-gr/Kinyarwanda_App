@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { countWhilePlaying } from '../data/activity';
+import { applyAudioSpeed } from '../data/audioSpeed';
 
 /** The time now, refreshed every `everyMs` while `running`. */
 export function useNow(running: boolean, everyMs = 100): number {
@@ -35,6 +36,7 @@ export function secondsText(ms: number): string {
 export function playThen(path: string, onEnd: () => void): () => void {
   const audio = new Audio(path);
   countWhilePlaying(audio);
+  applyAudioSpeed(audio);
   let done = false;
   const end = () => {
     if (done) return;

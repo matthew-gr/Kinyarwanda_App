@@ -22,6 +22,7 @@ import { useAdmin } from './admin/useAdmin';
 import { EmailSignIn } from './EmailSignIn';
 import { FeedbackPanel } from './FeedbackPanel';
 import { PhonePanel } from './PhonePanel';
+import { SpeedSelect } from './SpeedButton';
 import { waitInWords } from './cardText';
 import { lastPlacement } from '../data/placement';
 import { useProgressVersion } from './useProgressVersion';
@@ -120,6 +121,14 @@ function Progress() {
         </label>
         <p className="body-small">
           The goal is shown on Home. It never stops you learning more or reviewing.
+        </p>
+        <label className="field" htmlFor="audio-speed">
+          <span className="body-bold">Audio speed</span>
+          <SpeedSelect className="field-input field-select body" />
+        </label>
+        <p className="body-small">
+          Slows down every word, phrase and story you hear, without changing the voice. Stories also
+          have a Speed button. Kept on this device.
         </p>
       </section>
     </>

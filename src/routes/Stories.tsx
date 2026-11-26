@@ -6,6 +6,8 @@ import { cx } from '../components/cx';
 import { Icon } from '../components/Icon';
 import type { StoryRow } from '../data/db';
 import { countWhilePlaying } from '../data/activity';
+import { applyAudioSpeed } from '../data/audioSpeed';
+import { SpeedButton } from './SpeedButton';
 import { addMyWord, findMyWord } from '../data/myWords';
 import { STORY_MODELS, storyModelLabel } from '../../supabase/functions/_shared/story';
 import {
@@ -283,6 +285,7 @@ export function StoryReader() {
         const [startAt, endAt] = sentenceSpan(story, i);
         const audio = new Audio(path);
         countWhilePlaying(audio);
+        applyAudioSpeed(audio);
         let stopped = false;
         stopRef.current = () => {
           stopped = true;
@@ -396,6 +399,7 @@ export function StoryReader() {
         >
           {english ? 'Hide English' : 'Show English'}
         </button>
+        <SpeedButton className="btn btn-missed story-tool story-tool-speed" short />
       </div>
 
       <ol className="story-text panel">
