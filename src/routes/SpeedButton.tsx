@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { getTheme, onTheme, setTheme, type Theme } from '../data/theme';
 import {
   AUDIO_SPEEDS,
   getAudioSpeed,
@@ -46,6 +47,23 @@ export function SpeedSelect({ className }: { className?: string }) {
           {s === 1 ? '1× (normal)' : speedLabel(s)}
         </option>
       ))}
+    </select>
+  );
+}
+
+/** Light, dark, or as the phone is set, for Profile's settings (decision 205). */
+export function ThemeSelect({ className }: { className?: string }) {
+  const theme = useSyncExternalStore(onTheme, getTheme, getTheme);
+  return (
+    <select
+      id="theme"
+      className={className}
+      value={theme}
+      onChange={(e) => setTheme(e.target.value as Theme)}
+    >
+      <option value="system">As the phone is set</option>
+      <option value="light">Light</option>
+      <option value="dark">Dark</option>
     </select>
   );
 }

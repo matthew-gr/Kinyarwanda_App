@@ -1,14 +1,20 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useNavigate } from 'react-router';
 import { AppBar } from '../components/AppBar';
 import { Flashcard } from '../components/Flashcard';
 import { FlashcardDeck } from '../components/FlashcardDeck';
 import { SessionHeader } from '../components/SessionHeader';
-import { ReviewSession, type ReviewCard, type ReviewView } from '../data/reviewSession';
+import {
+  ReviewSession,
+  UNDO_WINDOW_MS,
+  type ReviewCard,
+  type ReviewView,
+} from '../data/reviewSession';
 import type { AnswerResult } from '../engine/learn';
 import { TOP_STAGE, type ReviewSchedule } from '../engine/review';
 import { nextRoundSize, ROUND_SIZE, roundTime } from '../engine/rounds';
-import { CardNotes, CardPicture, ReportMistake } from './CardExtras';
+import { AudioCheck, CardNotes, CardPicture, ReportMistake } from './CardExtras';
+import { isAudioOk, onAudioChecks } from '../data/audioChecks';
 import {
   dictionaryLine,
   hasNotes,
@@ -108,6 +114,29 @@ export function Review() {
     return () => clearTimeout(t);
   }, [session, nextDueAt, idle]);
 
+  // Undo last answer shows for a few seconds after each answer (decision 205).
+  const [undoUntil, setUndoUntil] = useState(0);
+  useEffect(() => {
+    if (!undoUntil) return;
+    const t = setTimeout(() => setUndoUntil(0), Math.max(0, undoUntil - Date.now()));
+    return () => clearTimeout(t);
+  }, [undoUntil]);
+  const undo = useCallback(async () => {
+    if (!session) return;
+    setUndoUntil(0);
+    const ok = await session.undo();
+    const next = session.view();
+    setView(next);
+    if (ok && next.card) setFlippedId(next.card.cardViewId);
+    setNote({
+      text: ok
+        ? 'Answer taken back. Choose again.'
+        : 'That answer is already saved, so it can’t be taken back.',
+      good: ok,
+      id: Date.now(),
+    });
+  }, [session]);
+
   const nextRound = useCallback(async () => {
     if (!session) return;
     await session.newRound();
@@ -129,6 +158,7 @@ export function Review() {
         actions.current++;
       }
       if (!out.counted || !out.schedule) return;
+      setUndoUntil(Date.now() + UNDO_WINDOW_MS);
       setNote({
         text: noteFor(result, out.schedule, Date.now()),
         good: result === 'got',
@@ -177,6 +207,14 @@ export function Review() {
       ) : (
         <Caught view={view} onHome={() => navigate('/')} onLearn={() => navigate('/learn/words')} />
       )}
+
+      {undoUntil > 0 ? (
+        <div className="review-undo">
+          <button type="button" className="btn btn-missed" onClick={() => void undo()}>
+            <span aria-hidden="true">↶</span> Undo last answer
+          </button>
+        </div>
+      ) : null}
 
       <p className="learn-note body-bold" role="status" aria-live="polite">
         {note ? (
@@ -279,7 +317,7 @@ function RoundDone({
       <p className="body">
         {round.done} reviewed, {round.known} known. {pace.reviewedToday} reviewed today.
       </p>
-      {view.today.length > 0 ? <RoundWall blocks={view.today} /> : null}
+      {view.today.length > 0 ? <RoundWall blocks={view.today} forecast={view.forecast} /> : null}
       {waiting > 0 && !view.gate.open && view.gate.opensAt !== null ? (
         <>
           <p className="body">
@@ -344,6 +382,7 @@ function ReviewCardArea({
 }: ReviewCardAreaProps) {
   const { item, form } = card;
   const audio = form.audio_path;
+  const audioOk = useSyncExternalStore(onAudioChecks, () => isAudioOk(form.id));
   const round = view.round;
   // Cards still to come in this round after the one on screen, for the stack behind it.
   const after = round ? round.total - round.done - 1 : view.dueNow - 1;
@@ -380,6 +419,7 @@ function ReviewCardArea({
             hint="Tap to reveal meaning"
             onFlip={onFlip}
             onSpeak={audio ? () => playAudio(audio) : undefined}
+            speakChecked={audio && item.source !== 'learner' ? audioOk : undefined}
             flipRef={flipRef}
           />
         </FlashcardDeck>
@@ -420,6 +460,7 @@ function ReviewCardArea({
             </button>
           </div>
         )}
+        {!flipped && item.source !== 'learner' ? <AudioCheck form={form} /> : null}
         {flipped && item.source !== 'learner' ? (
           <ReportMistake item={item} form={form} module="review" />
         ) : null}

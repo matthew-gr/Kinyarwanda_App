@@ -122,14 +122,33 @@ describe('Review schedule', () => {
     expect(after.stage).toBe(2);
   });
 
-  it('schedules from the moment of the answer, so a late review is not punished or rewarded', () => {
+  it('schedules from the moment of the answer', () => {
     const s = scheduleNew(at(2026, 3, 10));
-    const late = at(2026, 3, 12, 18);
-    expect(applyReview(s, 'got', late)).toEqual({
+    const answered = s.dueAt + 2 * MIN;
+    expect(applyReview(s, 'got', answered)).toEqual({
       stage: 2,
       recheckStep: 0,
-      dueAt: late + 15 * MIN,
+      dueAt: answered + 15 * MIN,
     });
+  });
+
+  it('moves a late right answer past every stage shorter than it was remembered for', () => {
+    const DAY = 24 * HOUR;
+    // Stage 4 waits 4 hours; answered right 3 days late: remembered for about 3 days, so the
+    // next wait is the first longer than that, 7 days (stage 7), not 1 day.
+    const s = climbTo(4, at(2026, 3, 1));
+    const late = s.dueAt + 3 * DAY;
+    expect(applyReview(s, 'got', late)).toEqual({
+      stage: 7,
+      recheckStep: 0,
+      dueAt: late + 7 * DAY,
+    });
+    // A few hours late at stage 1 (5 minutes): up to the 4-hour stage... just past 4 hours, 1 day.
+    const fresh = scheduleNew(at(2026, 3, 10));
+    expect(applyReview(fresh, 'got', fresh.dueAt + 2 * HOUR).stage).toBe(4);
+    expect(applyReview(fresh, 'got', fresh.dueAt + 5 * HOUR).stage).toBe(5);
+    // A miss is a miss however late; rechecks never jump.
+    expect(applyReview(s, 'missed', late).stage).toBe(3);
   });
 });
 

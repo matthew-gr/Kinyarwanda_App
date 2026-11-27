@@ -7,10 +7,14 @@ import '@fontsource/numans/400.css';
 import './theme/tokens.css';
 import './components/components.css';
 import './app.css';
+import './theme/dark.css';
 
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
+import { applyTheme } from './data/theme';
+
+applyTheme();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

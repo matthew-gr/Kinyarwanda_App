@@ -29,6 +29,11 @@ export interface FlashcardProps {
   onFlip?: () => void;
   /** The play button shows only when this is set. */
   onSpeak?: () => void;
+  /**
+   * Whether the recording has been confirmed as right (green) or not yet (grey); the play
+   * button keeps its usual colour when this isn't set.
+   */
+  speakChecked?: boolean;
   /** A switch to another form of the word, such as its plural; shown when set. */
   toggle?: { label: string; onToggle: () => void };
   /** The front's flip button, for moving focus to a new card. */
@@ -59,12 +64,24 @@ function SwitchButton({
   );
 }
 
-function SpeakButton({ onSpeak, hidden }: { onSpeak?: () => void; hidden?: boolean }) {
+function SpeakButton({
+  onSpeak,
+  hidden,
+  checked,
+}: {
+  onSpeak?: () => void;
+  hidden?: boolean;
+  checked?: boolean;
+}) {
   if (!onSpeak) return null;
   return (
     <button
       type="button"
-      className="kn-reset-btn kn-flash-speak"
+      className={cx(
+        'kn-reset-btn kn-flash-speak',
+        checked === true && 'kn-flash-speak-ok',
+        checked === false && 'kn-flash-speak-unchecked',
+      )}
       onClick={onSpeak}
       aria-label="Play pronunciation"
       tabIndex={hidden ? -1 : undefined}
@@ -87,6 +104,7 @@ export function Flashcard({
   hint = 'Tap to reveal meaning',
   onFlip,
   onSpeak,
+  speakChecked,
   toggle,
   flipRef,
   className,
@@ -108,7 +126,7 @@ export function Flashcard({
               {tag}
             </Badge>
           ) : null}
-          <SpeakButton onSpeak={onSpeak} />
+          <SpeakButton onSpeak={onSpeak} checked={speakChecked} />
           <div className="kn-flash-center">
             <p className="kn-flash-word flash-word">{word}</p>
             {phonetic ? <p className="kn-flash-phonetic phonetic">{phonetic}</p> : null}
@@ -153,7 +171,7 @@ export function Flashcard({
               <span>{hint}</span>
             </span>
           </button>
-          <SpeakButton onSpeak={onSpeak} hidden={isBack} />
+          <SpeakButton onSpeak={onSpeak} hidden={isBack} checked={speakChecked} />
           <SwitchButton toggle={toggle} className="kn-flash-switch-corner" hidden={isBack} />
         </div>
         <div className="kn-flash-face kn-flash-back" aria-hidden={!isBack || undefined}>

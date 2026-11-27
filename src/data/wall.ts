@@ -96,3 +96,11 @@ export function onWall(fn: () => void): () => void {
   listeners.add(fn);
   return () => listeners.delete(fn);
 }
+
+/** Takes the newest Review round off the wall, when the answer that finished it is undone. */
+export function removeLastReviewRound(now: number): void {
+  const state = load(now);
+  const i = state.blocks.map((b) => b.kind).lastIndexOf('review');
+  if (i < 0) return;
+  save({ ...state, blocks: state.blocks.filter((_, k) => k !== i) });
+}

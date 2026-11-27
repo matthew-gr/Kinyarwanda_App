@@ -1,7 +1,8 @@
 // The parts of a flashcard that come from the course: the pronunciation guide, the example or
 // breakdown, the Report a mistake form, and asking for the audio to be re-recorded.
 
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { isAudioOk, onAudioChecks, setAudioOk } from '../data/audioChecks';
 import { errorText, requestRerecord } from '../data/admin';
 import { requestSync } from '../data/sync';
 import { saveReport, type NewReport } from '../data/reports';
@@ -59,8 +60,44 @@ export function ReportMistake({
         }
         placeholder="For example: the plural is wrong, or the audio says something else"
       />
-      {form.audio_path ? <RerecordLink form={form} /> : null}
     </>
+  );
+}
+
+/**
+ * Under the front of a card with audio (decision 205): confirm the recording sounds right,
+ * which turns its play button green, or ask for it to be made again.
+ */
+export function AudioCheck({ form }: { form: ItemForm }) {
+  const ok = useSyncExternalStore(onAudioChecks, () => isAudioOk(form.id));
+  if (!form.audio_path) return null;
+  return (
+    <div className="audio-check body-small">
+      {ok ? (
+        <>
+          <span>✓ You confirmed this recording.</span>
+          <button
+            type="button"
+            className="report-link body-small"
+            onClick={() => setAudioOk(form.id, false)}
+          >
+            Undo
+          </button>
+        </>
+      ) : (
+        <>
+          <span>Does the recording say this?</span>
+          <button
+            type="button"
+            className="report-link body-small"
+            onClick={() => setAudioOk(form.id, true)}
+          >
+            Sounds right
+          </button>
+        </>
+      )}
+      <RerecordLink form={form} />
+    </div>
   );
 }
 

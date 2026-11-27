@@ -23,7 +23,7 @@ import { EmailSignIn } from './EmailSignIn';
 import { FeedbackPanel } from './FeedbackPanel';
 import { APP_VERSION } from '../data/feedback';
 import { PhonePanel } from './PhonePanel';
-import { SpeedSelect } from './SpeedButton';
+import { SpeedSelect, ThemeSelect } from './SpeedButton';
 import { DebugSwitch } from './DebugMode';
 import { downloadProgress } from '../data/backup';
 import { waitInWords } from './cardText';
@@ -125,6 +125,10 @@ function Progress() {
         <p className="body-small">
           The goal is shown on Home. It never stops you learning more or reviewing.
         </p>
+        <label className="field" htmlFor="theme">
+          <span className="body-bold">Appearance</span>
+          <ThemeSelect className="field-input field-select body" />
+        </label>
         <label className="field" htmlFor="audio-speed">
           <span className="body-bold">Audio speed</span>
           <SpeedSelect className="field-input field-select body" />

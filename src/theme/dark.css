@@ -1,0 +1,125 @@
+/*
+ * Dark mode (decision 205; learner feedback of 23 November). The same tokens as tokens.css with
+ * dark values: dark surfaces, light text, pastel panels and cards as muted dark tones, and the
+ * text drawn on them light. The hero gradient and the green card face stay as they are.
+ * Applies when the phone is set to dark (unless Light is chosen in Profile) or when Dark is
+ * chosen; tokens.css is generated from the design system, so this file is kept by hand.
+ */
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --surface-page: #0f1720;
+    --surface: #18222d;
+    --surface-sunken: #121b24;
+    --ink: #e6eef5;
+    --ink-strong: #f4f8fb;
+    --ink-deep: #dbe7f0;
+    --ink-active: #cfe1ee;
+    --text-secondary: #a7b1b9;
+    --text-muted: #96a0a8;
+    --text-subtitle: #98a2aa;
+    --text-placeholder: #8d969e;
+    --text-link: #9fb0bd;
+    --text-meta: #9aa3ab;
+    --text-example: #a9b1b8;
+    --text-card-back: #7f8882;
+    --line: rgba(255, 255, 255, 0.12);
+    --line-track: #2c3742;
+    --line-home: #3a4653;
+    --blue-500: #4fb0dd;
+    --blue-400: #6cc1e6;
+    --blue-teal: #3fc0d4;
+    --blue-panel: #1d4a66;
+    --blue-card: #1f4f69;
+    --blue-tint: #173a4f;
+    --blue-tile: #1e4560;
+    --blue-tile-text: #bfe6ff;
+    --blue-tag: #1c3557;
+    --blue-tag-text: #8cc1ff;
+    --blue-line: #1d3346;
+    --green-500: #52b788;
+    --green-600: #74c69d;
+    --green-select: #52b788;
+    --green-word: #b7e4c7;
+    --green-word-alt: #95d5b2;
+    --green-phonetic: #9fc3ad;
+    --green-panel: #1f4a36;
+    --green-tint: #183a2a;
+    --green-tile-text: #b7e4c7;
+    --green-hint: #173326;
+    --green-line: rgba(116, 198, 157, 0.35);
+    --yellow-panel: #5a4a12;
+    --yellow-card: #4d4616;
+    --yellow-tint: #4a3f12;
+    --yellow-pill: #3d3415;
+    --yellow-pill-text: #e7c95a;
+    --yellow-stat: #f0c430;
+    --orange-card: #6a4220;
+    --orange-tint: #3f2a17;
+    --orange-tile-text: #f4a462;
+    --shadow-field: 0 4px 4px rgba(0, 0, 0, 0.35);
+    --shadow-button: 0 4px 4px rgba(0, 0, 0, 0.35);
+    --shadow-card: 0 4px 4px rgba(0, 0, 0, 0.35);
+    --shadow-lift: 2px 2px 9px 1px rgba(0, 0, 0, 0.45);
+    --shadow-flashcard: 0 3.2px 3.2px rgba(0, 0, 0, 0.35);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme='dark'] {
+  --surface-page: #0f1720;
+  --surface: #18222d;
+  --surface-sunken: #121b24;
+  --ink: #e6eef5;
+  --ink-strong: #f4f8fb;
+  --ink-deep: #dbe7f0;
+  --ink-active: #cfe1ee;
+  --text-secondary: #a7b1b9;
+  --text-muted: #96a0a8;
+  --text-subtitle: #98a2aa;
+  --text-placeholder: #8d969e;
+  --text-link: #9fb0bd;
+  --text-meta: #9aa3ab;
+  --text-example: #a9b1b8;
+  --text-card-back: #7f8882;
+  --line: rgba(255, 255, 255, 0.12);
+  --line-track: #2c3742;
+  --line-home: #3a4653;
+  --blue-500: #4fb0dd;
+  --blue-400: #6cc1e6;
+  --blue-teal: #3fc0d4;
+  --blue-panel: #1d4a66;
+  --blue-card: #1f4f69;
+  --blue-tint: #173a4f;
+  --blue-tile: #1e4560;
+  --blue-tile-text: #bfe6ff;
+  --blue-tag: #1c3557;
+  --blue-tag-text: #8cc1ff;
+  --blue-line: #1d3346;
+  --green-500: #52b788;
+  --green-600: #74c69d;
+  --green-select: #52b788;
+  --green-word: #b7e4c7;
+  --green-word-alt: #95d5b2;
+  --green-phonetic: #9fc3ad;
+  --green-panel: #1f4a36;
+  --green-tint: #183a2a;
+  --green-tile-text: #b7e4c7;
+  --green-hint: #173326;
+  --green-line: rgba(116, 198, 157, 0.35);
+  --yellow-panel: #5a4a12;
+  --yellow-card: #4d4616;
+  --yellow-tint: #4a3f12;
+  --yellow-pill: #3d3415;
+  --yellow-pill-text: #e7c95a;
+  --yellow-stat: #f0c430;
+  --orange-card: #6a4220;
+  --orange-tint: #3f2a17;
+  --orange-tile-text: #f4a462;
+  --shadow-field: 0 4px 4px rgba(0, 0, 0, 0.35);
+  --shadow-button: 0 4px 4px rgba(0, 0, 0, 0.35);
+  --shadow-card: 0 4px 4px rgba(0, 0, 0, 0.35);
+  --shadow-lift: 2px 2px 9px 1px rgba(0, 0, 0, 0.45);
+  --shadow-flashcard: 0 3.2px 3.2px rgba(0, 0, 0, 0.35);
+  color-scheme: dark;
+}

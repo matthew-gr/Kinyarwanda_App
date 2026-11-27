@@ -5,6 +5,7 @@ import {
   ROUND_SIZE,
   nextRoundSize,
   roundGate,
+  forecastRounds,
   endOfDay,
   roundTime,
   secondsPerCard,
@@ -96,5 +97,38 @@ describe('when a round can start', () => {
   it('is closed with nothing due', () => {
     expect(roundGate([at(5)], now, end)).toEqual({ open: false, opensAt: null });
     expect(endOfDay(now)).toBe(end);
+  });
+});
+
+describe('the wall forecast', () => {
+  const now = new Date(2026, 10, 27, 10).getTime();
+  const end = new Date(2026, 10, 27, 23, 59, 59, 999).getTime();
+  const at = (minutes: number) => now + minutes * 60_000;
+
+  it('counts rounds for what is due now, its rechecks and what comes due meanwhile', () => {
+    // 50 waiting, 80% known: 10 rechecks; 60 cards at 10 s take 10 minutes, and 5 more come
+    // due in that time: 65 cards, 4 rounds. Later: 30 due this afternoon and the 10 rechecks'
+    // second checks, 40 cards, 2 rounds.
+    const dueAt = [
+      ...Array.from({ length: 5 }, (_, i) => at(2 + i)),
+      ...Array.from({ length: 30 }, (_, i) => at(120 + i)),
+      at(26 * 60),
+    ];
+    expect(
+      forecastRounds({ waiting: 50, dueAt, now, endOfDay: end, accuracy: 0.8, secondsPerCard: 10 }),
+    ).toEqual({ soon: 4, later: 2 });
+  });
+
+  it('predicts nothing with nothing left today', () => {
+    expect(
+      forecastRounds({
+        waiting: 0,
+        dueAt: [at(26 * 60)],
+        now,
+        endOfDay: end,
+        accuracy: 1,
+        secondsPerCard: 10,
+      }),
+    ).toEqual({ soon: 0, later: 0 });
   });
 });

@@ -27,7 +27,11 @@ import { supabase } from './supabase';
 
 const PUSH_BATCH = 500;
 const PULL_BATCH = 1000;
-const AFTER_ANSWER_MS = 1500;
+/**
+ * Answers upload this long after the last one, so a Review answer can still be undone first
+ * (decision 205; an uploaded answer is on every device and can't be taken back).
+ */
+const AFTER_ANSWER_MS = 10_000;
 const EVERY_MS = 60_000;
 
 export type SyncState = 'unavailable' | 'signed-out' | 'syncing' | 'synced' | 'offline' | 'error';
@@ -197,8 +201,21 @@ async function syncProfile(userId: string, d: KinyaDb): Promise<void> {
 async function push(userId: string, d: KinyaDb): Promise<void> {
   const client = supabase!;
   for (;;) {
-    const batch = await d.answer_events.where('synced').equals(0).limit(PUSH_BATCH).toArray();
-    if (batch.length === 0) return;
+    const found = await d.answer_events.where('synced').equals(0).limit(PUSH_BATCH).toArray();
+    if (found.length === 0) return;
+    for (const e of found) uploading.add(e.id);
+    try {
+      // Read again once they are marked, so an answer undone meanwhile isn't sent.
+      const batch = (await d.answer_events.bulkGet(found.map((e) => e.id))).filter(
+        (e): e is AnswerEvent => e !== undefined,
+      );
+      if (batch.length > 0) await upload(batch);
+    } finally {
+      for (const e of found) uploading.delete(e.id);
+    }
+  }
+
+  async function upload(batch: AnswerEvent[]): Promise<void> {
     const { error } = await client.from('answer_events').upsert(
       batch.map((e) => ({
         id: e.id,
@@ -219,6 +236,10 @@ async function push(userId: string, d: KinyaDb): Promise<void> {
       .modify({ synced: 1 });
   }
 }
+
+/** Answers on their way up: an answer can't be undone then (decision 205). */
+const uploading = new Set<string>();
+export const isUploading = (eventId: string) => uploading.has(eventId);
 
 /** False once the server has turned a Quick Recall session away: it predates Prompt 9. */
 let recallOnServer = true;

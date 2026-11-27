@@ -387,6 +387,24 @@
   color: var(--green-on-card);
   background: color-mix(in srgb, var(--green-on-card) 18%, transparent);
 }
+/* Not yet confirmed as right: grey; confirmed: green (decision 205). After the deck colours. */
+.kn-flash-speak.kn-flash-speak-unchecked {
+  --speak-unchecked: #8a9099;
+  color: var(--speak-unchecked);
+  background: color-mix(in srgb, var(--speak-unchecked) 16%, transparent);
+}
+.kn-flash-green .kn-flash-speak.kn-flash-speak-unchecked {
+  --speak-unchecked: #c9ced4;
+}
+.kn-flash-speak.kn-flash-speak-ok {
+  --speak-ok: #1f9d55;
+  color: #ffffff;
+  background: var(--speak-ok);
+}
+.kn-flash-green .kn-flash-speak.kn-flash-speak-ok {
+  --speak-ok: #52c47e;
+  color: #0b2a17;
+}
 .kn-flash-phonetic {
   margin: 12px 0 0;
   color: var(--green-phonetic);

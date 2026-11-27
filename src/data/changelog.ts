@@ -11,6 +11,17 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '0.8.0',
+    date: '2026-11-27',
+    changes: [
+      'Review: tapped the wrong button? “Undo last answer” takes it back for a few seconds after you answer.',
+      'Cards with audio ask whether the recording sounds right. Once you confirm it, the play button turns green.',
+      'Today’s wall shows the rounds still to come as grey blocks: dark grey for what is due now, light grey for later today.',
+      'Fewer reviews: a card you still know after a long gap moves up further, to match how long you remembered it.',
+      'Dark mode. It follows your phone, or choose Light or Dark in Profile, Settings.',
+    ],
+  },
+  {
     version: '0.7.0',
     date: '2026-11-27',
     changes: [

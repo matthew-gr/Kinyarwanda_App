@@ -102,3 +102,43 @@ export function endOfDay(now: number): number {
   d.setHours(23, 59, 59, 999);
   return d.getTime();
 }
+
+/** Predicted rounds for the wall (learner feedback, 27 November 2026). */
+export interface Forecast {
+  /** Rounds to clear what is due now, with its rechecks and what comes due meanwhile. */
+  soon: number;
+  /** Further rounds for what is due later today. */
+  later: number;
+}
+
+/** No wall needs more predicted blocks than this. */
+const MAX_FORECAST = 40;
+/** Accuracy assumed before any round today. */
+export const DEFAULT_ACCURACY = 0.85;
+
+/**
+ * How many more rounds today will take. The cards waiting now, plus the 5-minute rechecks
+ * their likely misses bring (from today's accuracy), plus cards that come due while those are
+ * worked through at the learner's pace, make the rounds soon; the rest due before the day ends,
+ * with the misses' 1-hour rechecks, make the rounds later.
+ */
+export function forecastRounds(args: {
+  waiting: number;
+  dueAt: readonly number[];
+  now: number;
+  endOfDay: number;
+  accuracy: number;
+  secondsPerCard: number;
+  size?: number;
+}): Forecast {
+  const size = args.size ?? ROUND_SIZE;
+  const miss = Math.min(1, Math.max(0, 1 - args.accuracy));
+  const misses = Math.round(args.waiting * miss);
+  const workEnd = args.now + (args.waiting + misses) * args.secondsPerCard * 1000;
+  const comingSoon = args.dueAt.filter((t) => t > args.now && t <= workEnd).length;
+  const soonCards = args.waiting + misses + comingSoon;
+  const laterCards = args.dueAt.filter((t) => t > workEnd && t <= args.endOfDay).length + misses;
+  const soon = Math.min(MAX_FORECAST, Math.ceil(soonCards / size));
+  const later = Math.min(MAX_FORECAST - soon, Math.ceil(laterCards / size));
+  return { soon, later };
+}

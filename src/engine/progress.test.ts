@@ -254,6 +254,8 @@ describe('words placed by the placement check', () => {
       ],
       3,
     );
-    expect(p.get('a')!.review!.stage).toBe(8);
+    // Placed at stage 7 (a week), due within 30 days, answered right on day 40: remembered
+    // for over a month, so it goes past the 1-month stage to 2 months (decision 205).
+    expect(p.get('a')!.review!.stage).toBe(9);
   });
 });

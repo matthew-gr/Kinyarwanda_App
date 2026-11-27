@@ -85,7 +85,14 @@ export function applyReview(s: ReviewSchedule, result: AnswerResult, now: number
     // Rechecks confirm the item at its stage; they never move it up.
     return { ...s, recheckStep: 0, dueAt: addInterval(now, intervalOf(s.stage)) };
   }
-  const stage = Math.min(TOP_STAGE, s.stage + 1);
+  // A right answer given late was remembered for the stage's wait plus the delay, so it moves
+  // to the first stage whose wait is longer than that, and always at least one stage up
+  // (decision 205; learner feedback of 23 November: a card due after 4 hours and answered
+  // right 3 days later shouldn't come back the next day).
+  const lengthOf = (stage: number, from: number) => addInterval(from, intervalOf(stage)) - from;
+  const remembered = lengthOf(s.stage, s.dueAt) + Math.max(0, now - s.dueAt);
+  let stage = Math.min(TOP_STAGE, s.stage + 1);
+  while (stage < TOP_STAGE && lengthOf(stage, now) <= remembered) stage++;
   return { stage, recheckStep: 0, dueAt: addInterval(now, intervalOf(stage)) };
 }
 

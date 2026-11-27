@@ -2,7 +2,14 @@ import { LEARN_BATCH, recordLearnAnswer, wallToday } from '../data/wall';
 import { RoundWall } from './RoundWall';
 import { countDue } from '../data/reviewPace';
 import { REVIEW_FIRST_ROUNDS, ROUND_SIZE } from '../engine/rounds';
-import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type RefObject,
+} from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { AppBar } from '../components/AppBar';
 import { Flashcard, type DeckTone } from '../components/Flashcard';
@@ -14,7 +21,8 @@ import { loadDeckLearned } from '../data/repo';
 import type { AnswerResult, Deck } from '../engine/learn';
 import type { Item, ItemForm } from '../engine/types';
 import { placeLabel } from '../engine/vocabulary';
-import { CardNotes, CardPicture, ReportMistake } from './CardExtras';
+import { AudioCheck, CardNotes, CardPicture, ReportMistake } from './CardExtras';
+import { audioChecksVersion, isAudioOk, onAudioChecks } from '../data/audioChecks';
 import {
   dictionaryLine,
   hasNotes,
@@ -345,6 +353,8 @@ function CardArea({
 }: CardAreaProps) {
   // The form switched to on this card, if any; a new card starts on the one it was dealt.
   const [switched, setSwitched] = useState<{ key: string; formId: string } | null>(null);
+  // Re-renders when a recording is confirmed (decision 205).
+  useSyncExternalStore(onAudioChecks, audioChecksVersion);
   const { item, step, choices } = view;
   const dealt = view.form;
   if (!item || !dealt || step.type === 'done') return null;
@@ -360,6 +370,7 @@ function CardArea({
   const isSamePlural = form === samePlural;
   const isIntro = step.type === 'intro';
   const audio = form.audio_path;
+  const audioOk = isAudioOk(form.id);
   const toggle = switchFor(item, form, cardChoices, (next) => {
     setSwitched({ key: view.key, formId: next.id });
     if (next.audio_path) playAudio(next.audio_path);
@@ -406,6 +417,7 @@ function CardArea({
             hint="Tap to reveal meaning"
             onFlip={onFlip}
             onSpeak={audio ? () => playAudio(audio) : undefined}
+            speakChecked={audio && !isMyWord(item) ? audioOk : undefined}
             toggle={toggle}
             flipRef={flipRef}
           />
@@ -453,6 +465,7 @@ function CardArea({
             </button>
           </div>
         )}
+        {!flipped && !isMyWord(item) ? <AudioCheck form={form} /> : null}
         {(isIntro || flipped) && !isMyWord(item) ? (
           <ReportMistake item={item} form={form} module="learn" />
         ) : null}

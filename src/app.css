@@ -1844,3 +1844,44 @@ textarea.field-input {
   width: 20px;
   height: 20px;
 }
+
+/* The wall's predicted rounds (decision 205): dark grey for now, light grey for later today. */
+.round-block-soon,
+.round-block-later {
+  cursor: default;
+  border-style: dashed;
+}
+
+.round-block-soon {
+  --wall-soon: #6b7280;
+  background: var(--wall-soon);
+  border-color: var(--wall-soon);
+}
+
+.round-block-later {
+  --wall-later: #d1d5db;
+  background: var(--wall-later);
+  border-color: #9ca3af;
+}
+
+.round-wall-legend {
+  margin: 0;
+  text-align: center;
+}
+
+/* Review: take the last answer back (decision 205). */
+.review-undo {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-10);
+}
+
+/* Under a card front with audio: confirm it or ask for it again (decision 205). */
+.audio-check {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 2px var(--space-10);
+  text-align: center;
+}

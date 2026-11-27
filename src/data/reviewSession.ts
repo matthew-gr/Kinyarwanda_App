@@ -14,11 +14,20 @@ import {
   type DueCounts,
   type ReviewSchedule,
 } from '../engine/review';
-import { endOfDay, roundGate, startRound, type RoundGate } from '../engine/rounds';
+import {
+  DEFAULT_ACCURACY,
+  endOfDay,
+  forecastRounds,
+  roundGate,
+  startRound,
+  type Forecast,
+  type RoundGate,
+} from '../engine/rounds';
 import type { Item, ItemForm } from '../engine/types';
 import { db, type KinyaDb, type ReviewItem, type ReviewRound, type ReviewSessionRow } from './db';
 import { loadReviewPace, type ReviewPace } from './reviewPace';
-import { addReviewRound, wallToday, type WallBlock } from './wall';
+import { addReviewRound, removeLastReviewRound, wallToday, type WallBlock } from './wall';
+import { isUploading } from './sync';
 import { getProfile, loadReview, recordReviewAnswer, saveReviewCard } from './repo';
 import { answerSaved } from './signals';
 
@@ -59,6 +68,8 @@ export interface ReviewView {
   pace: ReviewPace;
   /** Today's wall on this device: Review rounds and Learn batches, oldest first. */
   today: WallBlock[];
+  /** Rounds still to come today, for the wall's grey blocks. */
+  forecast: Forecast;
   /** Whether the next round can start now, or when it will (20 due, or the day's last few). */
   gate: RoundGate;
 }
@@ -68,6 +79,9 @@ export interface ReviewOutcome {
   counted: boolean;
   schedule: ReviewSchedule | null;
 }
+
+/** How long after an answer it can be undone; uploads wait longer (sync.ts, AFTER_ANSWER_MS). */
+export const UNDO_WINDOW_MS = 8_000;
 
 const toSchedule = (r: ReviewItem): ReviewSchedule => ({
   stage: r.stage,
@@ -86,6 +100,15 @@ export class ReviewSession {
   private readonly clock: Clock;
   private readonly d: KinyaDb;
   private pace: ReviewPace = { reviewedToday: 0, secondsPerCard: 10 };
+  /** The last answer, while it can still be undone (decision 205). */
+  private last: {
+    eventId: string;
+    at: number;
+    finishedRound: boolean;
+    review: ReviewItem;
+    session: ReviewSessionRow;
+    pace: ReviewPace;
+  } | null = null;
 
   private constructor(
     reviews: ReviewItem[],
@@ -136,6 +159,21 @@ export class ReviewSession {
     });
   }
 
+  /** Rounds still to come today, from what is due, today's accuracy and the learner's pace. */
+  private forecast(now: number, waiting: number): Forecast {
+    const rounds = wallToday(now).filter((b) => b.kind === 'review');
+    const done = rounds.reduce((n, b) => n + b.done, 0);
+    const known = rounds.reduce((n, b) => n + b.known, 0);
+    return forecastRounds({
+      waiting,
+      dueAt: [...this.reviews.values()].map((r) => Date.parse(r.due_at)),
+      now,
+      endOfDay: endOfDay(now),
+      accuracy: done ? known / done : DEFAULT_ACCURACY,
+      secondsPerCard: this.pace.secondsPerCard,
+    });
+  }
+
   /** Whether a new round can start at `now` (engine/rounds.ts, roundGate). */
   private gate(now: number): RoundGate {
     const times = [...this.reviews.values()]
@@ -144,10 +182,10 @@ export class ReviewSession {
     return roundGate(times, now, endOfDay(now));
   }
 
-  /** Adds the round to today's wall once its last card is answered. */
-  private recordIfFinished(now: number): void {
+  /** Adds the round to today's wall once its last card is answered; true when it did. */
+  private recordIfFinished(now: number): boolean {
     const round = this.session.round;
-    if (!round || this.remaining(now).length > 0) return;
+    if (!round || this.remaining(now).length > 0) return false;
     addReviewRound(
       {
         done: round.answered.length,
@@ -162,6 +200,7 @@ export class ReviewSession {
       },
       now,
     );
+    return true;
   }
 
   /** Starts the next round from what is due now, when the last one is finished or none is on. */
@@ -227,6 +266,7 @@ export class ReviewSession {
       pace: this.pace,
       gate: this.gate(now),
       today: wallToday(now),
+      forecast: this.forecast(now, Math.max(0, dueNow - leftWithCard)),
     };
   }
 
@@ -286,9 +326,11 @@ export class ReviewSession {
         last_item_id: card.item_id,
         round,
       };
+      const eventId = this.rng.uuid();
+      const before = { review, session: this.session, pace: this.pace };
       await recordReviewAnswer(
         {
-          id: this.rng.uuid(),
+          id: eventId,
           item_id: card.item_id,
           form_id: card.form_id,
           module: 'review',
@@ -304,10 +346,57 @@ export class ReviewSession {
       this.reviews.set(updated.item_id, updated);
       this.session = session;
       this.pace = { ...this.pace, reviewedToday: this.pace.reviewedToday + 1 };
-      this.recordIfFinished(now);
+      const finishedRound = this.recordIfFinished(now);
+      this.last = { eventId, at: now, finishedRound, ...before };
       answerSaved.emit();
       await this.advance();
       return { counted: true, schedule };
+    } finally {
+      this.busy = false;
+    }
+  }
+
+  /**
+   * Whether the last answer can be undone: within UNDO_WINDOW_MS, and only while it hasn't
+   * been uploaded, since an uploaded answer is on every device (learner feedback, 27 November:
+   * a tap on the wrong button).
+   */
+  canUndo(now = this.clock.now()): boolean {
+    return (
+      this.last !== null && now - this.last.at < UNDO_WINDOW_MS && !isUploading(this.last.eventId)
+    );
+  }
+
+  /**
+   * Takes the last answer back: the answer is removed, the card's schedule and the round are as
+   * before it, and the card is back on screen to answer again. False when it can't be.
+   */
+  async undo(): Promise<boolean> {
+    const last = this.last;
+    if (this.busy || !last || !this.canUndo()) return false;
+    this.busy = true;
+    try {
+      const undone = await this.d.transaction(
+        'rw',
+        [this.d.answer_events, this.d.review_items, this.d.review_session],
+        async () => {
+          const event = await this.d.answer_events.get(last.eventId);
+          // Gone, uploaded or on its way up meanwhile: it stays.
+          if (!event || event.synced || isUploading(event.id)) return false;
+          await this.d.answer_events.delete(last.eventId);
+          await this.d.review_items.put(last.review);
+          await this.d.review_session.put(last.session);
+          return true;
+        },
+      );
+      this.last = null;
+      if (!undone) return false;
+      this.reviews.set(last.review.item_id, last.review);
+      this.session = last.session;
+      this.pace = last.pace;
+      if (last.finishedRound) removeLastReviewRound(this.clock.now());
+      answerSaved.emit();
+      return true;
     } finally {
       this.busy = false;
     }
