@@ -216,3 +216,8 @@ message. Every message is also kept in the `feedback` table in Supabase.
 <!-- feedback:d3b39fcb-07c4-4aea-a02e-4c6f565484b9 -->
 
 > Make the blue block only blue if 100 % answers were right. For 0 %, make it red. Interpolate.
+
+### 2026-11-27 14:34 UTC · Home · 0.15.0+6d4b852
+<!-- feedback:a4c387d6-2c6c-47fd-9485-ab768b01bf6b -->
+
+> The color of the "Start Learning today" box does not yet adjust to the dark theme.
