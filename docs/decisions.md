@@ -375,6 +375,13 @@ Prompt 2 was written from the product spec's Module 2 section; the build plan na
     - **Free or paid Pindo call, in debug mode, for admins.** Before a story's first Play, the cost screen offers Free call (Pindo's public endpoint: capped per IP address per day and, by Pindo's documentation, meant for prototyping and demos), Paid call (about $0.12) or Cancel. The server accepts a free call only from an admin (`generate-story`, checked with the caller's token) and uses the public endpoint without the token for it. Pindo hasn't confirmed this is acceptable use; if they object, the option should go. Learners see the same confirm as before. Deployed: `generate-story` version 23.
     - **Cost.** Lower if free calls are used; nothing else changes.
 
+212. **Noun Classes: which class a noun is in, and its plural** (Jonathan, 27 November 2026; learner feedback: a noun-class exercise). Version 0.15.0.
+    - **Questions about the learner's own nouns** (learned, with a class in the course): which class a word is in ("umugore: Class 1 · umu-, umw-, mu-"), its plural from its singular, or its singular from its plural. A session is 10 questions about different nouns, the three kinds taking turns where a noun allows them (`src/engine/nounClasses.ts`).
+    - **Choices.** The wrong classes never share the word's prefix, so there is one right answer: umu- is class 1 and 3, in- is 9 and 10, i- is 5, 9 and 10, and none of those is offered beside its twin. Wrong plurals and singulars put other classes' prefixes on the same stem, in the shape that fits its first letter (igitabo: ibitabo, not imitabo, amatabo or abatabo); class 9 and 10's nasal only goes where it can (im- before b, p, f, v, m; in- before d, t, z, s, g, k, j, c). They are not real words.
+    - **After each answer**, the word asked for in its pieces, its prefix in its class's colour (decision 208), and what the class mostly holds. The end lists the nouns missed with both forms and their class.
+    - **Opens** once 8 nouns are learned; about 1,060 of the course's 1,214 nouns can be asked about. On Home it is the ninth module.
+    - **Not logged**, like Sound Pairs: practice only, no cost.
+
 ## Planned later
 
 - **Words 1,501 to 2,000** (Matt, 5 November 2026): the rest of Common 2000, next after decisions 185 to 187.

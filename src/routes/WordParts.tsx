@@ -14,13 +14,18 @@ export function WordParts({
   onStem,
 }: {
   shape: WordShape;
-  open: boolean;
-  onStem: () => void;
+  open?: boolean;
+  /** Makes the stem a button; without it the stem is only underlined. */
+  onStem?: () => void;
 }) {
   return (
     <span className="word-parts">
       {shape.parts.map((p, i) =>
-        p.role === 'stem' ? (
+        p.role === 'stem' && !onStem ? (
+          <span key={i} className="word-stem">
+            {p.text}
+          </span>
+        ) : p.role === 'stem' ? (
           <button
             key={i}
             type="button"
@@ -30,7 +35,7 @@ export function WordParts({
             onClick={(e) => {
               // The back of the card doesn't flip, but the tap shouldn't reach it either.
               e.stopPropagation();
-              onStem();
+              onStem?.();
             }}
           >
             {p.text}

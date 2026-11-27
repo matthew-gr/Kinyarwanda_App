@@ -29,7 +29,7 @@ const VOWELS = new Set(['a', 'e', 'i', 'o', 'u']);
 const isVowel = (c: string | undefined) => c !== undefined && VOWELS.has(c);
 
 /** Prefix shapes for each class, longest first within each kind. */
-const PREFIXES: Record<string, readonly string[]> = {
+export const PREFIXES: Record<string, readonly string[]> = {
   '1': ['umu', 'umw', 'mu', 'mw'],
   '1a': [],
   '2': ['aba', 'abe', 'ab', 'ba'],

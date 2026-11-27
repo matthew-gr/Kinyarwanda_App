@@ -11,6 +11,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '0.15.0',
+    date: '2026-11-27',
+    changes: [
+      'Noun Classes: pick which class a noun you’ve learned is in, or make its plural or singular, then see its prefix in its class’s colour.',
+    ],
+  },
+  {
     version: '0.14.0',
     date: '2026-11-27',
     changes: [

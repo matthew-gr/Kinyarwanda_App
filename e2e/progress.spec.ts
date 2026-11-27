@@ -11,7 +11,7 @@ test('Home, History and Profile show progress from learning, and the goal can ch
   await expect(page.getByText('No reviews due')).toBeVisible();
   await expect(page.getByText('0 of 10 new items learned today')).toBeVisible();
   const modules = page.getByRole('list', { name: 'Modules' });
-  await expect(modules.getByRole('listitem')).toHaveCount(8);
+  await expect(modules.getByRole('listitem')).toHaveCount(9);
   await expect(modules.getByRole('button', { name: /^Learn/ })).toBeVisible();
   await expect(modules.getByRole('button', { name: /^Review/ })).toBeAttached();
   await expect(modules.getByRole('button', { name: /^Verb Builder/ })).toBeAttached();
@@ -20,6 +20,7 @@ test('Home, History and Profile show progress from learning, and the goal can ch
   await expect(modules.getByRole('button', { name: /^Quick Recall/ })).toBeAttached();
   await expect(modules.getByRole('button', { name: /^Stories/ })).toBeAttached();
   await expect(modules.getByRole('button', { name: /^Sound Pairs/ })).toBeAttached();
+  await expect(modules.getByRole('button', { name: /^Noun Classes/ })).toBeAttached();
   await expect(modules.getByText('Coming soon')).toHaveCount(0);
 
   // History is empty before any practice.

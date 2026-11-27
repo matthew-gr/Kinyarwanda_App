@@ -195,6 +195,12 @@ export function Home() {
       meta: 'umwana or umwaka?',
       onClick: () => navigate('/drills/pairs'),
     },
+    {
+      title: 'Noun Classes',
+      description: 'Which class a noun is in, and how its plural is made.',
+      meta: 'igitabo, ibitabo',
+      onClick: () => navigate('/drills/classes'),
+    },
   ];
 
   return (
@@ -227,7 +233,7 @@ export function Home() {
           label="Today's goal"
         />
       </HeroBanner>
-      <SectionHeader title="Modules" subtitle="Eight ways to practise" />
+      <SectionHeader title="Modules" subtitle="Nine ways to practise" />
       <ModuleCarousel cards={modules} />
       <SectionHeader title="Practice" subtitle="Start where you left off" />
       <div className="rows">
