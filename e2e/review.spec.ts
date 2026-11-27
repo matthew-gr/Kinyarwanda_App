@@ -309,7 +309,9 @@ test('A recording confirmed as right turns the play button green', async ({ page
     .toBe(1);
 });
 
-test('Sounds wrong asks for a re-record in the same tap, still shown at the next review', async ({ page }) => {
+test('Sounds wrong asks for a re-record in the same tap, still shown at the next review', async ({
+  page,
+}) => {
   // The request itself is stood in for: a learner's request waits for an admin.
   await page.route('**/rest/v1/audio_requests**', (route) =>
     route.fulfill({ status: 201, body: '' }),
