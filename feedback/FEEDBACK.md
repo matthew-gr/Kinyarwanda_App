@@ -138,3 +138,10 @@ message. Every message is also kept in the `feedback` table in Supabase.
 > Learn words also in batches of 20 and add them as blue blocks to the wall.
 >
 > After each day, reset the wall.
+
+### 2026-11-27 09:28 UTC · Review · 0.5.0+0ec655f
+<!-- feedback:8dccf2b0-d199-44ef-83a0-1f39a11b7e8c -->
+
+> When reviewing cards, add a button to go back so the user can change his answer. Because sometimes, I click too fast that I got the card right or wrong.
+>
+> Sometimes, a review for a correct card gets rescheduled after only 5 minutes. Is that intended?
