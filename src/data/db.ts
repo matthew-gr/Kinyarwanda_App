@@ -54,6 +54,15 @@ export interface ReviewSessionRow {
   card: { card_view_id: string; item_id: string; form_id: string } | null;
   /** The item answered last, so the next card is a different one when there is a choice. */
   last_item_id: string | null;
+  /** The round being worked through (decision 201); absent on rows saved before rounds. */
+  round?: ReviewRound | null;
+}
+
+/** A round of Review: the items chosen when it started, and how it is going. */
+export interface ReviewRound {
+  ids: string[];
+  answered: string[];
+  known: number;
 }
 
 /** Where sync has got to. One row, id "main". */

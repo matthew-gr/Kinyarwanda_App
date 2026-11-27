@@ -11,16 +11,41 @@ import { loadHomeStats, type HomeStats } from '../data/repo';
 import { OPEN_AT_IN_REVIEW } from '../engine/quickRecall';
 import { dueRepeats } from '../engine/stories';
 import type { DueCounts } from '../engine/review';
+import { nextRoundSize, roundTime } from '../engine/rounds';
+import type { ReviewPace } from '../data/reviewPace';
 import { waitInWords } from './cardText';
 import { ModuleCarousel, type ModuleCard } from './ModuleCarousel';
 import { useProgressVersion } from './useProgressVersion';
 
-function reviewSubtitle(c: DueCounts, now: number): string {
+/**
+ * The next review round and its time, with the whole pile only in small print (decision 201),
+ * or, with nothing due, when the next card is and how many were reviewed today.
+ */
+function reviewSubtitle(c: DueCounts, pace: ReviewPace, now: number): string {
   const due = c.overdue + c.dueNow;
-  if (due > 0) return `${due} due now`;
+  if (due > 0) {
+    const size = nextRoundSize(due);
+    const round = `Round of ${size} · ${roundTime(size, pace.secondsPerCard)}`;
+    return due > size ? `${round} · ${due} waiting` : round;
+  }
   if (c.total === 0) return 'Opens when you learn your first word';
-  if (c.nextDueAt !== null) return `All caught up · next in ${waitInWords(c.nextDueAt - now)}`;
-  return 'All caught up';
+  const today = pace.reviewedToday > 0 ? ` · ${pace.reviewedToday} reviewed today` : '';
+  if (c.nextDueAt !== null)
+    return `All caught up · next in ${waitInWords(c.nextDueAt - now)}${today}`;
+  return `All caught up${today}`;
+}
+
+/** The banner's review line: the next round's time, and what was done today. */
+function reviewLine(stats: HomeStats): string {
+  const due = stats.review.overdue + stats.review.dueNow;
+  const today = stats.pace.reviewedToday;
+  if (due > 0) {
+    const time = roundTime(nextRoundSize(due), stats.pace.secondsPerCard);
+    return today > 0
+      ? `Next review round: ${time} · ${today} reviewed today`
+      : `Next review round: ${time}`;
+  }
+  return today > 0 ? `${today} reviewed today, all caught up` : 'No reviews due';
 }
 
 /** Overdue, due now, later today, tomorrow and the total, as the spec lists them. */
@@ -43,8 +68,6 @@ function DueSummary({ counts }: { counts: DueCounts }) {
     </dl>
   );
 }
-
-const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
 
 /** The drills open once numbers 1 to 5 are learned. */
 function drillMeta(stats: HomeStats | null): string {
@@ -142,7 +165,8 @@ export function Home() {
       title: 'Review',
       description: 'Recall what you know, spaced out up to a year.',
       meta: stats ? `${stats.review.total} in Review` : ' ',
-      detail: stats ? `${due} due` : undefined,
+      detail:
+        stats && due > 0 ? roundTime(nextRoundSize(due), stats.pace.secondsPerCard) : undefined,
       onClick: () => navigate('/review'),
     },
     {
@@ -189,9 +213,7 @@ export function Home() {
         title="Start Learning today"
         subtitle={
           <>
-            <span className="hero-line">
-              {due > 0 ? `${plural(due, 'review')} due now` : 'No reviews due'}
-            </span>
+            <span className="hero-line">{stats ? reviewLine(stats) : ' '}</span>
             <span className="hero-line">
               {today >= goal
                 ? `Goal reached: ${today} learned today`
@@ -261,7 +283,7 @@ export function Home() {
         <PracticeRow
           title="Review"
           tone="yellow"
-          subtitle={stats ? reviewSubtitle(stats.review, now) : ' '}
+          subtitle={stats ? reviewSubtitle(stats.review, stats.pace, now) : ' '}
           onClick={() => navigate('/review')}
         />
       </div>

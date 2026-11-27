@@ -7,6 +7,7 @@ import { SessionHeader } from '../components/SessionHeader';
 import { ReviewSession, type ReviewCard, type ReviewView } from '../data/reviewSession';
 import type { AnswerResult } from '../engine/learn';
 import { TOP_STAGE, type ReviewSchedule } from '../engine/review';
+import { nextRoundSize, roundTime } from '../engine/rounds';
 import { CardNotes, CardPicture, ReportMistake } from './CardExtras';
 import {
   dictionaryLine,
@@ -78,17 +79,25 @@ export function Review() {
     return () => clearTimeout(t);
   }, [note]);
 
-  // With nothing due, check again when the next item comes due. Due times live in storage;
-  // this timer only wakes the screen.
-  const nextDueAt = card ? null : (view?.counts.nextDueAt ?? null);
+  // With nothing due, check again when the next item comes due, and start a round with it. Due
+  // times live in storage; this timer only wakes the screen. A finished round with more waiting
+  // stays on its finish screen until the learner asks for the next.
+  const idle = !card && (!view?.round || (view.round.finished && view.waiting === 0));
+  const nextDueAt = idle ? (view?.counts.nextDueAt ?? null) : null;
   useEffect(() => {
     if (!session || nextDueAt === null) return;
     const wait = Math.min(Math.max(0, nextDueAt - Date.now()) + 250, MAX_WAIT_MS);
     const t = setTimeout(() => {
-      void session.refresh().then(() => setView(session.view()));
+      void session.newRound().then(() => setView(session.view()));
     }, wait);
     return () => clearTimeout(t);
   }, [session, nextDueAt]);
+
+  const nextRound = useCallback(async () => {
+    if (!session) return;
+    await session.newRound();
+    setView(session.view());
+  }, [session]);
 
   const flip = useCallback(() => {
     if (card) setFlippedId(card.cardViewId);
@@ -135,13 +144,15 @@ export function Review() {
       {view === null ? null : card ? (
         <ReviewCardArea
           card={card}
-          dueNow={view.dueNow}
+          view={view}
           flipped={flipped}
           flipRef={flipRef}
           gotRef={gotRef}
           onFlip={flip}
           onAnswer={answer}
         />
+      ) : view.round?.finished ? (
+        <RoundDone view={view} onNext={() => void nextRound()} onHome={() => navigate('/')} />
       ) : (
         <Caught view={view} onHome={() => navigate('/')} onLearn={() => navigate('/learn/words')} />
       )}
@@ -195,6 +206,9 @@ function Caught({
           : `Next review in ${waitInWords(counts.nextDueAt - Date.now())}.`}{' '}
         {counts.laterToday > 0 ? `${counts.laterToday} more due later today.` : ''}
       </p>
+      {view.pace.reviewedToday > 0 ? (
+        <p className="body">{view.pace.reviewedToday} reviewed today.</p>
+      ) : null}
       <button type="button" className="btn btn-primary" onClick={onHome}>
         Back to Home
       </button>
@@ -202,9 +216,64 @@ function Caught({
   );
 }
 
+/** The end of a round: what was done, and the next round if more are due (decision 201). */
+function RoundDone({
+  view,
+  onNext,
+  onHome,
+}: {
+  view: ReviewView;
+  onNext: () => void;
+  onHome: () => void;
+}) {
+  const { round, waiting, pace, counts } = view;
+  const nextRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => nextRef.current?.focus(), []);
+  if (!round) return null;
+  return (
+    <section className="learn-done" aria-labelledby="round-done">
+      <h2 id="round-done" className="h2-bold">
+        Round done
+      </h2>
+      <p className="body">
+        {round.done} reviewed, {round.known} known. {pace.reviewedToday} reviewed today.
+      </p>
+      {waiting > 0 ? (
+        <>
+          <p className="body">
+            Next round: {nextRoundSize(waiting)} cards,{' '}
+            {roundTime(nextRoundSize(waiting), pace.secondsPerCard)}.
+          </p>
+          <p className="body-small">{waiting} waiting in all</p>
+          <div className="round-actions">
+            <button ref={nextRef} type="button" className="btn btn-primary" onClick={onNext}>
+              Another round
+            </button>
+            <button type="button" className="btn btn-missed" onClick={onHome}>
+              Done for now
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="body">
+            All caught up.{' '}
+            {counts.nextDueAt === null
+              ? 'Nothing else is due.'
+              : `Next review in ${waitInWords(counts.nextDueAt - Date.now())}.`}
+          </p>
+          <button ref={nextRef} type="button" className="btn btn-primary" onClick={onHome}>
+            Back to Home
+          </button>
+        </>
+      )}
+    </section>
+  );
+}
+
 interface ReviewCardAreaProps {
   card: ReviewCard;
-  dueNow: number;
+  view: ReviewView;
   flipped: boolean;
   flipRef: React.RefObject<HTMLButtonElement | null>;
   gotRef: React.RefObject<HTMLButtonElement | null>;
@@ -214,7 +283,7 @@ interface ReviewCardAreaProps {
 
 function ReviewCardArea({
   card,
-  dueNow,
+  view,
   flipped,
   flipRef,
   gotRef,
@@ -223,6 +292,9 @@ function ReviewCardArea({
 }: ReviewCardAreaProps) {
   const { item, form } = card;
   const audio = form.audio_path;
+  const round = view.round;
+  // Cards still to come in this round after the one on screen, for the stack behind it.
+  const after = round ? round.total - round.done - 1 : view.dueNow - 1;
   const meta =
     card.recheckStep > 0
       ? `Recheck ${card.recheckStep} of 2`
@@ -231,14 +303,14 @@ function ReviewCardArea({
   return (
     <>
       <SessionHeader
-        level={`${dueNow} due`}
+        level={round ? `${round.done + 1} of ${round.total}` : `${view.dueNow} due`}
         meta={meta}
-        progress={card.stage / TOP_STAGE}
-        progressLabel="Stage"
+        progress={round ? round.done / round.total : 0}
+        progressLabel="Round progress"
       />
 
       <div className="learn-deck" data-card={card.cardViewId}>
-        <FlashcardDeck behind={dueNow > 2 ? ['yellow', 'blue'] : dueNow > 1 ? ['yellow'] : []}>
+        <FlashcardDeck behind={after > 1 ? ['yellow', 'blue'] : after > 0 ? ['yellow'] : []}>
           <Flashcard
             key={card.cardViewId}
             side={flipped ? 'back' : 'front'}

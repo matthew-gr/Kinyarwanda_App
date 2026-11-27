@@ -246,6 +246,12 @@ body {
   }
 }
 
+.round-actions {
+  display: grid;
+  gap: var(--space-10);
+  width: 100%;
+}
+
 .learn-done {
   display: flex;
   flex-direction: column;

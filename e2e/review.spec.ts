@@ -30,12 +30,13 @@ test('Review: a learned word is due 5 minutes later, moves up, and a miss is rec
 
   // Five minutes on, the word is due. Home recounts on its own.
   await page.clock.fastForward('05:01');
-  await expect(reviewRow(page)).toContainText('1 due now');
+  await expect(reviewRow(page)).toContainText('Round of 1 · about 1 min');
 
   await reviewRow(page).click();
   await expect(page).toHaveURL(/\/review$/);
   await expect(page.getByText('Stage 1 of 11 · every 5 minutes')).toBeVisible();
-  await expect(page.getByText('1 due', { exact: true })).toBeVisible();
+  // Rounds (decision 201): the header counts through the round, which here is one card.
+  await expect(page.getByText('1 of 1', { exact: true })).toBeVisible();
 
   // A reload lands on the same card.
   const word = await cardWord(page);
@@ -44,7 +45,9 @@ test('Review: a learned word is due 5 minutes later, moves up, and a miss is rec
 
   await grade(page, 'got');
   await expect(page.getByRole('status')).toContainText('Next review in 15 minutes.');
-  await expect(page.getByText('All caught up')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Round done' })).toBeVisible();
+  await expect(page.getByText('1 reviewed, 1 known. 1 reviewed today.')).toBeVisible();
+  await expect(page.getByText(/All caught up\. Next review in 1[45] minutes\./)).toBeVisible();
 
   // Fifteen minutes on, it is back at stage 2. A miss drops it to stage 1 with a recheck.
   await page.clock.fastForward('15:01');
@@ -62,4 +65,84 @@ test('Review: a learned word is due 5 minutes later, moves up, and a miss is rec
   await grade(page, 'got');
   // Back on the schedule at stage 1, which waits 5 minutes.
   await expect(page.getByRole('status')).toContainText('Next review in 5 minutes.');
+});
+
+/** Puts `n` course words in Review, due since yesterday, as if learned long ago. */
+async function seedDue(page: Page, n: number): Promise<void> {
+  await page.evaluate(
+    (n) =>
+      new Promise<void>((resolve, reject) => {
+        const open = indexedDB.open('kinyarwanda');
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+          const tx = open.result.transaction(['items', 'review_items'], 'readwrite');
+          const items = tx.objectStore('items').getAll();
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+          items.onsuccess = () => {
+            const past = new Date(Date.now() - 864e5).toISOString();
+            const words = (items.result as { id: string; kind: string; rank: number }[])
+              .filter((i) => i.kind === 'word')
+              .sort((a, b) => a.rank - b.rank)
+              .slice(0, n);
+            for (const w of words)
+              tx.objectStore('review_items').put({
+                item_id: w.id,
+                stage: 4,
+                recheck_step: 0,
+                due_at: past,
+                created_at: past,
+                updated_at: past,
+                last_form_id: null,
+              });
+          };
+        };
+      }),
+    n,
+  );
+}
+
+test('Rounds: a big pile is reviewed 20 at a time, and Learn suggests a round first', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await page.goto('/');
+  await expect(reviewRow(page)).toContainText('Opens when you learn your first word');
+  await seedDue(page, 120);
+  await page.reload();
+
+  // Home leads with the round; the pile is in the small print.
+  await expect(reviewRow(page)).toContainText(/Round of 20 · about \d+ min · 120 waiting/);
+
+  // Learn suggests a round first, and can be waved off.
+  await page.goto('/learn/words');
+  await expect(page.getByRole('heading', { name: '120 reviews are waiting' })).toBeVisible();
+  await page.getByRole('button', { name: 'Learn anyway' }).click();
+  await expect(page.getByRole('heading', { name: '120 reviews are waiting' })).toHaveCount(0);
+  await page.goto('/learn/words');
+  await page.getByRole('button', { name: 'Do a review round' }).click();
+  await expect(page).toHaveURL(/\/review$/);
+
+  // The header counts through the round of 20, whatever else is due.
+  for (let i = 1; i <= 20; i++) {
+    await expect(page.getByText(`${i} of 20`, { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: /Tap to reveal meaning/ }).click();
+    await page.getByRole('button', { name: i % 5 === 0 ? /I didn't/ : /I knew it/ }).click();
+  }
+  await expect(page.getByRole('heading', { name: 'Round done' })).toBeVisible();
+  await expect(page.getByText('20 reviewed, 16 known. 20 reviewed today.')).toBeVisible();
+  await expect(page.getByText(/Next round: 20 cards, about \d+ min\./)).toBeVisible();
+  await expect(page.getByText('100 waiting in all')).toBeVisible();
+
+  // A reload keeps the finished round's place: coming back starts the next one.
+  await page.getByRole('button', { name: 'Another round' }).click();
+  await expect(page.getByText('1 of 20', { exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByText('1 of 20', { exact: true })).toBeVisible();
+
+  await page.goto('/');
+  await expect(reviewRow(page)).toContainText(/Round of 20 · about \d+ min · 100 waiting/);
+  await expect(
+    page.getByText(/Next review round: about \d+ min · 20 reviewed today/),
+  ).toBeVisible();
 });

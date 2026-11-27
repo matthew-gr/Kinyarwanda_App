@@ -1,5 +1,6 @@
 // Repositories: the only code that reads and writes IndexedDB.
 
+import { loadReviewPace, type ReviewPace } from './reviewPace';
 import { createLearnState, learnConfigFor, reconcileOrder, type Deck } from '../engine/learn';
 import { dueCounts, type DueCounts } from '../engine/review';
 import type { Item, ItemForm } from '../engine/types';
@@ -137,6 +138,8 @@ export interface HomeStats {
   /** Words in Review and how many are well known, which open Quick Recall. */
   recall: RecallStatus;
   review: DueCounts;
+  /** Reviews done today and seconds per card, for the round's time (decision 201). */
+  pace: ReviewPace;
   /** The topic chosen on the Topics screen, by its label, if any. */
   topic: string | null;
   /** The learner's own words (decision 185): on the list, and in Review. */
@@ -147,7 +150,7 @@ export interface HomeStats {
 }
 
 export async function loadHomeStats(now: number, d: KinyaDb = db): Promise<HomeStats> {
-  const [items, reviews, profile, numbers, recall, wordState, mine] = await Promise.all([
+  const [items, reviews, profile, numbers, recall, wordState, mine, pace] = await Promise.all([
     d.items.toArray(),
     d.review_items.toArray(),
     getProfile(d),
@@ -155,6 +158,7 @@ export async function loadHomeStats(now: number, d: KinyaDb = db): Promise<HomeS
     recallStatus(d),
     d.learn_state.get('words'),
     myWordCards(d),
+    loadReviewPace(now, d),
   ]);
   const kindById = new Map(items.map((i) => [i.id, i.kind]));
   const startOfDay = new Date(now);
@@ -195,6 +199,7 @@ export async function loadHomeStats(now: number, d: KinyaDb = db): Promise<HomeS
       reviews.map((r) => ({ itemId: r.item_id, dueAt: Date.parse(r.due_at) })),
       now,
     ),
+    pace,
   };
 }
 

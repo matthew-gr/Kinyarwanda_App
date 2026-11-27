@@ -1,5 +1,6 @@
 // Runs Review: asks the engines what is due and which form to show, and saves after every card
-// and answer, so a reload lands on the same card with the same form.
+// and answer, so a reload lands on the same card with the same form. Cards are dealt in rounds
+// of up to 20 chosen when the round starts (decision 201), so the count on screen never grows.
 
 import { systemClock, type Clock } from '../engine/clock';
 import { pickForm } from '../engine/forms';
@@ -10,12 +11,13 @@ import {
   applyReview,
   intervalOf,
   dueCounts,
-  nextDue,
   type DueCounts,
   type ReviewSchedule,
 } from '../engine/review';
+import { startRound } from '../engine/rounds';
 import type { Item, ItemForm } from '../engine/types';
-import { db, type KinyaDb, type ReviewItem, type ReviewSessionRow } from './db';
+import { db, type KinyaDb, type ReviewItem, type ReviewRound, type ReviewSessionRow } from './db';
+import { loadReviewPace, type ReviewPace } from './reviewPace';
 import { getProfile, loadReview, recordReviewAnswer, saveReviewCard } from './repo';
 import { answerSaved } from './signals';
 
@@ -33,11 +35,27 @@ export interface ReviewCard {
   wait: Record<AnswerResult, number>;
 }
 
+export interface ReviewRoundView {
+  /** Cards in the round. */
+  total: number;
+  /** Cards answered so far. */
+  done: number;
+  /** Of those, answered I knew it. */
+  known: number;
+  /** Every card in it has been answered. */
+  finished: boolean;
+}
+
 export interface ReviewView {
   card: ReviewCard | null;
   counts: DueCounts;
   /** Items due now, including the card on screen. */
   dueNow: number;
+  /** The round on screen, if one has started. */
+  round: ReviewRoundView | null;
+  /** Due now and not in what is left of the round: the next rounds. */
+  waiting: number;
+  pace: ReviewPace;
 }
 
 export interface ReviewOutcome {
@@ -62,6 +80,7 @@ export class ReviewSession {
   private readonly rng: Rng;
   private readonly clock: Clock;
   private readonly d: KinyaDb;
+  private pace: ReviewPace = { reviewedToday: 0, secondsPerCard: 10 };
 
   private constructor(
     reviews: ReviewItem[],
@@ -92,8 +111,37 @@ export class ReviewSession {
       clock: deps.clock ?? systemClock,
       db: d,
     });
+    s.pace = await loadReviewPace(s.clock.now(), d);
+    // A round finished on an earlier visit is over: coming back starts a new one.
+    if (s.session.round && s.remaining(s.clock.now()).length === 0) {
+      s.session = { ...s.session, round: null };
+    }
     await s.advance();
     return s;
+  }
+
+  /** The round's items not answered yet and still due (another device may have answered some). */
+  private remaining(now: number): string[] {
+    const round = this.session.round;
+    if (!round) return [];
+    const answered = new Set(round.answered);
+    return round.ids.filter((id) => {
+      const r = this.reviews.get(id);
+      return !answered.has(id) && r && this.itemsById.has(id) && Date.parse(r.due_at) <= now;
+    });
+  }
+
+  /** Starts the next round from what is due now, when the last one is finished or none is on. */
+  async newRound(): Promise<void> {
+    if (this.busy || this.session.card) return;
+    this.busy = true;
+    try {
+      if (this.session.round && this.remaining(this.clock.now()).length === 0)
+        this.session = { ...this.session, round: null };
+      await this.advance();
+    } finally {
+      this.busy = false;
+    }
   }
 
   view(): ReviewView {
@@ -126,7 +174,25 @@ export class ReviewSession {
     const due = refs.filter((r) => r.dueAt <= now).length;
     // The card on screen counts as due even if the clock has not quite reached it.
     const onScreenNotDue = card && !refs.some((r) => r.itemId === card.item.id && r.dueAt <= now);
-    return { card, counts, dueNow: due + (onScreenNotDue ? 1 : 0) };
+    const dueNow = due + (onScreenNotDue ? 1 : 0);
+    const round = this.session.round;
+    const left = this.remaining(now);
+    const leftWithCard = left.length + (card && !left.includes(card.item.id) ? 1 : 0);
+    return {
+      card,
+      counts,
+      dueNow,
+      round: round
+        ? {
+            total: round.ids.length,
+            done: round.answered.length,
+            known: round.known,
+            finished: !card && left.length === 0,
+          }
+        : null,
+      waiting: Math.max(0, dueNow - leftWithCard),
+      pace: this.pace,
+    };
   }
 
   /** The audio of the card on screen and the next few to come due, every form of each. */
@@ -142,17 +208,6 @@ export class ReviewSession {
         if (f.item_id === id && f.audio_path && !paths.includes(f.audio_path))
           paths.push(f.audio_path);
     return paths.slice(0, limit);
-  }
-
-  /** Puts a card on screen when one has come due since the last check. */
-  async refresh(): Promise<void> {
-    if (this.busy || this.session.card) return;
-    this.busy = true;
-    try {
-      await this.advance();
-    } finally {
-      this.busy = false;
-    }
   }
 
   /** Grades the card on screen. Taps that arrive while the last one is saving are ignored. */
@@ -175,7 +230,19 @@ export class ReviewSession {
         due_at: new Date(schedule.dueAt).toISOString(),
         updated_at: iso,
       };
-      const session: ReviewSessionRow = { ...this.session, card: null, last_item_id: card.item_id };
+      const round: ReviewRound | null = this.session.round
+        ? {
+            ...this.session.round,
+            answered: [...this.session.round.answered, card.item_id],
+            known: this.session.round.known + (result === 'got' ? 1 : 0),
+          }
+        : null;
+      const session: ReviewSessionRow = {
+        ...this.session,
+        card: null,
+        last_item_id: card.item_id,
+        round,
+      };
       await recordReviewAnswer(
         {
           id: this.rng.uuid(),
@@ -193,6 +260,7 @@ export class ReviewSession {
       );
       this.reviews.set(updated.item_id, updated);
       this.session = session;
+      this.pace = { ...this.pace, reviewedToday: this.pace.reviewedToday + 1 };
       answerSaved.emit();
       await this.advance();
       return { counted: true, schedule };
@@ -207,10 +275,24 @@ export class ReviewSession {
     if (current && this.reviews.has(current.item_id) && this.itemsById.has(current.item_id)) return;
 
     const now = this.clock.now();
-    const refs = [...this.reviews.values()]
-      .filter((r) => this.itemsById.has(r.item_id))
-      .map((r) => ({ itemId: r.item_id, dueAt: Date.parse(r.due_at) }));
-    const next = nextDue(refs, now, this.session.last_item_id, this.rng);
+    // A new round when none is on, from everything due now. A finished round stays on screen
+    // until the learner asks for the next one (newRound).
+    if (!this.session.round) {
+      const due = [...this.reviews.values()].filter(
+        (r) => this.itemsById.has(r.item_id) && Date.parse(r.due_at) <= now,
+      );
+      if (due.length > 0) {
+        const ids = startRound(
+          due.map((r) => ({ itemId: r.item_id, stage: r.stage, recheckStep: r.recheck_step })),
+          this.rng,
+          this.session.last_item_id,
+        );
+        this.session = { ...this.session, round: { ids, answered: [], known: 0 } };
+      }
+    }
+    const left = this.remaining(now);
+    const pick = left.find((id) => id !== this.session.last_item_id) ?? left[0];
+    const next = pick ? { itemId: pick } : null;
     if (!next) {
       if (current) {
         this.session = { ...this.session, card: null };

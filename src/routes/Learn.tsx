@@ -1,3 +1,5 @@
+import { countDue } from '../data/reviewPace';
+import { REVIEW_FIRST_ROUNDS, ROUND_SIZE } from '../engine/rounds';
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { AppBar } from '../components/AppBar';
@@ -32,6 +34,44 @@ export function Learn() {
   if (!DECKS.includes(deck as Deck)) return <Navigate to="/" replace />;
   const d = deck as Deck;
   return <LearnDeck key={d} deck={d} />;
+}
+
+/**
+ * With a big Review pile, a suggestion to do a review round before learning more, since every
+ * new word adds reviews later (decision 201). Only a suggestion: Learn carries on below it.
+ */
+function ReviewFirst() {
+  const navigate = useNavigate();
+  const [due, setDue] = useState(0);
+  const [dismissed, setDismissed] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    void countDue(Date.now()).then((n) => {
+      if (alive) setDue(n);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  if (dismissed || due <= ROUND_SIZE * REVIEW_FIRST_ROUNDS) return null;
+  return (
+    <section className="panel review-first" aria-labelledby="review-first-title">
+      <h2 id="review-first-title" className="body-bold">
+        {due} reviews are waiting
+      </h2>
+      <p className="body-small">
+        Each new word adds reviews later. A round of {ROUND_SIZE} first keeps the pile down.
+      </p>
+      <div className="round-actions">
+        <button type="button" className="btn btn-primary" onClick={() => navigate('/review')}>
+          Do a review round
+        </button>
+        <button type="button" className="btn btn-missed" onClick={() => setDismissed(true)}>
+          Learn anyway
+        </button>
+      </div>
+    </section>
+  );
 }
 
 function DeckSwitch({ deck }: { deck: Deck }) {
@@ -180,6 +220,7 @@ function LearnDeck({ deck }: { deck: Deck }) {
           ? `${DECK_NAMES[deck]} learned: ${learned.today} today · ${learned.total} in all`
           : ' '}
       </p>
+      <ReviewFirst />
 
       {view === null ? null : view.step.type === 'done' && deck === 'mine' ? (
         <section className="learn-done" aria-labelledby="done-title">

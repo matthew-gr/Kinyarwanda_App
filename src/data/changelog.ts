@@ -11,6 +11,17 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '0.4.0',
+    date: '2026-11-27',
+    changes: [
+      'Review comes in rounds of 20. The count only goes up: cards that come due during a round wait for the next one.',
+      'After each round you see what you did, and you can start another round or stop there.',
+      'Home shows how long the next round takes, and how many you’ve reviewed today. The full number waiting is in small print.',
+      'With a big pile, the first round starts with words you’re likely to know, and words you just missed.',
+      'With more than 100 reviews waiting, Learn suggests a review round first. You can still learn.',
+    ],
+  },
+  {
     version: '0.3.0',
     date: '2026-11-26',
     changes: [
