@@ -102,3 +102,8 @@ message. Every message is also kept in the `feedback` table in Supabase.
 <!-- feedback:5aa066c1-0d77-4c28-8f49-0af8b7932714 -->
 
 > Add emojies at the back of cards. Preferably only one that relates to the stem.
+
+### 2026-11-27 07:45 UTC · General · 0.4.0+1d8a852
+<!-- feedback:17a657e5-99a6-459c-a5f1-27c02eaefabe -->
+
+> Add a debugging mode that can be toggled on and of in the profile. If debugging is on, show when the time in the app is counted and when it is not counted. For example, by a green/red dot at the corner of the screen.
