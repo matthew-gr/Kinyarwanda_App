@@ -160,6 +160,12 @@ export function Home() {
       onClick: () => navigate('/review'),
     },
     {
+      title: 'Conversations',
+      description: 'Talk through everyday situations, level by level.',
+      meta: '8 levels',
+      onClick: () => navigate('/conversations'),
+    },
+    {
       title: 'Stories',
       description: 'Short stories made from words you already know.',
       meta: storiesMeta(stories),
@@ -239,7 +245,7 @@ export function Home() {
           label="Today's goal"
         />
       </HeroBanner>
-      <SectionHeader title="Modules" subtitle="Ten ways to practise" />
+      <SectionHeader title="Modules" subtitle="Eleven ways to practise" />
       <ModuleCarousel cards={modules} />
       <SectionHeader title="Practice" subtitle="Start where you left off" />
       <div className="rows">

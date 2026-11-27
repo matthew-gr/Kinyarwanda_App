@@ -25,6 +25,7 @@ import { QuickRecall } from './routes/QuickRecall';
 import { SoundPairs } from './routes/SoundPairs';
 import { NounClasses } from './routes/NounClasses';
 import { WordFamilies } from './routes/WordFamilies';
+import { Conversations } from './routes/Conversations';
 import { Review } from './routes/Review';
 import { Search } from './routes/Search';
 import { SpeedSpeaking } from './routes/SpeedSpeaking';
@@ -106,6 +107,7 @@ export function App() {
             <Route path="drills/pairs" element={<SoundPairs />} />
             <Route path="drills/classes" element={<NounClasses />} />
             <Route path="drills/families" element={<WordFamilies />} />
+            <Route path="conversations" element={<Conversations />} />
             <Route path="stories" element={<Stories />} />
             <Route path="stories/:id" element={<StoryReader />} />
             <Route path="admin" element={<AdminHome />} />

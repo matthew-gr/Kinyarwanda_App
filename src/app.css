@@ -1940,3 +1940,93 @@ textarea.field-input {
 .family-learned {
   color: var(--green-600);
 }
+
+/* Conversations (decision 215). */
+.role-card {
+  margin: 0;
+  padding: var(--space-9) var(--space-16);
+  border-radius: 12px;
+  background: var(--yellow-tint, #fff6d6);
+  color: var(--ink);
+}
+
+.chat {
+  display: grid;
+  gap: var(--space-9);
+  width: 100%;
+}
+
+.chat-pair {
+  display: grid;
+  gap: var(--space-9);
+}
+
+.chat-them,
+.chat-me {
+  max-width: 85%;
+  margin: 0;
+  padding: var(--space-9) var(--space-16);
+  border-radius: 14px;
+}
+
+.chat-them {
+  justify-self: start;
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.chat-me {
+  justify-self: end;
+  background: var(--green-tint);
+  color: var(--ink);
+}
+
+.chat-now p {
+  display: flex;
+  align-items: center;
+  gap: var(--space-9);
+  margin: 0;
+}
+
+.chat-cue {
+  margin: 0;
+  text-align: center;
+}
+
+.chat-choices {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.chat-build,
+.chat-type {
+  display: grid;
+  gap: var(--space-9);
+  width: 100%;
+}
+
+.chat-built {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 52px;
+  margin: 0;
+  padding: var(--space-9);
+  border: 2px dashed var(--line);
+  border-radius: 12px;
+}
+
+.chat-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+
+.chat-tile {
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-button);
+  font-weight: 700;
+}

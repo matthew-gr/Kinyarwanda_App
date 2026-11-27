@@ -11,6 +11,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '0.18.0',
+    date: '2026-11-27',
+    changes: [
+      'Conversations: talk through everyday situations in eight levels, from greetings to a whole conversation. Pick your reply at first, then build it from words, then type it, as the person on your role card.',
+    ],
+  },
+  {
     version: '0.17.0',
     date: '2026-11-27',
     changes: [

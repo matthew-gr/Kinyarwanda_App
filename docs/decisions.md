@@ -396,6 +396,13 @@ Prompt 2 was written from the product spec's Module 2 section; the build plan na
     - **French memory hints**, a third choice in Profile, Settings, Memory hints: 57 words, mostly borrowed from French (ikarita: carte, ipantaro: pantalon, ikamyo: camion, foromaje: fromage). AI drafts, like the other hints.
     - **Cost.** None.
 
+215. **Conversations: rule-based practice in eight levels** (Jonathan, 27 November 2026; learner feedback: conversation practice with no paid services). Version 0.18.0.
+    - **Levels that build on each other, twice over.** The topics: greetings, meeting someone, family, work and home, at the market, taking a moto, visiting a family, feeling unwell, and a whole conversation that uses levels 1 to 3 again. The replies: picked from three (levels 1 and 2), built from word tiles with two that don't belong (3 and 4), then typed (5 to 8), with the English of the reply as the cue from level 3 on. A level opens when the one before was passed with 80% right first time; the best score per level is kept on this device.
+    - **Rule-based, with a role.** Each play deals a role card: a name, a home town, a job, a number of children and something to buy (`dealRole`). Replies have to fit it: "Witwa nde?" accepts only the role's name, and a wrong option or tile is often the right sentence with the wrong fact (another name, another town). Typed replies are compared without capitals, punctuation or apostrophe differences, against a few accepted variants per turn (`src/engine/conversation.ts`).
+    - **What the app says** can be shown in English, and plays the course's recording when a line is a course phrase or word with audio that wasn't marked wrong. Lines that aren't have no audio: nothing is recorded for this.
+    - **AI drafts.** Written by Claude from the course's phrases where it could, plus some lines that aren't in the course (Mushaka iki?, Ni magana atanu, Nturuka i …, Nanjye nishimiye kukumenya, Duhagarare he?). To be checked by a native speaker.
+    - **On Home** it is the eleventh module, after Review. No cost.
+
 ## Planned later
 
 - **Words 1,501 to 2,000** (Matt, 5 November 2026): the rest of Common 2000, next after decisions 185 to 187.
