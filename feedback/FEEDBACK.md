@@ -186,3 +186,8 @@ message. Every message is also kept in the `feedback` table in Supabase.
 <!-- feedback:82006e2b-a8d6-4614-8b2a-ac0eea0d829a -->
 
 > Also allow the user to give audio feedback on the card's back. If the user marks it as incorrect, change it to a different color and stop automatically playing the audio for this card. Only play it when the user clicks it.
+
+### 2026-11-27 11:36 UTC · Review · 0.8.0+15cd245
+<!-- feedback:053b557a-f728-43fb-96ff-5efaf610b10f -->
+
+> Clean up the finish page: Only show the description for the colored blocks on hover/click (i.e., accuracy and missed words). Also, only show the description of the gray blocks on hover/click. Remove the dotted border from the light gray blocks. Change the colors light and dark gray to something that matches the color scheme well (including dark mode). The idea is that they fade out from colored block to a review that is due in this session to a review that is due later today. Also, consistently use the American spelling for gray in the UI, changelog, etc.
