@@ -191,3 +191,8 @@ message. Every message is also kept in the `feedback` table in Supabase.
 <!-- feedback:053b557a-f728-43fb-96ff-5efaf610b10f -->
 
 > Clean up the finish page: Only show the description for the colored blocks on hover/click (i.e., accuracy and missed words). Also, only show the description of the gray blocks on hover/click. Remove the dotted border from the light gray blocks. Change the colors light and dark gray to something that matches the color scheme well (including dark mode). The idea is that they fade out from colored block to a review that is due in this session to a review that is due later today. Also, consistently use the American spelling for gray in the UI, changelog, etc.
+
+### 2026-11-27 11:50 UTC · General · 0.8.0+15cd245
+<!-- feedback:3245c04c-b4ad-4dba-85b2-a9c511b21fda -->
+
+> Let the feedback for the card's audio also be visible at the next review. I.e., that "Re-record requested; an admin will check it" and also the color of the sound button.
