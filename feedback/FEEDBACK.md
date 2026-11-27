@@ -112,3 +112,8 @@ message. Every message is also kept in the `feedback` table in Supabase.
 <!-- feedback:5f3f8f14-851b-4e47-b3fe-83774c4dd719 -->
 
 > I am stuck at 93/96 mastered words. When debugging is turned on and the user hovers over "93 of 96 mastered", show which words have not been mastered yet and what is missing until they will be mastered.
+
+### 2026-11-27 07:53 UTC · General · 0.4.0+1d8a852
+<!-- feedback:782711ba-4fba-4c24-9e03-2d95daab5689 -->
+
+> On the back side of cards, add an explanation that pops up on hover/click that tells the user how to memorize the word faster. For example, by mentioning words that have the same or similar stem and a similar or different meaning. For example, I wonder why the word for hospital "ibitaro" is plural and which other words have "taro".
