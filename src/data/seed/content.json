@@ -48188,7 +48188,7 @@
       "status": "ai_draft",
       "source": "ai:claude-opus-5-5",
       "updated_at": "2026-10-30T00:00:00.000Z",
-      "retired": false,
+      "retired": true,
       "en": "Help from elsewhere comes after the rain has passed: rely on yourself.",
       "word_type": "other",
       "noun_class": null,
@@ -48288,7 +48288,7 @@
       "status": "ai_draft",
       "source": "ai:claude-opus-5-5",
       "updated_at": "2026-10-30T00:00:00.000Z",
-      "retired": false,
+      "retired": true,
       "en": "Whoever has a better wife than you has a better home.",
       "word_type": "other",
       "noun_class": null,
@@ -144881,7 +144881,7 @@
       "status": "ai_draft",
       "source": "ai:claude-opus-5-5",
       "updated_at": "2026-10-30T00:00:00.000Z",
-      "retired": false
+      "retired": true
     },
     {
       "id": "4d8ffad8-1eb4-4a1d-9a51-59928a68f4a8",
@@ -144966,7 +144966,7 @@
       "status": "ai_draft",
       "source": "ai:claude-opus-5-5",
       "updated_at": "2026-10-30T00:00:00.000Z",
-      "retired": false
+      "retired": true
     },
     {
       "id": "12654838-0d36-4dcb-b1c3-9d35cc040bfc",

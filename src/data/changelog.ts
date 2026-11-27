@@ -11,6 +11,17 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '0.17.0',
+    date: '2026-11-27',
+    changes: [
+      'Long text, like a proverb, now gets smaller so it fits on its card.',
+      'Dark theme: darker cards, and the Home banner now matches.',
+      'A perfect Learn batch is as bright a blue as a perfect Review round is green.',
+      'Memory hints can now include French, in Profile, Settings.',
+      'Two proverbs were removed from the course.',
+    ],
+  },
+  {
     version: '0.16.0',
     date: '2026-11-27',
     changes: [

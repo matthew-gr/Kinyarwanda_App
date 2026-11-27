@@ -1,7 +1,7 @@
 /*
  * Dark mode (decision 205; learner feedback of 23 November). The same tokens as tokens.css with
  * dark values: dark surfaces, light text, pastel panels and cards as muted dark tones, and the
- * text drawn on them light. The hero gradient and the green card face stay as they are.
+ * text drawn on them light. The hero gradient and the green card face are darker versions of the light ones (decision 214).
  * Applies when the phone is set to dark (unless Light is chosen in Profile) or when Dark is
  * chosen; tokens.css is generated from the design system, so this file is kept by hand.
  */
@@ -62,6 +62,13 @@
     --shadow-card: 0 4px 4px rgba(0, 0, 0, 0.35);
     --shadow-lift: 2px 2px 9px 1px rgba(0, 0, 0, 0.45);
     --shadow-flashcard: 0 3.2px 3.2px rgba(0, 0, 0, 0.35);
+    /* Decision 214: darker card faces, and the Home banner's gradient with light text. */
+    --card-face: #0b1218;
+    --green-card: #1c4834;
+    --hero-start: #145f8c;
+    --hero-mid: #167a80;
+    --hero-end: #2f7d5c;
+    --hero-text: #f4f8fb;
     color-scheme: dark;
   }
 }
@@ -121,5 +128,12 @@
   --shadow-card: 0 4px 4px rgba(0, 0, 0, 0.35);
   --shadow-lift: 2px 2px 9px 1px rgba(0, 0, 0, 0.45);
   --shadow-flashcard: 0 3.2px 3.2px rgba(0, 0, 0, 0.35);
+  /* Decision 214: darker card faces, and the Home banner's gradient with light text. */
+  --card-face: #0b1218;
+  --green-card: #1c4834;
+  --hero-start: #145f8c;
+  --hero-mid: #167a80;
+  --hero-end: #2f7d5c;
+  --hero-text: #f4f8fb;
   color-scheme: dark;
 }

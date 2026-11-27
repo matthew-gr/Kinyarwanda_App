@@ -94,6 +94,19 @@ function SpeakButton({
   );
 }
 
+/**
+ * A smaller size for text too long for the card at its usual size, such as a proverb and its
+ * meaning (decision 214): three steps by length.
+ */
+function fit(text: unknown, steps: readonly [number, number, number]): string | false {
+  if (typeof text !== 'string') return false;
+  const n = text.length;
+  return n > steps[2] ? 'kn-fit-3' : n > steps[1] ? 'kn-fit-2' : n > steps[0] ? 'kn-fit-1' : false;
+}
+/** Characters past which the word and the meaning step down. */
+const WORD_FIT = [16, 28, 44] as const;
+const MEANING_FIT = [18, 32, 50] as const;
+
 export function Flashcard({
   word,
   phonetic,
@@ -132,12 +145,21 @@ export function Flashcard({
           ) : null}
           <SpeakButton onSpeak={onSpeak} checked={speakChecked} />
           <div className="kn-flash-center">
-            <p className="kn-flash-word flash-word">{backWord ?? word}</p>
+            <p className={cx('kn-flash-word flash-word', fit(word, WORD_FIT))}>
+              {backWord ?? word}
+            </p>
             {phonetic ? <p className="kn-flash-phonetic phonetic">{phonetic}</p> : null}
             <SwitchButton toggle={toggle} />
             {picture ? <div className="kn-flash-picture">{picture}</div> : null}
             <span className="kn-flash-rule" />
-            <p className="kn-flash-translation flash-translation">{translation}</p>
+            <p
+              className={cx(
+                'kn-flash-translation flash-translation',
+                fit(translation, MEANING_FIT),
+              )}
+            >
+              {translation}
+            </p>
             {detail ? <p className="kn-flash-detail body">{detail}</p> : null}
           </div>
           {notes ? <div className="kn-flash-notes body-small">{notes}</div> : null}
@@ -167,7 +189,7 @@ export function Flashcard({
             tabIndex={isBack ? -1 : undefined}
           >
             <span className="kn-flash-center">
-              <span className="kn-flash-word flash-word">{word}</span>
+              <span className={cx('kn-flash-word flash-word', fit(word, WORD_FIT))}>{word}</span>
               {phonetic ? <span className="kn-flash-phonetic phonetic">{phonetic}</span> : null}
             </span>
             <span className="kn-flash-hint">
@@ -185,11 +207,20 @@ export function Flashcard({
             </Badge>
           ) : null}
           <div className="kn-flash-center">
-            <p className="kn-flash-backword flash-word">{backWord ?? word}</p>
+            <p className={cx('kn-flash-backword flash-word', fit(word, WORD_FIT))}>
+              {backWord ?? word}
+            </p>
             <SwitchButton toggle={toggle} hidden={!isBack} />
             {picture ? <div className="kn-flash-picture">{picture}</div> : null}
             <span className="kn-flash-rule" />
-            <p className="kn-flash-translation flash-translation">{translation}</p>
+            <p
+              className={cx(
+                'kn-flash-translation flash-translation',
+                fit(translation, MEANING_FIT),
+              )}
+            >
+              {translation}
+            </p>
             {detail ? <p className="kn-flash-detail body">{detail}</p> : null}
           </div>
           {notes ? <div className="kn-flash-notes body-small">{notes}</div> : null}

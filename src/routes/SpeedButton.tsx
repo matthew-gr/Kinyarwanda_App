@@ -96,7 +96,7 @@ export function SchedulerSelect({ className }: { className?: string }) {
   );
 }
 
-/** Memory hints in Swahili and German too, for Profile's settings (decision 211). */
+/** Memory hints in Swahili, German and French too, for Profile's settings (decisions 211, 214). */
 export function HintLanguageChecks() {
   const langs = useSyncExternalStore(onHintLanguages, getHintLanguages, getHintLanguages);
   return (
@@ -121,6 +121,14 @@ export function HintLanguageChecks() {
           onChange={(e) => setHintLanguage('de', e.target.checked)}
         />
         German
+      </label>
+      <label className="story-english-toggle body">
+        <input
+          type="checkbox"
+          checked={langs.fr}
+          onChange={(e) => setHintLanguage('fr', e.target.checked)}
+        />
+        French
       </label>
     </fieldset>
   );

@@ -13,9 +13,12 @@ const accuracyColour = (share: number) => `hsl(${Math.round(120 * share)} 62% 46
 
 /**
  * A Learn batch: blue when every answer was right, red when none was, through purple in
- * between, so Learn blocks never look like Review ones (learner feedback, 27 November).
+ * between, so Learn blocks never look like Review ones (learner feedback, 27 November). The
+ * blue is as bright as Review's green at 100%, and the red as Review's red at 0%: their
+ * luminance matches (decision 214).
  */
-const learnColour = (share: number) => `hsl(${Math.round(360 - 148 * share)} 66% 50%)`;
+const learnColour = (share: number) =>
+  `hsl(${Math.round(360 - 155 * share)} ${Math.round(66 + 34 * share)}% ${Math.round(47 + 14 * share)}%)`;
 
 /** A cell of the wall: a finished block, or a predicted round still to come. */
 type Cell = { block: number } | { predicted: 'soon' | 'later' };

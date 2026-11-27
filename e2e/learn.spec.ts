@@ -59,7 +59,7 @@ test('Learn walkthrough: words, then phrases without touching words', async ({ p
 
   // Words progress is untouched by Phrases.
   await page.getByRole('button', { name: 'Back to Home' }).click();
-  await expect(rowSubtitle(page, 'Phrases')).toHaveText(/^[1-9]\d* of 125 learned$/);
+  await expect(rowSubtitle(page, 'Phrases')).toHaveText(/^[1-9]\d* of 123 learned$/);
   await expect(rowSubtitle(page, 'Words')).toHaveText(wordsBefore);
 });
 
@@ -94,7 +94,7 @@ test('Learn comes in batches of 20 answers, each a block on the wall, blue when 
   await expect(wall.getByRole('button')).toHaveCount(1);
   await expect(wall.getByRole('button')).toHaveAccessibleName('Learn batch 1: 20 of 20 right');
   // All right: blue (decision 213).
-  await expect(wall.getByRole('button')).toHaveCSS('background-color', 'rgb(43, 122, 212)');
+  await expect(wall.getByRole('button')).toHaveCSS('background-color', 'rgb(56, 172, 255)');
   await page.getByRole('button', { name: 'Another batch' }).click();
   await expect(page.getByRole('button', { name: /Tap to reveal meaning|^Next$/ })).toBeVisible();
 });

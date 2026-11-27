@@ -4,6 +4,8 @@
 export interface HintLanguages {
   sw: boolean;
   de: boolean;
+  /** Decision 214. */
+  fr: boolean;
 }
 
 const KEY = 'kinyarwanda.hint-languages';
@@ -12,9 +14,9 @@ const listeners = new Set<() => void>();
 let langs: HintLanguages = (() => {
   try {
     const saved = JSON.parse(localStorage.getItem(KEY) ?? '{}') as Partial<HintLanguages>;
-    return { sw: saved.sw === true, de: saved.de === true };
+    return { sw: saved.sw === true, de: saved.de === true, fr: saved.fr === true };
   } catch {
-    return { sw: false, de: false };
+    return { sw: false, de: false, fr: false };
   }
 })();
 

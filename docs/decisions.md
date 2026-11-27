@@ -388,6 +388,14 @@ Prompt 2 was written from the product spec's Module 2 section; the build plan na
     - **Wrong options** have a stem starting with the same two letters as the family's (gusobanura and gusokoza for gusoma), then the same first letter. Never one whose stem shares the family stem's first three letters, or is the start of one: a first try offered umukoresha (employer) and igikorwa (deed) for gukora, which are from gukora too though not in its listed family, making three right answers. Families are AI drafts, so a wrong option could still be a relative the lists miss.
     - **Not logged**: practice only, no cost.
 
+214. **Two proverbs retired, brighter Learn blue, darker dark theme, long text that fits, and French hints** (Jonathan, 27 November 2026; his feedback and a learner's of 27 November). Version 0.17.0.
+    - **Retired:** "Ukurusha umugore akurusha urugo" and "Ak’imuhana kaza imvura ihise", in production (migration `20261127160000_retire_two_proverbs`) and in the bundled course. The rows stay, retired, so every device drops them; 123 phrases are live, 23 of them proverbs.
+    - **Learn blocks** run from hsl(0 66% 47%) at 0% to hsl(205 100% 61%) at 100%, through purple. The blue has the same luminance as Review's green at 100% (about 0.38), and the red as Review's red at 0%, so a perfect batch looks as bright as a perfect round.
+    - **Dark theme.** Card backs are darker (#0b1218) and so is the green card face (#1c4834). The Home banner's gradient is a darker version of the light one, with light text: its text took the page's surface colour, which in the dark theme is near black, so it was dark on bright.
+    - **Long text fits the card.** A word longer than 16, 28 or 44 characters, and a meaning longer than 18, 32 or 50, steps down a size (to 19, 16 or 14 px for the word, 24, 20 or 17 px for the meaning), on the front, the back and Learn's introduction. A proverb and its meaning now fit.
+    - **French memory hints**, a third choice in Profile, Settings, Memory hints: 57 words, mostly borrowed from French (ikarita: carte, ipantaro: pantalon, ikamyo: camion, foromaje: fromage). AI drafts, like the other hints.
+    - **Cost.** None.
+
 ## Planned later
 
 - **Words 1,501 to 2,000** (Matt, 5 November 2026): the rest of Common 2000, next after decisions 185 to 187.

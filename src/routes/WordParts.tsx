@@ -59,7 +59,7 @@ const prefixOf = (shape: WordShape) => shape.parts.find((p) => p.role === 'prefi
 
 /**
  * Under the card once its stem or Hints is tapped (decisions 208 and 211): what the prefix is,
- * the other words of its family, and memory hints, in Swahili and German too when chosen.
+ * the other words of its family, and memory hints, in Swahili, German and French too when chosen.
  */
 export function WordNotesPanel({ item, shape }: { item: Item; shape: WordShape | null }) {
   const [notes, setNotes] = useState<WordNotes | null>(null);
@@ -74,9 +74,12 @@ export function WordNotesPanel({ item, shape }: { item: Item; shape: WordShape |
   const prefix = shape ? prefixOf(shape) : undefined;
   const hint = notes?.hint;
   const hints = hint
-    ? [hint.en, langs.sw ? hint.sw : undefined, langs.de ? hint.de : undefined].filter(
-        (h): h is string => Boolean(h),
-      )
+    ? [
+        hint.en,
+        langs.sw ? hint.sw : undefined,
+        langs.de ? hint.de : undefined,
+        langs.fr ? hint.fr : undefined,
+      ].filter((h): h is string => Boolean(h))
     : [];
   return (
     <div className="stem-panel body-small" aria-live="polite">

@@ -354,6 +354,8 @@ const EVERYDAY: [string, string, Breakdown][] = [
 ];
 
 /** Proverbs (imigani migufi): the English gives the meaning, as it is used. */
+// Retired at Jonathan's request (decision 214): Ukurusha umugore akurusha urugo, and
+// Ak’imuhana kaza imvura ihise.
 const PROVERBS: [string, string][] = [
   ['Abishyize hamwe nta kibananira.', 'Those who join together, nothing defeats them.'],
   ['Inkingi imwe ntigera inzu.', "One pillar can't hold up a house: we need each other."],
@@ -387,10 +389,6 @@ const PROVERBS: [string, string][] = [
     'The walking stick for old age is cut early: prepare for the future.',
   ],
   [
-    'Ak’imuhana kaza imvura ihise.',
-    'Help from elsewhere comes after the rain has passed: rely on yourself.',
-  ],
-  [
     'Ibuye ryagaragaye ntiriba rikishe isuka.',
     'A stone that has been seen no longer breaks the hoe: a known danger can be avoided.',
   ],
@@ -406,7 +404,6 @@ const PROVERBS: [string, string][] = [
     'Amagara araseseka ntayorwa.',
     "Life spills and can't be gathered up again: look after your health.",
   ],
-  ['Ukurusha umugore akurusha urugo.', 'Whoever has a better wife than you has a better home.'],
   ['Umwana apfa mu iterura.', 'A child dies in the lifting: a thing goes wrong at its start.'],
   [
     'Ntawe uvuma iritararenga.',

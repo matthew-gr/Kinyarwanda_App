@@ -108,7 +108,8 @@
   min-height: 145px;
   padding: 33px var(--space-16) var(--space-16);
   border-radius: var(--radius-panel);
-  color: var(--surface);
+  /* Light text on the gradient; the dark theme darkens the gradient and keeps the text light. */
+  color: var(--hero-text, var(--surface));
   background: linear-gradient(
     88.35deg,
     var(--hero-start) 31%,
@@ -331,7 +332,8 @@
   background: var(--orange-card);
 }
 .kn-flash-back {
-  background: var(--surface);
+  /* --card-face: darker in the dark theme (dark.css, decision 214). */
+  background: var(--card-face, var(--surface));
   border: 0.8px solid var(--green-line);
   transform: rotateY(180deg);
 }
@@ -911,4 +913,23 @@
   text-decoration-thickness: 0.08em;
   text-underline-offset: 0.15em;
   cursor: pointer;
+}
+/* Text too long for the card at its usual size steps down (decision 214). */
+.kn-flash .flash-word.kn-fit-1 {
+  font-size: 19px;
+}
+.kn-flash .flash-word.kn-fit-2 {
+  font-size: 16px;
+}
+.kn-flash .flash-word.kn-fit-3 {
+  font-size: 14px;
+}
+.kn-flash .flash-translation.kn-fit-1 {
+  font-size: 24px;
+}
+.kn-flash .flash-translation.kn-fit-2 {
+  font-size: 20px;
+}
+.kn-flash .flash-translation.kn-fit-3 {
+  font-size: 17px;
 }
