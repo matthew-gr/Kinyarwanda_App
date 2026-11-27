@@ -196,3 +196,8 @@ message. Every message is also kept in the `feedback` table in Supabase.
 <!-- feedback:3245c04c-b4ad-4dba-85b2-a9c511b21fda -->
 
 > Let the feedback for the card's audio also be visible at the next review. I.e., that "Re-record requested; an admin will check it" and also the color of the sound button.
+
+### 2026-11-27 11:56 UTC · General · 0.8.0+15cd245
+<!-- feedback:26d76884-f1a4-4985-b1f2-81445bd80ae4 -->
+
+> Highlight the word's stem on the card's back. Also highlight noun class prefixes in specific colors. Class 1/2: blue. Class 3/4: green. Class 7/8: orange. Class 9/10: red. For the remaining classes, choose other colors.
