@@ -23,6 +23,7 @@ import {
   preloadAudio,
   pronunciationFor,
   tagFor,
+  preciseWait,
   waitInWords,
 } from './cardText';
 import { RoundWall } from './RoundWall';
@@ -32,6 +33,9 @@ import { useProgressVersion } from './useProgressVersion';
 const MAX_WAIT_MS = 60 * 60 * 1000;
 
 function noteFor(result: AnswerResult, s: ReviewSchedule, now: number): string {
+  // FSRS (decision 206) has no stages or fixed rechecks: just when it comes back.
+  if (s.fsrs)
+    return `${result === 'missed' ? 'Again' : 'Next review'} in ${preciseWait(s.dueAt - now)}.`;
   if (result === 'missed') return `Down to stage ${s.stage}. Recheck in 5 minutes.`;
   if (s.recheckStep === 2) return 'Recheck again in 1 hour.';
   return `Next review in ${waitInWords(s.dueAt - now)}.`;
@@ -386,10 +390,15 @@ function ReviewCardArea({
   const round = view.round;
   // Cards still to come in this round after the one on screen, for the stack behind it.
   const after = round ? round.total - round.done - 1 : view.dueNow - 1;
+  const wait = card.scheduler === 'fsrs' ? preciseWait : waitInWords;
   const meta =
-    card.recheckStep > 0
-      ? `Recheck ${card.recheckStep} of 2`
-      : `Stage ${card.stage} of ${TOP_STAGE} · every ${waitInWords(card.every)}`;
+    card.scheduler === 'fsrs'
+      ? card.every > 0
+        ? `FSRS · every ${preciseWait(card.every)}`
+        : 'FSRS'
+      : card.recheckStep > 0
+        ? `Recheck ${card.recheckStep} of 2`
+        : `Stage ${card.stage} of ${TOP_STAGE} · every ${waitInWords(card.every)}`;
 
   return (
     <>
@@ -438,7 +447,7 @@ function ReviewCardArea({
               onClick={() => void onAnswer('missed')}
             >
               <span aria-hidden="true">✗</span> I didn&apos;t
-              <span className="grade-wait">in {waitInWords(card.wait.missed)}</span>
+              <span className="grade-wait">in {wait(card.wait.missed)}</span>
             </button>
             <button
               ref={gotRef}
@@ -447,7 +456,7 @@ function ReviewCardArea({
               onClick={() => void onAnswer('got')}
             >
               <span aria-hidden="true">✓</span> I knew it
-              <span className="grade-wait">in {waitInWords(card.wait.got)}</span>
+              <span className="grade-wait">in {wait(card.wait.got)}</span>
             </button>
           </div>
         ) : (

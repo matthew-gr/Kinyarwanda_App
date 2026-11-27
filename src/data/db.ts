@@ -2,6 +2,7 @@
 // rows across without reshaping them.
 
 import Dexie, { type EntityTable } from 'dexie';
+import type { FsrsMemory } from '../engine/fsrs';
 import type { AnswerResult, Deck, LearnState } from '../engine/learn';
 import type { DrillScore } from '../engine/drill';
 import type { Item, ItemForm, NumberPhrase } from '../engine/types';
@@ -46,6 +47,8 @@ export interface ReviewItem {
   updated_at: string;
   /** The form shown at the last review, so the next one can pick a different one. */
   last_form_id: string | null;
+  /** The card's FSRS memory, when FSRS schedules Review (decision 206). */
+  fsrs?: FsrsMemory;
 }
 
 /** The Review card on screen, so a reload shows the same card and form. One row, id "current". */

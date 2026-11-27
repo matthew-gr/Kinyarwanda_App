@@ -323,8 +323,16 @@ export function tilesFor(
   }));
 }
 
-function isMastered(state: VerbState, form: VerbForm, slots: readonly Slot[]): boolean {
-  return slots.every((s) => state.mastery[masteryKey(form.verb_id, s)]?.mastered === true);
+/**
+ * True when every slot a build round of this form asks about is mastered. Only the slots the
+ * form's verb can be asked about count: a verb with no object is never asked whom, and one with
+ * no family never its family (learner feedback of 27 November: counting those kept mastered
+ * verbs coming back while the last unmastered pairs waited).
+ */
+function isMastered(state: VerbState, form: VerbForm, usable: readonly VerbForm[]): boolean {
+  return roundSlots(state.level, 'build', form, usable).every(
+    (s) => state.mastery[masteryKey(form.verb_id, s)]?.mastered === true,
+  );
 }
 
 /**
@@ -350,7 +358,6 @@ export function nextRound(
   const pool = usable.filter((f) => verbIds.has(f.verb_id));
   const fresh = pool.length > 1 ? pool.filter((f) => f.id !== state.lastFormId) : pool;
   const freshIds = byId(fresh);
-  const levelSlots = slotsForLevel(state.level);
 
   let target: VerbForm | undefined;
   let comeBack = state.comeBack;
@@ -363,20 +370,27 @@ export function nextRound(
     target = freshIds.get(due.formId);
     comeBack = state.comeBack.filter((c) => c !== due);
   } else {
-    const learning = fresh.filter((f) => !isMastered(state, f, levelSlots));
+    const learning = fresh.filter((f) => !isMastered(state, f, pool));
     const choices = learning.length > 0 ? learning : fresh;
     // From level 2, two rounds in three use a form the level itself adds (another time at 2,
     // an object at 3, the past at 4, a family at 5), so its new idea isn't lost among the
-    // easier forms that come with it.
+    // easier forms that come with it. Only among forms still to master, while there are any.
     const own = (list: readonly VerbForm[]) => list.filter((f) => f.level === state.level);
     const wantOwn = state.level >= 2 && state.roundsIssued % 3 !== 2;
-    const ownChoices = own(choices).length > 0 ? own(choices) : own(fresh);
+    const ownChoices = learning.length > 0 ? own(learning) : own(fresh);
     target = pickOne(wantOwn && ownChoices.length > 0 ? ownChoices : choices, rng);
   }
   if (!target) return { round: null, state };
 
+  // A reverse round doesn't ask whom or the ending: when only those are left to master for
+  // this form, it is a build round.
+  const toMaster = roundSlots(state.level, 'build', target, pool).filter(
+    (s) => state.mastery[masteryKey(target.verb_id, s)]?.mastered !== true,
+  );
+  const reverseSlots = roundSlots(state.level, 'reverse', target, pool);
+  const reverseHelps = toMaster.length === 0 || toMaster.some((s) => reverseSlots.includes(s));
   const direction: Direction =
-    (state.roundsIssued + 1) % config.reverseEvery === 0 ? 'reverse' : 'build';
+    (state.roundsIssued + 1) % config.reverseEvery === 0 && reverseHelps ? 'reverse' : 'build';
   const slots = roundSlots(state.level, direction, target, pool);
   const tiles: Partial<Record<Slot, Tile[]>> = {};
   for (const s of slots) tiles[s] = tilesFor(s, target, pool, verbs, rng, config);

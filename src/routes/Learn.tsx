@@ -31,13 +31,13 @@ import {
   preloadAudio,
   pronunciationFor,
   tagFor,
+  waitInWords,
 } from './cardText';
 import { useProgressVersion } from './useProgressVersion';
 
 const DECK_NAMES: Record<Deck, string> = { words: 'Words', phrases: 'Phrases', mine: 'My words' };
 const DECKS: readonly Deck[] = ['words', 'phrases', 'mine'];
 const GHOSTS: DeckTone[] = ['orange', 'blue', 'yellow'];
-const GRADUATION_NOTE = 'Learned. Back for review in 5 minutes.';
 
 export function Learn() {
   const { deck } = useParams();
@@ -197,7 +197,11 @@ function LearnDeck({ deck }: { deck: Deck }) {
       const out = await session.answer(view.step.cardViewId, result);
       actions.current++;
       if (!out.counted) return;
-      if (out.graduated) setNote({ text: GRADUATION_NOTE, id: Date.now() });
+      if (out.graduated)
+        setNote({
+          text: `Learned. Back for review in ${waitInWords(out.graduated.reviewDueAt - Date.now())}.`,
+          id: Date.now(),
+        });
       // Every 20 answers make a batch, a blue block on today's wall (decision 204).
       if (shown && recordLearnAnswer(result, shown, Date.now())) setBatchDone(true);
       setView(session.view());

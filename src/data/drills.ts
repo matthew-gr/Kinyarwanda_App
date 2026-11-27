@@ -10,7 +10,8 @@ import {
   OPEN_AT_IN_REVIEW,
   type RecallPrompt,
 } from '../engine/quickRecall';
-import { applyReview } from '../engine/review';
+import { scheduleNext } from '../engine/schedule';
+import { getScheduler } from './scheduler';
 import type { NumberPhrase } from '../engine/types';
 import { db, type KinyaDb } from './db';
 import { listMyWords } from './myWords';
@@ -172,8 +173,14 @@ export async function countRecallAsReview(
   const counted = await d.transaction('rw', [d.review_items, d.answer_events], async () => {
     const r = await d.review_items.get(itemId);
     if (!r || Date.parse(r.due_at) >= endOfToday) return false;
-    const next = applyReview(
-      { stage: r.stage, recheckStep: r.recheck_step, dueAt: Date.parse(r.due_at) },
+    const next = scheduleNext(
+      getScheduler(),
+      {
+        stage: r.stage,
+        recheckStep: r.recheck_step,
+        dueAt: Date.parse(r.due_at),
+        ...(r.fsrs ? { fsrs: r.fsrs } : {}),
+      },
       'got',
       now,
     );
@@ -193,6 +200,7 @@ export async function countRecallAsReview(
       recheck_step: next.recheckStep,
       due_at: new Date(next.dueAt).toISOString(),
       updated_at: iso,
+      fsrs: next.fsrs,
     });
     return true;
   });

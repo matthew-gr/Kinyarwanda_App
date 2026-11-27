@@ -115,8 +115,11 @@ describe('the fixture', () => {
 });
 
 describe('the level’s own forms', () => {
-  it('uses an object form in about two rounds of three at level 3', () => {
-    const { rounds } = playRounds(createVerbState(3), 5, 30);
+  it('uses an object form in about two rounds of three at level 3 while it is unmastered', () => {
+    // Object forms are answered wrong, so they stay to master.
+    const { rounds } = playRounds(createVerbState(3), 5, 30, (r) =>
+      formById.get(r.formId)!.whom !== null ? {} : rightChoices(r),
+    );
     const objects = rounds.filter((r) => formById.get(r.formId)!.whom !== null).length;
     // Only laugh takes an object here, yet it gets two rounds in three, not one in five.
     expect(objects).toBeGreaterThanOrEqual(18);

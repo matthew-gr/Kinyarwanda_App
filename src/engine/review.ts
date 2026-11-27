@@ -6,6 +6,7 @@
 // (5 minutes, then 1 hour); two correct rechecks put it back on the schedule at its new stage.
 // A miss on either recheck drops one more stage and restarts the rechecks. Stage 1 is the floor.
 
+import type { FsrsMemory } from './fsrs';
 import type { AnswerResult } from './learn';
 import { pickOne, type Rng } from './random';
 
@@ -41,6 +42,8 @@ export interface ReviewSchedule {
   recheckStep: 0 | 1 | 2;
   /** Epoch milliseconds. */
   dueAt: number;
+  /** The card's memory, when FSRS scheduled it (fsrs.ts); absent on the ladder. */
+  fsrs?: FsrsMemory;
 }
 
 /** The schedule a newly learned item starts on. */

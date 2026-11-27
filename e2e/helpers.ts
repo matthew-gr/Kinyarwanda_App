@@ -42,7 +42,7 @@ export async function learnUntilGraduation(page: Page): Promise<void> {
   const note = page.getByRole('status');
   for (let i = 0; i < 30; i++) {
     await takeStep(page);
-    if ((await note.textContent())?.includes(GRADUATED)) return;
+    if ((await note.textContent())?.includes('Learned. Back for review in')) return;
   }
   throw new Error('No item graduated within 30 steps');
 }

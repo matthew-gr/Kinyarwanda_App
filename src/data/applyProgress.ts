@@ -6,6 +6,9 @@ import { createLearnState, learnConfigFor, reconcileOrder, type Deck } from '../
 import { mergeLearnState, rebuildProgress } from '../engine/progress';
 import { db, type KinyaDb, type LearnStateRow, type ReviewItem } from './db';
 import { deckCards } from './repo';
+import { getScheduler, storeScheduler } from './scheduler';
+import { progressChanged } from './signals';
+import type { SchedulerKind } from '../engine/schedule';
 
 const DECKS: Deck[] = ['words', 'phrases', 'mine'];
 
@@ -30,6 +33,7 @@ export async function applyProgress(now: number, d: KinyaDb = db): Promise<void>
         answeredAt: Date.parse(e.answered_at),
       })),
       learnConfigFor('words').graduateStreak,
+      getScheduler(),
     );
 
     // Only words still in the course or on the learner's list come back into Review.
@@ -66,7 +70,8 @@ export async function applyProgress(now: number, d: KinyaDb = db): Promise<void>
         old &&
         old.stage === p.review.stage &&
         old.recheck_step === p.review.recheckStep &&
-        old.due_at === due
+        old.due_at === due &&
+        JSON.stringify(old.fsrs ?? null) === JSON.stringify(p.review.fsrs ?? null)
       ) {
         continue;
       }
@@ -78,8 +83,19 @@ export async function applyProgress(now: number, d: KinyaDb = db): Promise<void>
         created_at: new Date(p.graduatedAt).toISOString(),
         updated_at: iso,
         last_form_id: old?.last_form_id ?? null,
+        ...(p.review.fsrs ? { fsrs: p.review.fsrs } : {}),
       });
     }
     await d.review_items.bulkPut(rows);
   });
+}
+
+/**
+ * Switches the scheduler and replays the answer log with it, so every card in Review gets the
+ * schedule the new one would have given it all along (decision 206).
+ */
+export async function switchScheduler(kind: SchedulerKind, d: KinyaDb = db): Promise<void> {
+  storeScheduler(kind);
+  await applyProgress(Date.now(), d);
+  progressChanged.emit();
 }

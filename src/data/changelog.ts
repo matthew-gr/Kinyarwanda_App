@@ -11,6 +11,15 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '0.9.0',
+    date: '2026-11-27',
+    changes: [
+      'Review timing: try FSRS, the scheduler Anki uses, in Profile, Settings. It fits each card’s wait to how well you know it. Switch back any time: your cards are rescheduled from your answers.',
+      'With FSRS, Review shows how often each card comes back (“every 3.4 days”) and when it comes back after each answer.',
+      'Verb Builder asks about the verbs you haven’t mastered yet, instead of the ones you already know.',
+    ],
+  },
+  {
     version: '0.8.0',
     date: '2026-11-27',
     changes: [

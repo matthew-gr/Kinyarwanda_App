@@ -92,6 +92,14 @@ export function playAudio(path: string): void {
 const plural = (n: number, unit: string) => `${n} ${unit}${n === 1 ? '' : 's'}`;
 
 /** A wait in words: "5 minutes", "4 hours", "2 days", "1 week", "2 months", "1 year". */
+/** A wait to a tenth of a day from a day up ("3.4 days"), for FSRS's own waits (decision 206). */
+export function preciseWait(ms: number): string {
+  const days = ms / 86_400_000;
+  if (days < 1) return waitInWords(ms);
+  const d = days.toFixed(1);
+  return `${d} ${d === '1.0' ? 'day' : 'days'}`;
+}
+
 export function waitInWords(ms: number): string {
   const minutes = Math.max(1, Math.round(ms / 60_000));
   if (minutes < 60) return plural(minutes, 'minute');

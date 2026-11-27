@@ -5,7 +5,9 @@
 // the answers were split between devices, and however often a sync was retried.
 
 import type { AnswerResult, LearnState, PoolCard } from './learn';
-import { applyReview, scheduleNew, type ReviewSchedule } from './review';
+import { fsrsPlaced } from './fsrs';
+import type { ReviewSchedule } from './review';
+import { scheduleFirst, scheduleNext, type SchedulerKind } from './schedule';
 
 export interface LogEvent {
   id: string;
@@ -37,10 +39,13 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * A placed word's first review, on one of the next 30 days, so a few come due each day rather
  * than all at once. Taken from the event ID, so every device spreads them the same way.
  */
-function placedSchedule(id: string, at: number): ReviewSchedule {
+function placedSchedule(id: string, at: number, kind: SchedulerKind): ReviewSchedule {
   let h = 0;
   for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-  return { stage: PLACED_STAGE, recheckStep: 0, dueAt: at + (1 + (h % 30)) * DAY_MS };
+  const dueAt = at + (1 + (h % 30)) * DAY_MS;
+  // FSRS: remembered for about the placed stage's week (decision 206).
+  if (kind === 'fsrs') return fsrsPlaced(at, dueAt, 7);
+  return { stage: PLACED_STAGE, recheckStep: 0, dueAt };
 }
 
 /** Time order, with the event ID breaking ties so every device sorts the same way. */
@@ -56,6 +61,8 @@ function byTime(a: LogEvent, b: LogEvent): number {
 export function rebuildProgress(
   events: readonly LogEvent[],
   graduateStreak: number,
+  /** Which scheduler replays the Review answers (decision 206). */
+  kind: SchedulerKind = 'ladder',
 ): Map<string, ItemProgress> {
   const seen = new Set<string>();
   const progress = new Map<string, ItemProgress>();
@@ -72,7 +79,7 @@ export function rebuildProgress(
       if (p.graduatedAt === null) {
         p.graduatedAt = e.answeredAt;
         p.placed = true;
-        p.review = placedSchedule(e.id, e.answeredAt);
+        p.review = placedSchedule(e.id, e.answeredAt, kind);
       }
       continue;
     }
@@ -84,10 +91,10 @@ export function rebuildProgress(
       if (p.learnStreak >= graduateStreak) {
         p.learnStreak = 0;
         p.graduatedAt = e.answeredAt;
-        p.review = scheduleNew(e.answeredAt);
+        p.review = scheduleFirst(kind, e.answeredAt);
       }
     } else if (e.module === 'review' && p.review) {
-      p.review = applyReview(p.review, e.result, e.answeredAt);
+      p.review = scheduleNext(kind, p.review, e.result, e.answeredAt);
     }
   }
   return progress;

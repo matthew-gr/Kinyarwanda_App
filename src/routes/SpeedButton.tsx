@@ -1,4 +1,7 @@
-import { useSyncExternalStore } from 'react';
+import { useState, useSyncExternalStore } from 'react';
+import { switchScheduler } from '../data/applyProgress';
+import { getScheduler, onScheduler } from '../data/scheduler';
+import type { SchedulerKind } from '../engine/schedule';
 import { getTheme, onTheme, setTheme, type Theme } from '../data/theme';
 import {
   AUDIO_SPEEDS,
@@ -64,6 +67,30 @@ export function ThemeSelect({ className }: { className?: string }) {
       <option value="system">As the phone is set</option>
       <option value="light">Light</option>
       <option value="dark">Dark</option>
+    </select>
+  );
+}
+
+/**
+ * The app's stages or FSRS, Anki's scheduler, for Profile's settings (decision 206). A switch
+ * reschedules every card in Review from the answers so far.
+ */
+export function SchedulerSelect({ className }: { className?: string }) {
+  const kind = useSyncExternalStore(onScheduler, getScheduler, getScheduler);
+  const [busy, setBusy] = useState(false);
+  return (
+    <select
+      id="scheduler"
+      className={className}
+      value={kind}
+      disabled={busy}
+      onChange={(e) => {
+        setBusy(true);
+        void switchScheduler(e.target.value as SchedulerKind).finally(() => setBusy(false));
+      }}
+    >
+      <option value="ladder">Stages (5 minutes up to a year)</option>
+      <option value="fsrs">FSRS, as in Anki</option>
     </select>
   );
 }

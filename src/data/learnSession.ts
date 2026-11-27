@@ -1,6 +1,8 @@
 // Runs one Learn deck: asks the engines what to show, and saves after every step and answer,
 // so a reload lands on the same card with the same form.
 
+import { scheduleFirst } from '../engine/schedule';
+import { getScheduler } from './scheduler';
 import { systemClock, type Clock } from '../engine/clock';
 import { formChoices, pickForm } from '../engine/forms';
 import {
@@ -15,9 +17,36 @@ import {
 import { createAppRng, type Rng } from '../engine/random';
 import { FIRST_STAGE } from '../engine/review';
 import type { Item, ItemForm } from '../engine/types';
-import { db, type KinyaDb, type LearnStateRow } from './db';
+import { db, type KinyaDb, type LearnStateRow, type ReviewItem } from './db';
 import { getProfile, loadDeck, recordAnswer, saveLearnRow } from './repo';
 import { answerSaved } from './signals';
+
+/** The Review row for an item Learn just graduated, on this device's scheduler (decision 206). */
+function graduationRow(g: { itemId: string; reviewDueAt: number }, now: number): ReviewItem {
+  const iso = new Date(now).toISOString();
+  const row = {
+    item_id: g.itemId,
+    created_at: iso,
+    updated_at: iso,
+    last_form_id: null,
+  };
+  if (getScheduler() === 'ladder') {
+    return {
+      ...row,
+      stage: FIRST_STAGE,
+      recheck_step: 0,
+      due_at: new Date(g.reviewDueAt).toISOString(),
+    };
+  }
+  const s = scheduleFirst('fsrs', now);
+  return {
+    ...row,
+    stage: s.stage,
+    recheck_step: s.recheckStep,
+    due_at: new Date(s.dueAt).toISOString(),
+    fsrs: s.fsrs,
+  };
+}
 
 export interface CardView {
   step: LearnStep;
@@ -153,6 +182,7 @@ export class LearnSession {
         updated_at: new Date(now).toISOString(),
       };
       const g = applied.graduated;
+      const review = g ? graduationRow(g, now) : null;
       await recordAnswer(
         row,
         {
@@ -165,23 +195,16 @@ export class LearnSession {
           answered_at: new Date(now).toISOString(),
           synced: 0,
         },
-        g
-          ? {
-              item_id: g.itemId,
-              stage: FIRST_STAGE,
-              recheck_step: 0,
-              due_at: new Date(g.reviewDueAt).toISOString(),
-              created_at: new Date(now).toISOString(),
-              updated_at: new Date(now).toISOString(),
-              last_form_id: null,
-            }
-          : null,
+        review,
         this.d,
       );
       this.row = row;
       answerSaved.emit();
       await this.advance();
-      return { counted: true, graduated: g ?? null };
+      return {
+        counted: true,
+        graduated: g && review ? { ...g, reviewDueAt: Date.parse(review.due_at) } : null,
+      };
     } finally {
       this.busy = false;
     }

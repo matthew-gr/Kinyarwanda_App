@@ -6,14 +6,7 @@ import { systemClock, type Clock } from '../engine/clock';
 import { pickForm } from '../engine/forms';
 import type { AnswerResult } from '../engine/learn';
 import { createAppRng, type Rng } from '../engine/random';
-import {
-  addInterval,
-  applyReview,
-  intervalOf,
-  dueCounts,
-  type DueCounts,
-  type ReviewSchedule,
-} from '../engine/review';
+import { dueCounts, type DueCounts, type ReviewSchedule } from '../engine/review';
 import {
   DEFAULT_ACCURACY,
   endOfDay,
@@ -28,6 +21,8 @@ import { db, type KinyaDb, type ReviewItem, type ReviewRound, type ReviewSession
 import { loadReviewPace, type ReviewPace } from './reviewPace';
 import { addReviewRound, removeLastReviewRound, wallToday, type WallBlock } from './wall';
 import { isUploading } from './sync';
+import { getScheduler } from './scheduler';
+import { currentWait, scheduleNext, type SchedulerKind } from '../engine/schedule';
 import { getProfile, loadReview, recordReviewAnswer, saveReviewCard } from './repo';
 import { answerSaved } from './signals';
 
@@ -41,6 +36,8 @@ export interface ReviewCard {
   plural: string | null;
   /** The wait at the card's stage, in ms: how often it comes back now. */
   every: number;
+  /** Which scheduler times the card (decision 206). */
+  scheduler: SchedulerKind;
   /** How long until the card comes back after each answer, in ms (learner feedback). */
   wait: Record<AnswerResult, number>;
 }
@@ -87,6 +84,7 @@ const toSchedule = (r: ReviewItem): ReviewSchedule => ({
   stage: r.stage,
   recheckStep: r.recheck_step,
   dueAt: Date.parse(r.due_at),
+  ...(r.fsrs ? { fsrs: r.fsrs } : {}),
 });
 
 export class ReviewSession {
@@ -236,10 +234,11 @@ export class ReviewSession {
             stage: review.stage,
             recheckStep: review.recheck_step,
             plural: pluralOf(item, form, this.forms),
-            every: addInterval(now, intervalOf(review.stage)) - now,
+            every: currentWait(toSchedule(review), now),
+            scheduler: getScheduler(),
             wait: {
-              got: applyReview(toSchedule(review), 'got', now).dueAt - now,
-              missed: applyReview(toSchedule(review), 'missed', now).dueAt - now,
+              got: scheduleNext(getScheduler(), toSchedule(review), 'got', now).dueAt - now,
+              missed: scheduleNext(getScheduler(), toSchedule(review), 'missed', now).dueAt - now,
             },
           }
         : null;
@@ -297,13 +296,15 @@ export class ReviewSession {
     try {
       const now = this.clock.now();
       const iso = new Date(now).toISOString();
-      const schedule = applyReview(toSchedule(review), result, now);
+      const schedule = scheduleNext(getScheduler(), toSchedule(review), result, now);
       const updated: ReviewItem = {
         ...review,
+        fsrs: undefined,
         stage: schedule.stage,
         recheck_step: schedule.recheckStep,
         due_at: new Date(schedule.dueAt).toISOString(),
         updated_at: iso,
+        ...(schedule.fsrs ? { fsrs: schedule.fsrs } : {}),
       };
       const round: ReviewRound | null = this.session.round
         ? {

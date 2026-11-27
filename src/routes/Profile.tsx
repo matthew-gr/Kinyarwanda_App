@@ -23,7 +23,7 @@ import { EmailSignIn } from './EmailSignIn';
 import { FeedbackPanel } from './FeedbackPanel';
 import { APP_VERSION } from '../data/feedback';
 import { PhonePanel } from './PhonePanel';
-import { SpeedSelect, ThemeSelect } from './SpeedButton';
+import { SchedulerSelect, SpeedSelect, ThemeSelect } from './SpeedButton';
 import { DebugSwitch } from './DebugMode';
 import { downloadProgress } from '../data/backup';
 import { waitInWords } from './cardText';
@@ -124,6 +124,15 @@ function Progress() {
         </label>
         <p className="body-small">
           The goal is shown on Home. It never stops you learning more or reviewing.
+        </p>
+        <label className="field" htmlFor="scheduler">
+          <span className="body-bold">Review timing</span>
+          <SchedulerSelect className="field-input field-select body" />
+        </label>
+        <p className="body-small">
+          FSRS, the scheduler Anki uses, fits each card’s wait to how well you know it, and a late
+          right answer counts for the time you remembered it. Switching reschedules every card from
+          your answers so far, and you can switch back. Kept on this device.
         </p>
         <label className="field" htmlFor="theme">
           <span className="body-bold">Appearance</span>
