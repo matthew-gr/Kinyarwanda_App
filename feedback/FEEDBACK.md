@@ -131,3 +131,10 @@ message. Every message is also kept in the `feedback` table in Supabase.
 <!-- feedback:b7de6c74-1f3c-41e1-8d2d-a37d368296e9 -->
 
 > In debug mode, ask the user for confirmation before he does something that incurs cost. Show him the estimated cost.
+
+### 2026-11-27 09:25 UTC · Learn · 0.5.0+0ec655f
+<!-- feedback:724b4e74-bfba-4d35-af0f-5ea727a61a27 -->
+
+> Learn words also in batches of 20 and add them as blue blocks to the wall.
+>
+> After each day, reset the wall.
