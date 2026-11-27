@@ -37,6 +37,8 @@ export type VerbView =
       guided: boolean;
       mastered: number;
       total: number;
+      /** What is left to master at this level, for debug mode (decision 202). */
+      missing: { verb: Verb; slot: Slot; streak: number }[];
     }
   | { type: 'empty' };
 
@@ -110,7 +112,8 @@ export class VerbSession {
     const form = round ? this.formsById.get(round.formId) : undefined;
     const verb = form ? this.verbs.find((v) => v.id === form.verb_id) : undefined;
     if (!round || !form || !verb) return { type: 'empty' };
-    const { mastered, total } = levelProgress(p.state, this.verbs, this.forms);
+    const { mastered, total, missing } = levelProgress(p.state, this.verbs, this.forms);
+    const verbsById = new Map(this.verbs.map((v) => [v.id, v]));
     return {
       type: 'round',
       level: p.state.level,
@@ -120,6 +123,10 @@ export class VerbSession {
       guided: p.guided_left > 0,
       mastered,
       total,
+      missing: missing.flatMap((m) => {
+        const v = verbsById.get(m.verbId);
+        return v ? [{ verb: v, slot: m.slot, streak: m.streak }] : [];
+      }),
     };
   }
 

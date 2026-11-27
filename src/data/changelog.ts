@@ -11,6 +11,16 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '0.5.0',
+    date: '2026-11-27',
+    changes: [
+      'Emoji on the back of about half the course’s cards, where one shows the meaning.',
+      'Review: the finish screen shows today’s rounds as a wall of blocks, coloured from red to green by how many you knew. Tap a block to see its missed words.',
+      'Debug mode in Profile, Settings: a dot in the corner shows whether your time is being counted, and Verb Builder shows what is left to master at your level.',
+      'Review: answering quickly while the app updated in the background could repeat a card and stop the round. Fixed.',
+    ],
+  },
+  {
     version: '0.4.0',
     date: '2026-11-27',
     changes: [

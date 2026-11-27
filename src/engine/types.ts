@@ -47,10 +47,11 @@ export interface Item {
   /** Removed from the course. Kept as a row so every device learns that it is gone. */
   retired: boolean;
   /**
-   * On the learner's own words only (decision 188), never on course rows: an emoji, and a URL
-   * for the picture on this device.
+   * An emoji shown with the meaning: the learner's own choice on their words (decision 188), and
+   * on course words where one clearly shows the meaning (decision 202).
    */
   emoji?: string | null;
+  /** On the learner's own words only: a URL for the picture on this device. */
   picture?: string | null;
 }
 

@@ -1723,3 +1723,102 @@ textarea.field-input {
 .profile-version {
   text-align: center;
 }
+
+/* Debug mode (decision 202): whether time learning is being counted, top right. */
+.debug-dot {
+  --debug-on: #2d6a4f;
+  --debug-off: #c0392b;
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 8px);
+  right: calc(env(safe-area-inset-right, 0px) + 8px);
+  z-index: 50;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.2);
+  pointer-events: none;
+}
+
+.debug-dot-on {
+  background: var(--debug-on);
+}
+
+.debug-dot-off {
+  background: var(--debug-off);
+}
+
+.debug-switch {
+  display: flex;
+  gap: var(--space-10);
+  align-items: flex-start;
+}
+
+.debug-switch input {
+  margin-top: 4px;
+  width: 20px;
+  height: 20px;
+}
+
+.debug-switch-help {
+  display: block;
+}
+
+/* Debug mode in Verb Builder: what the level still needs. */
+.verb-missing {
+  margin-top: var(--space-9);
+}
+
+.verb-missing ul {
+  margin: var(--space-9) 0 0;
+  padding-left: 1.25em;
+  display: grid;
+  gap: 2px;
+}
+
+/* Review's finish screen: today's rounds as a wall, built from the bottom left (decision 202). */
+.round-wall-wrap {
+  display: grid;
+  gap: var(--space-9);
+  width: 100%;
+}
+
+.round-wall {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.round-wall-row {
+  display: grid;
+  grid-template-columns: repeat(5, 40px);
+  gap: 6px;
+}
+
+.round-block {
+  appearance: none;
+  width: 40px;
+  height: 40px;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.round-block[aria-pressed='true'] {
+  border-color: var(--ink);
+}
+
+.round-block:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.round-wall-detail ul {
+  margin: var(--space-5) 0 0;
+  padding-left: 1.25em;
+}
+
+.round-wall-detail p {
+  margin: 0;
+}

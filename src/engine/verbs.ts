@@ -455,12 +455,23 @@ export function answerRound(
   };
 }
 
-/** Verb and slot pairs this level asks about, and how many are mastered. */
+/** A verb and slot pair not mastered yet, and how far along it is (for debug mode). */
+export interface Unmastered {
+  verbId: string;
+  slot: Slot;
+  /** Right in a row so far; VERB_CONFIG.masterStreak masters it. */
+  streak: number;
+}
+
+/**
+ * Verb and slot pairs this level asks about, how many are mastered, and the ones that aren't
+ * yet, fewest right in a row first.
+ */
 export function levelProgress(
   state: VerbState,
   verbs: readonly Verb[],
   forms: readonly VerbForm[],
-): { mastered: number; total: number } {
+): { mastered: number; total: number; missing: Unmastered[] } {
   const usable = usableForms(forms, state.level);
   const ids = new Set(verbs.map((v) => v.id));
   const keys = new Set<string>();
@@ -469,7 +480,14 @@ export function levelProgress(
     for (const s of roundSlots(state.level, 'build', f, usable)) keys.add(masteryKey(f.verb_id, s));
   }
   const mastered = [...keys].filter((k) => state.mastery[k]?.mastered === true).length;
-  return { mastered, total: keys.size };
+  const missing = [...keys]
+    .filter((k) => state.mastery[k]?.mastered !== true)
+    .map((k) => {
+      const [verbId, slot] = k.split(':') as [string, Slot];
+      return { verbId, slot, streak: state.mastery[k]?.streak ?? 0 };
+    })
+    .sort((a, b) => a.streak - b.streak || a.verbId.localeCompare(b.verbId));
+  return { mastered, total: keys.size, missing };
 }
 
 /** True once every verb and slot this level asks about has been mastered. */

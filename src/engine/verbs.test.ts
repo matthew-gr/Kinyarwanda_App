@@ -355,10 +355,13 @@ describe('mastery and misses', () => {
 
   it('counts mastered verb and slot pairs for the level', () => {
     // Level 1 asks who and the action of 5 verbs; level 3 adds whom for the one transitive verb.
-    expect(levelProgress(createVerbState(1), VERBS, FORMS)).toEqual({ mastered: 0, total: 10 });
+    const fresh = levelProgress(createVerbState(1), VERBS, FORMS);
+    expect(fresh).toMatchObject({ mastered: 0, total: 10 });
+    expect(fresh.missing).toHaveLength(10);
+    expect(fresh.missing.every((m) => m.streak === 0)).toBe(true);
     expect(levelProgress(createVerbState(3), VERBS, FORMS).total).toBe(5 * 3 + 1);
     const done = playRounds(createVerbState(1), 14, 400).state;
-    expect(levelProgress(done, VERBS, FORMS)).toEqual({ mastered: 10, total: 10 });
+    expect(levelProgress(done, VERBS, FORMS)).toEqual({ mastered: 10, total: 10, missing: [] });
   });
 });
 

@@ -2,7 +2,7 @@
 // screen, keeps the time per day on this device, and syncs each device's totals, so a learner's
 // time is the sum over their devices. The rules are in engine/activity.ts.
 
-import { createTracker, dayOf, interact, pause, type Tracker } from '../engine/activity';
+import { createTracker, dayOf, IDLE_MS, interact, pause, type Tracker } from '../engine/activity';
 import { db, type KinyaDb } from './db';
 import { getProfile } from './repo';
 import { supabase } from './supabase';
@@ -45,6 +45,16 @@ export function recordInteraction(now: number): void {
   const out = interact(tracker, now);
   tracker = out.tracker;
   for (const { day, ms } of out.credit) pending.set(day, (pending.get(day) ?? 0) + ms);
+}
+
+/**
+ * Whether time is being counted at `now` (for debug mode's dot): the app is on screen and the
+ * last tap was at most IDLE_MS ago, so the next one will credit the gap, or audio is playing.
+ */
+export function isCounting(now: number): boolean {
+  if (!onScreen()) return false;
+  if (playing.size > 0) return true;
+  return tracker.last !== null && now - tracker.last <= IDLE_MS;
 }
 
 /** While audio plays, time counts as if the learner were tapping this often. */

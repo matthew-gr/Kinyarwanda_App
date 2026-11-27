@@ -133,6 +133,11 @@ test('Rounds: a big pile is reviewed 20 at a time, and Learn suggests a round fi
   await expect(page.getByText('20 reviewed, 16 known. 20 reviewed today.')).toBeVisible();
   await expect(page.getByText(/Next round: 20 cards, about \d+ min\./)).toBeVisible();
   await expect(page.getByText('100 waiting in all')).toBeVisible();
+  // The wall: one block for this round, open, with its accuracy and missed words.
+  const wall = page.getByRole('group', { name: 'Today’s rounds' });
+  await expect(wall.getByRole('button')).toHaveCount(1);
+  await expect(page.getByText('Round 1: 80% known (16 of 20)')).toBeVisible();
+  await expect(page.locator('.round-wall-detail li')).toHaveCount(4);
 
   // A reload keeps the finished round's place: coming back starts the next one.
   await page.getByRole('button', { name: 'Another round' }).click();

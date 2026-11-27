@@ -184,7 +184,7 @@ export function ReportLink({
   );
 }
 
-/** A learner's own picture or emoji for a card (decision 188); see `hasPicture`. */
+/** A card's picture or emoji (decisions 188 and 202); see `hasPicture`. */
 export function CardPicture({ item }: { item: Item }) {
   if (item.picture) return <img src={item.picture} alt="" />;
   return (

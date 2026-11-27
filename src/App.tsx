@@ -26,6 +26,7 @@ import { Review } from './routes/Review';
 import { Search } from './routes/Search';
 import { SpeedSpeaking } from './routes/SpeedSpeaking';
 import { Stories, StoryReader } from './routes/Stories';
+import { DebugDot } from './routes/DebugMode';
 import { Changelog } from './routes/Changelog';
 import { Placement } from './routes/Placement';
 import { StreakFreezeNotice } from './routes/StreakFreezeNotice';
@@ -77,6 +78,7 @@ export function App() {
   return (
     <>
       <UpdateBanner />
+      <DebugDot />
       <AccessGate>
         <BrowserRouter>
           <Routes>

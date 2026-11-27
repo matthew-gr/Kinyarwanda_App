@@ -56,6 +56,15 @@ export interface ReviewSessionRow {
   last_item_id: string | null;
   /** The round being worked through (decision 201); absent on rows saved before rounds. */
   round?: ReviewRound | null;
+  /** The rounds finished today on this device, for the finish screen's wall (decision 202). */
+  today?: { day: string; rounds: FinishedRound[] } | null;
+}
+
+/** A finished round: how many were answered, known, and which items were missed. */
+export interface FinishedRound {
+  done: number;
+  known: number;
+  missed: string[];
 }
 
 /** A round of Review: the items chosen when it started, and how it is going. */
@@ -63,6 +72,8 @@ export interface ReviewRound {
   ids: string[];
   answered: string[];
   known: number;
+  /** Items answered I didn't; absent on rounds saved before decision 202. */
+  missed?: string[];
 }
 
 /** Where sync has got to. One row, id "main". */

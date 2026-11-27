@@ -24,6 +24,7 @@ import { FeedbackPanel } from './FeedbackPanel';
 import { APP_VERSION } from '../data/feedback';
 import { PhonePanel } from './PhonePanel';
 import { SpeedSelect } from './SpeedButton';
+import { DebugSwitch } from './DebugMode';
 import { downloadProgress } from '../data/backup';
 import { waitInWords } from './cardText';
 import { lastPlacement } from '../data/placement';
@@ -133,6 +134,7 @@ function Progress() {
           have a Speed button. Kept on this device.
         </p>
         <BackupButton />
+        <DebugSwitch />
       </section>
     </>
   );

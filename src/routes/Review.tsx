@@ -4,7 +4,12 @@ import { AppBar } from '../components/AppBar';
 import { Flashcard } from '../components/Flashcard';
 import { FlashcardDeck } from '../components/FlashcardDeck';
 import { SessionHeader } from '../components/SessionHeader';
-import { ReviewSession, type ReviewCard, type ReviewView } from '../data/reviewSession';
+import {
+  ReviewSession,
+  type ReviewCard,
+  type ReviewView,
+  type WallRound,
+} from '../data/reviewSession';
 import type { AnswerResult } from '../engine/learn';
 import { TOP_STAGE, type ReviewSchedule } from '../engine/review';
 import { nextRoundSize, roundTime } from '../engine/rounds';
@@ -40,13 +45,23 @@ export function Review() {
   const gotRef = useRef<HTMLButtonElement>(null);
   const version = useProgressVersion();
 
+  // Bumped as each answer starts and ends.
+  const actions = useRef(0);
+
   useEffect(() => {
     let alive = true;
-    void ReviewSession.open().then((s) => {
-      if (!alive) return;
-      setSession(s);
-      setView(s.view());
-    });
+    const open = () => {
+      const at = actions.current;
+      void ReviewSession.open().then((s) => {
+        if (!alive) return;
+        // A sync can land mid-answer. A session read while an answer was saving would show the
+        // answered card again, and answering it twice fails, so it is read again after.
+        if (actions.current !== at) return open();
+        setSession(s);
+        setView(s.view());
+      });
+    };
+    open();
     return () => {
       alive = false;
     };
@@ -106,7 +121,13 @@ export function Review() {
   const answer = useCallback(
     async (result: AnswerResult) => {
       if (!session || !card || flippedId !== card.cardViewId) return;
-      const out = await session.answer(card.cardViewId, result);
+      actions.current++;
+      let out;
+      try {
+        out = await session.answer(card.cardViewId, result);
+      } finally {
+        actions.current++;
+      }
       if (!out.counted || !out.schedule) return;
       setNote({
         text: noteFor(result, out.schedule, Date.now()),
@@ -216,6 +237,65 @@ function Caught({
   );
 }
 
+/** Red at 0%, yellow at 50%, green at 100%, in between for the rest. */
+const accuracyColour = (share: number) => `hsl(${Math.round(120 * share)} 62% 46%)`;
+
+/**
+ * Today's rounds as a wall that builds up (decision 202, learner feedback of 27 November): one
+ * block per round, five to a row, from the bottom left. A block's colour is its accuracy;
+ * tapping it shows the accuracy and the words missed.
+ */
+function RoundWall({ rounds }: { rounds: WallRound[] }) {
+  const [open, setOpen] = useState<number | null>(rounds.length - 1);
+  const rows: number[][] = [];
+  for (let i = 0; i < rounds.length; i += 5) rows.push(rounds.slice(i, i + 5).map((_, j) => i + j));
+  const shown = open === null ? null : rounds[open];
+  const pct = (r: WallRound) => (r.done ? Math.round((100 * r.known) / r.done) : 0);
+  return (
+    <div className="round-wall-wrap">
+      <div className="round-wall" role="group" aria-label="Today’s rounds">
+        {[...rows].reverse().map((row, k) => (
+          <div className="round-wall-row" key={k}>
+            {row.map((i) => {
+              const r = rounds[i]!;
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  className="round-block"
+                  style={{ background: accuracyColour(r.done ? r.known / r.done : 0) }}
+                  aria-pressed={open === i}
+                  aria-label={`Round ${i + 1}: ${pct(r)}% known`}
+                  title={`Round ${i + 1}: ${pct(r)}% known`}
+                  onClick={() => setOpen(open === i ? null : i)}
+                />
+              );
+            })}
+          </div>
+        ))}
+      </div>
+      {shown ? (
+        <div className="round-wall-detail body-small" aria-live="polite">
+          <p className="body-small-bold">
+            Round {open! + 1}: {pct(shown)}% known ({shown.known} of {shown.done})
+          </p>
+          {shown.missed.length > 0 ? (
+            <ul>
+              {shown.missed.map((m, i) => (
+                <li key={i}>
+                  <span lang="rw">{m.text}</span>: {m.en}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="body-small">No words missed.</p>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 /** The end of a round: what was done, and the next round if more are due (decision 201). */
 function RoundDone({
   view,
@@ -238,6 +318,7 @@ function RoundDone({
       <p className="body">
         {round.done} reviewed, {round.known} known. {pace.reviewedToday} reviewed today.
       </p>
+      {view.today.length > 0 ? <RoundWall rounds={view.today} /> : null}
       {waiting > 0 ? (
         <>
           <p className="body">

@@ -9,6 +9,7 @@ import { LEVEL_INFO, LEVELS_BUILT, workedExamples } from '../engine/verbLevels';
 import {
   formPieces,
   slotValue,
+  VERB_CONFIG,
   type Slot,
   type Tile,
   type Verb,
@@ -16,6 +17,7 @@ import {
   type VerbRound,
 } from '../engine/verbs';
 import { playAudio } from './cardText';
+import { useDebugMode } from './useDebugMode';
 import { pictureFor } from './verbPictures';
 
 const SLOT_NAMES: Record<Slot, string> = {
@@ -122,13 +124,39 @@ export function VerbBuilder() {
 type RoundView = Extract<VerbView, { type: 'round' }>;
 
 function RoundHeader({ view }: { view: RoundView }) {
+  const debug = useDebugMode();
   return (
-    <SessionHeader
-      level={`Level ${view.level}: ${LEVEL_INFO[view.level]?.name ?? ''}`}
-      meta={view.guided ? 'Guided practice' : `${view.mastered} of ${view.total} mastered`}
-      progress={view.total ? view.mastered / view.total : 0}
-      progressLabel="Level progress"
-    />
+    <>
+      <SessionHeader
+        level={`Level ${view.level}: ${LEVEL_INFO[view.level]?.name ?? ''}`}
+        meta={view.guided ? 'Guided practice' : `${view.mastered} of ${view.total} mastered`}
+        progress={view.total ? view.mastered / view.total : 0}
+        progressLabel="Level progress"
+      />
+      {debug && view.missing.length > 0 ? <StillToMaster view={view} /> : null}
+    </>
+  );
+}
+
+/**
+ * Debug mode (decision 202): what the level still needs. Each verb and slot is mastered after
+ * VERB_CONFIG.masterStreak right in a row; a miss starts the count again.
+ */
+function StillToMaster({ view }: { view: RoundView }) {
+  return (
+    <details className="verb-missing body-small">
+      <summary>
+        {view.missing.length} still to master: {VERB_CONFIG.masterStreak} right in a row each
+      </summary>
+      <ul>
+        {view.missing.map((m) => (
+          <li key={`${m.verb.id}:${m.slot}`}>
+            <span lang="rw">{m.verb.infinitive}</span> ({m.verb.en}) · {SLOT_NAMES[m.slot]}:{' '}
+            {m.streak} of {VERB_CONFIG.masterStreak}
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 }
 
