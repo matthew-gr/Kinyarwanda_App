@@ -226,3 +226,13 @@ message. Every message is also kept in the `feedback` table in Supabase.
 <!-- feedback:added-by-request-2026-11-27-phrase-audio -->
 
 > Add sound to new proverbs and phrases.
+
+### 2026-11-27 15:45 UTC · Home · 0.18.0
+<!-- feedback:added-by-request-2026-11-27-darker-banner -->
+
+> The home banner should be even darker in dark mode.
+
+### 2026-11-27 15:45 UTC · General · 0.18.0
+<!-- feedback:added-by-request-2026-11-27-hint-list -->
+
+> In debug mode, there should be a list accessible of the currently present mnemonic bridges and hints for each word.
