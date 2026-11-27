@@ -145,3 +145,34 @@ message. Every message is also kept in the `feedback` table in Supabase.
 > When reviewing cards, add a button to go back so the user can change his answer. Because sometimes, I click too fast that I got the card right or wrong.
 >
 > Sometimes, a review for a correct card gets rescheduled after only 5 minutes. Is that intended?
+
+### 2026-11-27 09:44 UTC · General · 0.5.0+0ec655f
+<!-- feedback:98f8d81b-15db-48f7-b1bb-316168887138 -->
+
+> Add an exercise to exercise to learn noun classes.
+>
+> Add an exercise to recognize the same stem in different words.
+>
+> Implement the exercise to distinguish nearly identical words. Both for reading and hearing.
+>
+> In the Story mode, allow the user to also listen to the English translation in an interlinear manner: Read one line Kinyarwanda, than one line English, one line Kinyarwanda, one line English... This should make the listening more comprehensive.
+>
+> Allow the user to upload a file with an English text (e.g., a Bible passage). Translate it to Kinyarwanda. As in the story mode, read it in an interlinear fashion: line by line, switching languages.
+>
+> A user should be able to have an unlimited number of streak freezes. They get the first one if they get one block of 20 cards 100 % right. They get the second one if they get two blocks of 20 cards in a row 100 % right. And so on. For example, for 7 streak freezes, they need to get 7 blocks in a row 100 % right. So each additional streak freeze is more difficult to attain. Also, they get one streak freeze for free every week. If they already have one, they do not get it.
+>
+> Is it possible to use Pindo's free API per default and only pay for it if it refuses?
+>
+> If the user clicks a word's stem on a card's back side, he should see all known words that use the same stem.
+>
+> Add a conversation mode to train conversation. It should not use any paid service. Instead, it should be a simple, rule-based chatbot that covers the most common conversation patterns.
+>
+> Remove the preceding dot from "· 341 reviewed today" on the home screen.
+>
+> The play sound button should be gray until a user confirmed that the recording is correct. Than it turns green. The button to re-record the audio should be at the front side of the card.
+>
+> The audio is sometimes not automatically played. Fix that.
+>
+> Generate images for words without emojies.
+>
+> Implement a reminder to take a break after a reasonable amount of time to maximize learning speed.
