@@ -22,6 +22,7 @@ import { MyWords } from './routes/MyWords';
 import { NumberListening } from './routes/NumberListening';
 import { Profile } from './routes/Profile';
 import { QuickRecall } from './routes/QuickRecall';
+import { SoundPairs } from './routes/SoundPairs';
 import { Review } from './routes/Review';
 import { Search } from './routes/Search';
 import { SpeedSpeaking } from './routes/SpeedSpeaking';
@@ -100,6 +101,7 @@ export function App() {
             <Route path="drills/speaking" element={<SpeedSpeaking />} />
             <Route path="drills/numbers" element={<NumberListening />} />
             <Route path="drills/recall" element={<QuickRecall />} />
+            <Route path="drills/pairs" element={<SoundPairs />} />
             <Route path="stories" element={<Stories />} />
             <Route path="stories/:id" element={<StoryReader />} />
             <Route path="admin" element={<AdminHome />} />

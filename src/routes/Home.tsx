@@ -96,13 +96,6 @@ function storiesMeta(s: StoriesInfo | null): string {
 }
 
 /** The modules not built yet, from the product spec. */
-const COMING: ModuleCard[] = [
-  {
-    title: 'Sound Pairs',
-    description: 'Tell near-identical words apart by ear.',
-    meta: 'Coming soon',
-  },
-];
 
 /** Until the learner sets a name on Profile. */
 const LEARNER_NAME = 'Learner';
@@ -196,7 +189,12 @@ export function Home() {
       meta: recallMeta(stats),
       onClick: () => navigate('/drills/recall'),
     },
-    ...COMING,
+    {
+      title: 'Sound Pairs',
+      description: 'Tell near-identical words apart, by reading and by ear.',
+      meta: 'umwana or umwaka?',
+      onClick: () => navigate('/drills/pairs'),
+    },
   ];
 
   return (

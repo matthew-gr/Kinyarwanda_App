@@ -1902,3 +1902,18 @@ textarea.field-input {
   margin: 0;
   padding-left: 1.25em;
 }
+
+/* Sound Pairs (decision 210): the two words side by side after a question. */
+.pair-compare {
+  display: grid;
+  gap: var(--space-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pair-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-9);
+}

@@ -360,6 +360,13 @@ Prompt 2 was written from the product spec's Module 2 section; the build plan na
     - **No audio yet, so no cost.** Their cards have no play button until an admin runs Make missing audio (batches of 15, decision 198), ideally after the text is checked. Nothing records them automatically.
     - **Shipping.** In production by migration `20261127150000_phrases_51_125`, stamped now so every device downloads them; existing learners' phrase decks take them in after the phrases they've started. In the bundled course they carry the first drafts' date, so a new device's download start doesn't move (decision 204). The app's script went past the 4 MiB offline-cache limit with them, so the limit is now 6 MiB.
 
+210. **Sound Pairs: telling near-identical words apart, by reading and by ear** (Jonathan, 27 November 2026; learner feedback: an exercise for nearly identical words). Version 0.13.0.
+    - **The pairs come from the course itself.** Two course words one letter apart (one letter changed, added or dropped) with different meanings make a pair: umwana and umwaka (child, year), isoko and isomo (market, lesson), inyama and intama (meat, sheep). The course has about 700. Words under 3 letters and multi-word entries are left out (`src/engine/soundPairs.ts`).
+    - **A session** is 10 questions from different pairs, each with at least one learned word, pairs of two learned words first. The word asked about is a learned one. Reading: "Which word means sheep?", pick intama or inyama. By ear, every other question when the word has a recording: the word plays (tap to hear it again), pick which was said. After each answer, both words show with their meanings and play buttons, to compare. The end lists the pairs missed.
+    - **Opens** once 5 pairs are among the learned words. It replaces the "Sound Pairs: coming soon" card on Home.
+    - **Recordings.** By-ear questions use a word's own recording unless the learner marked it wrong (decision 207); words without one are asked by reading. Many batch-cut clips aren't clean yet (decision 198), so a by-ear question can be unfair until its clip is re-recorded; "Sounds wrong" on the card keeps it out.
+    - **Not logged.** Answers aren't saved or synced and don't move Review or count for the streak; it is practice only. No cost.
+
 ## Planned later
 
 - **Words 1,501 to 2,000** (Matt, 5 November 2026): the rest of Common 2000, next after decisions 185 to 187.

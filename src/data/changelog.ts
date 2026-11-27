@@ -11,6 +11,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '0.13.0',
+    date: '2026-11-27',
+    changes: [
+      'Sound Pairs: tell apart words that look and sound almost the same, like umwana (child) and umwaka (year). Read a meaning and pick the word, or hear a word and pick the one that was said.',
+    ],
+  },
+  {
     version: '0.12.0',
     date: '2026-11-27',
     changes: [
