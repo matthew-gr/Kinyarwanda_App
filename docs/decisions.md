@@ -403,6 +403,10 @@ Prompt 2 was written from the product spec's Module 2 section; the build plan na
     - **AI drafts.** Written by Claude from the course's phrases where it could, plus some lines that aren't in the course (Mushaka iki?, Ni magana atanu, Nturuka i …, Nanjye nishimiye kukumenya, Duhagarare he?). To be checked by a native speaker.
     - **On Home** it is the eleventh module, after Review. No cost.
 
+216. **A darker banner in dark mode, and a debug list of memory hints** (Jonathan, 27 November 2026). Version 0.19.0.
+    - **Home banner, dark theme:** a darker gradient still (#0c3d5a, #0d4c50, #1b4f3a), with the light text of decision 214.
+    - **Memory hints and word families**, a link under the debug switch in Profile once debug mode is on (`/hints`): every word with a hint, with its meaning and its English, Swahili, German and French hints, then every word family with its meanings and note, and a search over all of it. It is the place to check them, word by word.
+
 ## Planned later
 
 - **Words 1,501 to 2,000** (Matt, 5 November 2026): the rest of Common 2000, next after decisions 185 to 187.

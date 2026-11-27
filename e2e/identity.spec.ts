@@ -8,9 +8,9 @@ test('Profile: the name and picture can be set, and Home shows them', async ({ p
   await page.getByRole('button', { name: 'Edit your name and picture' }).click();
   await expect(page).toHaveURL(/\/profile$/);
 
-  await page.getByLabel('Your name').fill('  Amani  ');
+  await page.getByLabel('Your name', { exact: true }).fill('  Amani  ');
   await page.getByRole('button', { name: 'Save name' }).click();
-  await expect(page.getByLabel('Your name')).toHaveValue('Amani');
+  await expect(page.getByLabel('Your name', { exact: true })).toHaveValue('Amani');
   await expect(page.getByRole('button', { name: 'Save name' })).toBeDisabled();
 
   await page.locator('.identity input[type=file]').setInputFiles({

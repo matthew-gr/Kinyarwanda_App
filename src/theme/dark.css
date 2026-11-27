@@ -65,9 +65,9 @@
     /* Decision 214: darker card faces, and the Home banner's gradient with light text. */
     --card-face: #0b1218;
     --green-card: #1c4834;
-    --hero-start: #145f8c;
-    --hero-mid: #167a80;
-    --hero-end: #2f7d5c;
+    --hero-start: #0c3d5a;
+    --hero-mid: #0d4c50;
+    --hero-end: #1b4f3a;
     --hero-text: #f4f8fb;
     color-scheme: dark;
   }
@@ -131,9 +131,9 @@
   /* Decision 214: darker card faces, and the Home banner's gradient with light text. */
   --card-face: #0b1218;
   --green-card: #1c4834;
-  --hero-start: #145f8c;
-  --hero-mid: #167a80;
-  --hero-end: #2f7d5c;
+  --hero-start: #0c3d5a;
+  --hero-mid: #0d4c50;
+  --hero-end: #1b4f3a;
   --hero-text: #f4f8fb;
   color-scheme: dark;
 }

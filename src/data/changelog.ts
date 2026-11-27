@@ -11,6 +11,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '0.19.0',
+    date: '2026-11-27',
+    changes: [
+      'Dark theme: the Home banner is darker still.',
+      'Debug mode: a list of every memory hint and word family, from Profile.',
+    ],
+  },
+  {
     version: '0.18.0',
     date: '2026-11-27',
     changes: [

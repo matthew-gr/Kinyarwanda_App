@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router';
 import { isCounting } from '../data/activity';
 import { setDebugMode } from '../data/debugMode';
 import { useDebugMode } from './useDebugMode';
@@ -37,9 +38,22 @@ export function DebugDot() {
   );
 }
 
-/** The Profile switch. */
+/** The Profile switch, and in debug mode the link to the list of memory hints (decision 216). */
 export function DebugSwitch() {
   const debug = useDebugMode();
+  return (
+    <>
+      <DebugLabel debug={debug} />
+      {debug ? (
+        <Link className="report-link body-small" to="/hints">
+          Memory hints and word families
+        </Link>
+      ) : null}
+    </>
+  );
+}
+
+function DebugLabel({ debug }: { debug: boolean }) {
   return (
     <label className="debug-switch body" htmlFor="debug-mode">
       <input
