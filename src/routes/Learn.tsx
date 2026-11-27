@@ -1,3 +1,5 @@
+import { LEARN_BATCH, recordLearnAnswer, wallToday } from '../data/wall';
+import { RoundWall } from './RoundWall';
 import { countDue } from '../data/reviewPace';
 import { REVIEW_FIRST_ROUNDS, ROUND_SIZE } from '../engine/rounds';
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
@@ -99,6 +101,8 @@ function LearnDeck({ deck }: { deck: Deck }) {
   const [flippedKey, setFlippedKey] = useState<string | null>(null);
   const [note, setNote] = useState<{ text: string; id: number } | null>(null);
   const [learned, setLearned] = useState<{ today: number; total: number } | null>(null);
+  /** A batch of 20 answers has just finished: its screen shows until Another batch. */
+  const [batchDone, setBatchDone] = useState(false);
   const flipRef = useRef<HTMLButtonElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
   const gotRef = useRef<HTMLButtonElement>(null);
@@ -181,10 +185,13 @@ function LearnDeck({ deck }: { deck: Deck }) {
     async (result: AnswerResult) => {
       if (!session || !view || view.step.type !== 'test' || flippedKey !== view.key) return;
       actions.current++;
+      const shown = view.form ? { text: view.form.text, en: view.form.en } : null;
       const out = await session.answer(view.step.cardViewId, result);
       actions.current++;
       if (!out.counted) return;
       if (out.graduated) setNote({ text: GRADUATION_NOTE, id: Date.now() });
+      // Every 20 answers make a batch, a blue block on today's wall (decision 204).
+      if (shown && recordLearnAnswer(result, shown, Date.now())) setBatchDone(true);
       setView(session.view());
     },
     [session, view, flippedKey],
@@ -193,7 +200,7 @@ function LearnDeck({ deck }: { deck: Deck }) {
   // Space flips the card; Right Arrow is ✓ and Left Arrow is ✗ once it is flipped.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.altKey || e.ctrlKey || e.metaKey || step?.type !== 'test') return;
+      if (e.altKey || e.ctrlKey || e.metaKey || step?.type !== 'test' || batchDone) return;
       if (e.key === ' ' && !flipped) {
         e.preventDefault();
         flip();
@@ -207,7 +214,7 @@ function LearnDeck({ deck }: { deck: Deck }) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [step?.type, flipped, flip, answer]);
+  }, [step?.type, flipped, flip, answer, batchDone]);
 
   const title = DECK_NAMES[deck];
 
@@ -222,7 +229,25 @@ function LearnDeck({ deck }: { deck: Deck }) {
       </p>
       <ReviewFirst />
 
-      {view === null ? null : view.step.type === 'done' && deck === 'mine' ? (
+      {view === null ? null : batchDone ? (
+        <section className="learn-done" aria-labelledby="batch-done">
+          <h2 id="batch-done" className="h2-bold">
+            Batch done
+          </h2>
+          <p className="body">
+            {LEARN_BATCH} answers. Each batch adds a blue block to today&rsquo;s wall.
+          </p>
+          <RoundWall blocks={wallToday(Date.now())} />
+          <div className="round-actions">
+            <button type="button" className="btn btn-primary" onClick={() => setBatchDone(false)}>
+              Another batch
+            </button>
+            <button type="button" className="btn btn-missed" onClick={() => navigate('/')}>
+              Done for now
+            </button>
+          </div>
+        </section>
+      ) : view.step.type === 'done' && deck === 'mine' ? (
         <section className="learn-done" aria-labelledby="done-title">
           <h2 id="done-title" className="h2-bold">
             {learned?.total ? 'All done for now' : 'Your own words'}

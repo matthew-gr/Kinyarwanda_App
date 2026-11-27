@@ -45,6 +45,10 @@ async function learnNumbers(page: Page) {
 
 test('the drills open after numbers 1 to 5, run a session and save a score', async ({ page }) => {
   test.setTimeout(90_000);
+  // The drills here run without audio, as the bundled numbers have none. The server's numbers
+  // all have audio, and whether its download lands before Number Listening opens depends on
+  // the machine's speed, so it is held back.
+  await page.route('**/rest/v1/number_phrases**', (route) => route.fulfill({ json: [] }));
   await page.clock.install();
   await page.goto('/');
 

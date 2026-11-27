@@ -24,7 +24,7 @@ export async function cardWord(page: Page): Promise<string> {
 
 /** Dismisses an introduction, or flips the test card and grades it ✓. */
 export async function takeStep(page: Page): Promise<void> {
-  const next = page.getByRole('button', { name: 'Next' });
+  const next = page.getByRole('button', { name: 'Next', exact: true });
   const flip = page.getByRole('button', { name: /Tap to reveal meaning/ });
   await expect(next.or(flip)).toBeVisible();
   await toNextCard(page, async () => {

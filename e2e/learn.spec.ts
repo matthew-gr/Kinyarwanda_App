@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { cardWord, GRADUATED, learnUntilGraduation, toNextCard } from './helpers.ts';
+import { cardWord, GRADUATED, learnUntilGraduation, takeStep, toNextCard } from './helpers.ts';
 
 /** The "n of N learned" line on a Home practice row. Blank until Home has loaded its counts. */
 function rowSubtitle(page: Page, title: 'Words' | 'Phrases') {
@@ -79,4 +79,18 @@ test('Keyboard: Space flips, arrows grade', async ({ page }) => {
   // Both right ends the round of two, so 2 new phrases are introduced.
   await expect(next).toBeVisible();
   await expect(page.getByText('4 of 8 in play')).toBeVisible();
+});
+
+test('Learn comes in batches of 20 answers, each a blue block on the wall', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.goto('/');
+  await page.getByRole('button', { name: /^Words/ }).click();
+  const done = page.getByRole('heading', { name: 'Batch done' });
+  for (let i = 0; i < 80 && !(await done.isVisible()); i++) await takeStep(page).catch(() => {});
+  await expect(done).toBeVisible();
+  const wall = page.getByRole('group', { name: 'Today’s rounds' });
+  await expect(wall.getByRole('button')).toHaveCount(1);
+  await expect(wall.getByRole('button')).toHaveAccessibleName('Learn batch 1: 20 of 20 right');
+  await page.getByRole('button', { name: 'Another batch' }).click();
+  await expect(page.getByRole('button', { name: /Tap to reveal meaning|Next/ })).toBeVisible();
 });

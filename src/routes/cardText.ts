@@ -27,52 +27,65 @@ export const hasPicture = (item: Item) => Boolean(item.picture || item.emoji);
 
 export const hasNotes = (item: Item) => Boolean(item.breakdown?.length || item.example);
 
-/** Clips loaded and ready to play, newest last. Kept to a few dozen. */
-const ready = new Map<string, HTMLAudioElement>();
-const KEEP = 60;
+/** Clips already downloaded into the app's audio cache this session. */
+const fetched = new Set<string>();
 /** jsdom, which the unit tests run in, has no media loading. */
 const canLoad = () => typeof Audio !== 'undefined' && !/jsdom/i.test(navigator.userAgent);
 
-function keep(path: string, audio: HTMLAudioElement) {
-  ready.delete(path);
-  ready.set(path, audio);
-  while (ready.size > KEEP) ready.delete(ready.keys().next().value!);
-}
-
 /**
  * Downloads the clips of the next few cards, so they play at once when their card comes up
- * instead of after a 2 to 3 second download. The download goes through the app's audio cache
- * first, so it is only ever made once per device.
+ * instead of after a 2 to 3 second download. A plain fetch is a whole-file request the service
+ * worker can store; the player then reads the stored copy, so it is only ever made once.
  */
 export function preloadAudio(paths: readonly string[]): void {
   if (!canLoad()) return;
   for (const path of paths) {
-    if (ready.has(path)) continue;
-    const audio = new Audio();
-    audio.preload = 'auto';
-    keep(path, audio);
-    // A plain fetch is a whole-file request the service worker can store; the player's own
-    // requests are ranges, which it doesn't. The player then reads the stored copy.
-    void fetch(path)
-      .catch(() => undefined)
-      .finally(() => {
-        // Unless it was played meanwhile, which set it going already.
-        if (audio.src) return;
-        audio.src = path;
-        audio.load();
-      });
+    if (fetched.has(path)) continue;
+    fetched.add(path);
+    void fetch(path).catch(() => fetched.delete(path));
   }
 }
 
+/**
+ * One player for every card's audio (learner feedback, 27 November 2026: audio sometimes
+ * didn't play by itself). A card's clip starts from code, after the answer is saved, not from
+ * a tap; iPhone Safari, and Chrome at times, only let a page play sound from code on an audio
+ * element that has already played during a tap. So the learner's first tap plays a moment of
+ * silence on this player, and every clip after it plays on the same, now trusted, player.
+ */
+let shared: HTMLAudioElement | null = null;
+const SILENCE =
+  'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+
+function player(): HTMLAudioElement {
+  shared ??= new Audio();
+  return shared;
+}
+
+function unlock(): void {
+  const p = player();
+  if (p.src) return;
+  p.src = SILENCE;
+  void p.play().catch(() => {
+    // Not allowed after all, unless a clip has taken over the player since: try on the next tap.
+    if (p.src === SILENCE) p.removeAttribute('src');
+  });
+}
+
+if (canLoad()) {
+  for (const type of ['click', 'touchend', 'keydown'])
+    window.addEventListener(type, unlock, { capture: true, passive: true });
+}
+
 export function playAudio(path: string): void {
-  const audio = ready.get(path) ?? new Audio(path);
-  if (canLoad()) keep(path, audio);
-  // Played before its download finished: load it now rather than wait.
-  if (!audio.src) audio.src = path;
-  applyAudioSpeed(audio);
-  audio.currentTime = 0;
-  void audio.play().catch(() => {
-    // Autoplay can be blocked until the learner taps; the play button still works.
+  if (!canLoad()) return;
+  const p = player();
+  const url = new URL(path, location.href).href;
+  if (p.src !== url) p.src = url;
+  applyAudioSpeed(p);
+  p.currentTime = 0;
+  void p.play().catch(() => {
+    // Still blocked (no tap yet in this tab): the card's play button works.
   });
 }
 

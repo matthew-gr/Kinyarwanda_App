@@ -18,6 +18,7 @@ import { endOfDay, roundGate, startRound, type RoundGate } from '../engine/round
 import type { Item, ItemForm } from '../engine/types';
 import { db, type KinyaDb, type ReviewItem, type ReviewRound, type ReviewSessionRow } from './db';
 import { loadReviewPace, type ReviewPace } from './reviewPace';
+import { addReviewRound, wallToday, type WallBlock } from './wall';
 import { getProfile, loadReview, recordReviewAnswer, saveReviewCard } from './repo';
 import { answerSaved } from './signals';
 
@@ -46,13 +47,6 @@ export interface ReviewRoundView {
   finished: boolean;
 }
 
-/** A round finished today, for the wall on the finish screen. */
-export interface WallRound {
-  done: number;
-  known: number;
-  missed: { text: string; en: string }[];
-}
-
 export interface ReviewView {
   card: ReviewCard | null;
   counts: DueCounts;
@@ -63,8 +57,8 @@ export interface ReviewView {
   /** Due now and not in what is left of the round: the next rounds. */
   waiting: number;
   pace: ReviewPace;
-  /** The rounds finished today on this device, oldest first. */
-  today: WallRound[];
+  /** Today's wall on this device: Review rounds and Learn batches, oldest first. */
+  today: WallBlock[];
   /** Whether the next round can start now, or when it will (20 due, or the day's last few). */
   gate: RoundGate;
 }
@@ -150,20 +144,24 @@ export class ReviewSession {
     return roundGate(times, now, endOfDay(now));
   }
 
-  /** Adds the round to today's wall once its last card is answered, and saves that. */
-  private async recordIfFinished(now: number): Promise<void> {
+  /** Adds the round to today's wall once its last card is answered. */
+  private recordIfFinished(now: number): void {
     const round = this.session.round;
     if (!round || this.remaining(now).length > 0) return;
-    const day = dayKey(now);
-    const before = this.session.today?.day === day ? this.session.today.rounds : [];
-    const finished = {
-      done: round.answered.length,
-      known: round.known,
-      missed: round.missed ?? [],
-      missed_forms: round.missed_forms ?? [],
-    };
-    this.session = { ...this.session, today: { day, rounds: [...before, finished] } };
-    await saveReviewCard(this.session, null, this.d);
+    addReviewRound(
+      {
+        done: round.answered.length,
+        known: round.known,
+        // In the form shown when missed.
+        missed: (round.missed ?? []).flatMap((id, k) => {
+          const form = this.forms.find((f) => f.id === round.missed_forms?.[k]);
+          if (form) return [{ text: form.text, en: form.en }];
+          const it = this.itemsById.get(id);
+          return it ? [{ text: it.base, en: it.en }] : [];
+        }),
+      },
+      now,
+    );
   }
 
   /** Starts the next round from what is due now, when the last one is finished or none is on. */
@@ -228,20 +226,7 @@ export class ReviewSession {
       waiting: Math.max(0, dueNow - leftWithCard),
       pace: this.pace,
       gate: this.gate(now),
-      today:
-        this.session.today?.day === dayKey(now)
-          ? this.session.today.rounds.map((r) => ({
-              done: r.done,
-              known: r.known,
-              // In the form shown when missed; older rounds only kept the item.
-              missed: r.missed.flatMap((id, k) => {
-                const form = this.forms.find((f) => f.id === r.missed_forms?.[k]);
-                if (form) return [{ text: form.text, en: form.en }];
-                const it = this.itemsById.get(id);
-                return it ? [{ text: it.base, en: it.en }] : [];
-              }),
-            }))
-          : [],
+      today: wallToday(now),
     };
   }
 
@@ -319,7 +304,7 @@ export class ReviewSession {
       this.reviews.set(updated.item_id, updated);
       this.session = session;
       this.pace = { ...this.pace, reviewedToday: this.pace.reviewedToday + 1 };
-      await this.recordIfFinished(now);
+      this.recordIfFinished(now);
       answerSaved.emit();
       await this.advance();
       return { counted: true, schedule };
@@ -390,10 +375,4 @@ export function pluralOf(item: Item, form: ItemForm, forms: readonly ItemForm[])
   if (item.word_type !== 'noun' || form.number === 'plural') return null;
   const plural = forms.find((f) => f.item_id === item.id && f.number === 'plural');
   return plural && plural.text !== form.text ? plural.text : null;
-}
-
-/** The local day of `t`, as YYYY-MM-DD. */
-function dayKey(t: number): string {
-  const d = new Date(t);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }

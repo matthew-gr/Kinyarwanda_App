@@ -197,6 +197,27 @@ test('Stories open at 100 words; a story reads, explains words, asks questions a
   expect(voiceRequest).toEqual({ action: 'voice', story_id: STORY_ID });
   await expect(page.getByRole('button', { name: 'Play the story' })).toBeEnabled();
 
+  // In debug mode, the first Play asks first and says what it costs; No sends nothing.
+  await page.evaluate(() => localStorage.setItem('kinyarwanda.debug', '1'));
+  await page.reload();
+  voiceRequest = null;
+  let asked = '';
+  page.once('dialog', (dialog) => {
+    asked = dialog.message();
+    void dialog.dismiss();
+  });
+  await page.getByRole('button', { name: 'Play the story' }).click();
+  await expect.poll(() => asked).toContain('about $0.12');
+  expect(voiceRequest).toBeNull();
+  await page.evaluate(() => localStorage.removeItem('kinyarwanda.debug'));
+
+  // Each line's English after it: a choice kept on the device.
+  const lineByLine = page.getByLabel('Play the story with each line in English after it');
+  await expect(lineByLine).not.toBeChecked();
+  await lineByLine.check();
+  await page.reload();
+  await expect(lineByLine).toBeChecked();
+
   // English on request.
   await page.getByRole('button', { name: 'Show English' }).click();
   await expect(page.getByText('The child plays.')).toBeVisible();

@@ -11,6 +11,17 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '0.7.0',
+    date: '2026-11-27',
+    changes: [
+      'Learn comes in batches of 20 answers. Each batch adds a blue block to today’s wall, which starts empty every day.',
+      'Stories: you can play a story with each line in English after it, in your phone’s own voice.',
+      'Card audio plays on its own more reliably, especially on iPhone.',
+      'New installs since 0.5.0 had no card audio. Fixed: it downloads the next time the app checks for course changes.',
+      'Debug mode asks before anything that costs money, with an estimate: writing a story, or making its audio.',
+    ],
+  },
+  {
     version: '0.6.0',
     date: '2026-11-27',
     changes: [

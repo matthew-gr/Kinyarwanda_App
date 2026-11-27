@@ -5,11 +5,13 @@
 import { bringForward, type Deck } from '../engine/learn';
 import { createAppRng } from '../engine/random';
 import {
+  buildStoryPrompt,
   DEFAULT_STORY_MODEL,
   estimateCoverage,
   knownShapes,
   STORY_MODELS,
 } from '../../supabase/functions/_shared/story';
+import { storyCost } from './costs';
 import { afterRead, buildRequest, STORIES_OPEN_AT, type StoryFeedback } from '../engine/stories';
 import type { Item, ItemForm } from '../engine/types';
 import { db, type KinyaDb, type StoryRow } from './db';
@@ -82,6 +84,31 @@ export function setStoryModel(model: string): void {
 
 export type NewStoryResult =
   { type: 'story'; story: StoryRow } | { type: 'signed-out' } | { type: 'error'; message: string };
+
+/**
+ * What writing a story would cost, from the prompt it would send (debug mode, decision 204).
+ * Null when it can't be asked for here (no server).
+ */
+export async function newStoryCost(
+  model: string = DEFAULT_STORY_MODEL,
+  d: KinyaDb = db,
+): Promise<{ once: number; twice: number } | null> {
+  if (!supabase) return null;
+  const [known, status, profile, stories] = await Promise.all([
+    knownWords(d),
+    storiesStatus(d),
+    getProfile(d),
+    d.stories.toArray(),
+  ]);
+  const request = buildRequest({
+    known,
+    wordsLearned: status.wordsLearned,
+    verbLevel: profile.verb_level,
+    stories,
+    rng: createAppRng(),
+  });
+  return storyCost(model, buildStoryPrompt(request).length, request.limit);
+}
 
 /** Asks the server for a new story, made from what this learner knows, and keeps it here. */
 export async function newStory(

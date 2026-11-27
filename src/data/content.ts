@@ -134,13 +134,38 @@ export async function ensureSeeded(d: KinyaDb = db): Promise<void> {
   }
   await applyContent(bundledItems, bundledForms, d);
   if (!(await d.content_state.get('main'))) {
-    const newest = [...bundledItems, ...bundledForms].reduce(
-      (max, r) => (r.updated_at > max ? r.updated_at : max),
-      '',
-    );
-    await d.content_state.put({ id: 'main', cursor: newest || null, last_checked_at: null });
+    await d.content_state.put({ id: 'main', cursor: BUNDLE_CURSOR, last_checked_at: null });
   }
   await d.content_state.put({ id: 'bundle', cursor: BUNDLE, last_checked_at: null });
+}
+
+/**
+ * Where a new device starts downloading course changes: the older of the bundle's newest word
+ * and newest form. The bundle never carries audio, and its words were restamped when they got
+ * emoji (decision 202) while the forms weren't, so starting from the newest row of all would
+ * skip every form's audio set on the server before then.
+ */
+const BUNDLE_CURSOR =
+  [newestStamp(bundledItems), newestStamp(bundledForms)].filter(Boolean).sort()[0] ?? null;
+
+/**
+ * Devices first opened on 0.5.0 or 0.6.0 started from the emoji restamp and never downloaded
+ * any form's audio. Once, for a device with no audio at all past that point, move its start
+ * back so the next download brings the audio.
+ */
+export async function repairAudioCursor(d: KinyaDb = db): Promise<void> {
+  if (await d.content_state.get('repair-audio-1')) return;
+  const main = await d.content_state.get('main');
+  const restamp = newestStamp(bundledItems);
+  if (
+    main?.cursor &&
+    BUNDLE_CURSOR &&
+    main.cursor >= restamp &&
+    !(await d.item_forms.filter((f) => Boolean(f.audio_path)).first())
+  ) {
+    await d.content_state.put({ ...main, cursor: BUNDLE_CURSOR });
+  }
+  await d.content_state.put({ id: 'repair-audio-1', cursor: null, last_checked_at: null });
 }
 
 async function pullTable<T extends { id: string; updated_at: string }>(
@@ -185,6 +210,7 @@ export function pullContent(d: KinyaDb = db, force = false): Promise<void> {
   }
   pulling ??= (async () => {
     try {
+      await repairAudioCursor(d);
       const state = (await d.content_state.get('main')) ?? {
         id: 'main' as const,
         cursor: null,

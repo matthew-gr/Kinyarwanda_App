@@ -1831,3 +1831,16 @@ textarea.field-input {
   top: calc(var(--space-16) + env(safe-area-inset-top, 0px));
   bottom: auto;
 }
+
+/* Stories: read each line in English after it. */
+.story-english-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-9);
+  margin-top: calc(-1 * var(--space-5));
+}
+
+.story-english-toggle input {
+  width: 20px;
+  height: 20px;
+}

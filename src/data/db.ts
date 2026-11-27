@@ -98,8 +98,11 @@ export interface SyncStateRow {
 
 /** How far the course download has got: "main" for words and phrases, "numbers" for drills. */
 export interface ContentStateRow {
-  /** bundle holds which bundled snapshot this device has loaded, in its cursor. */
-  id: 'main' | 'numbers' | 'bundle';
+  /**
+   * bundle holds which bundled snapshot this device has loaded, in its cursor; repair-audio-1
+   * marks the one-time audio repair as done (content.ts, repairAudioCursor).
+   */
+  id: 'main' | 'numbers' | 'bundle' | 'repair-audio-1';
   /** The newest server `updated_at` already on this device. */
   cursor: string | null;
   last_checked_at: string | null;

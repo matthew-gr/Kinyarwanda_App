@@ -6,7 +6,9 @@ import { cx } from '../components/cx';
 import { Icon } from '../components/Icon';
 import type { StoryRow } from '../data/db';
 import { countWhilePlaying } from '../data/activity';
-import { applyAudioSpeed } from '../data/audioSpeed';
+import { applyAudioSpeed, getAudioSpeed } from '../data/audioSpeed';
+import { dollars, PINDO_REQUEST_USD } from '../data/costs';
+import { getDebugMode } from '../data/debugMode';
 import { SpeedButton } from './SpeedButton';
 import { addMyWord, findMyWord } from '../data/myWords';
 import { STORY_MODELS, storyModelLabel } from '../../supabase/functions/_shared/story';
@@ -19,6 +21,7 @@ import {
   loadStories,
   loadStory,
   newStory,
+  newStoryCost,
   requestStoryAudio,
   saveFeedback,
   setStoryModel,
@@ -72,6 +75,18 @@ export function Stories() {
   }, [version]);
 
   const write = async () => {
+    // Debug mode asks first, with what it would cost (decision 204).
+    if (getDebugMode()) {
+      const cost = await newStoryCost(model);
+      const name = storyModelLabel(`ai:${model}`) ?? model;
+      if (
+        cost &&
+        !window.confirm(
+          `Writing a story asks Claude (${name}). Estimated cost: about ${dollars(cost.once)}, or ${dollars(cost.twice)} if it has to write it twice. Write it?`,
+        )
+      )
+        return;
+    }
     setWriting(true);
     setProblem(null);
     const out = await newStory(model);
@@ -190,6 +205,9 @@ function StoryList({ stories, now }: { stories: StoryRow[]; now: number }) {
   );
 }
 
+/** Where the line-by-line English choice is kept. */
+const ENGLISH_KEY = 'kinyarwanda.story-english';
+
 /**
  * The whole story in one take, which older Pindo stories have instead of a clip per sentence.
  * New stories get a clip per sentence (decision 195); when a story has those, they are used,
@@ -247,6 +265,14 @@ export function StoryReader() {
     };
   }, [id]);
 
+  /** Read each line's English after it when playing the story; remembered on this device. */
+  const [withEnglish, setWithEnglish] = useState(() => {
+    try {
+      return localStorage.getItem(ENGLISH_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
   /** The story's audio is being made, after its first Play (decision 197). */
   const [voicing, setVoicing] = useState(false);
   /** Play the story once its audio arrives. */
@@ -257,28 +283,60 @@ export function StoryReader() {
       if (!story) return;
       stopRef.current?.();
       const whole = wholeTake(story);
+      const last = story.sentences.length - 1;
+      const next = (i: number) => {
+        if (onwards && i < last) go(i + 1);
+        else setPlaying(null);
+      };
+      // Reading line by line in both languages: each line's English after it (learner
+      // feedback, 27 November), in the phone's own English voice, which costs nothing.
+      const after = (i: number) => {
+        if (onwards && withEnglish) sayEnglish(i, () => next(i));
+        else next(i);
+      };
       const go = (i: number) => {
         const path = story.sentences[i]?.audio_path;
         if (!path) {
-          // No clip of its own (an older Pindo story): play its part of the whole take.
-          if (whole) playPart(whole, i, onwards);
-          else if (onwards && i + 1 < story.sentences.length) go(i + 1);
-          else setPlaying(null);
+          // No clip of its own (an older Pindo story): play its part of the whole take, or
+          // all of it from here when nothing comes between the lines.
+          if (whole) playPart(whole, i, onwards && !withEnglish, () => after(i));
+          else next(i);
           return;
         }
         setPlaying(i);
-        stopRef.current = playThen(path, () => {
-          if (onwards && i + 1 < story.sentences.length) go(i + 1);
-          else setPlaying(null);
-        });
+        stopRef.current = playThen(path, () => after(i));
+      };
+      const sayEnglish = (i: number, then: () => void) => {
+        const text = story.sentences[i]?.en;
+        if (!text || typeof speechSynthesis === 'undefined') return then();
+        let cancelled = false;
+        const line = new SpeechSynthesisUtterance(text);
+        line.lang = 'en-GB';
+        line.rate = getAudioSpeed();
+        line.onend = () => {
+          if (!cancelled) then();
+        };
+        line.onerror = line.onend;
+        stopRef.current = () => {
+          cancelled = true;
+          speechSynthesis.cancel();
+        };
+        setPlaying(i);
+        speechSynthesis.speak(line);
       };
       /** The whole take from `i`'s share of it, to the end or just that sentence. */
-      const playPart = (path: string, i: number, toEnd = false) => {
+      const playPart = (path: string, i: number, toEnd: boolean, onDone: () => void) => {
         const [startAt, endAt] = sentenceSpan(story, i);
         const audio = new Audio(path);
         countWhilePlaying(audio);
         applyAudioSpeed(audio);
         let stopped = false;
+        let finished = false;
+        const finish = () => {
+          if (finished || stopped) return;
+          finished = true;
+          onDone();
+        };
         stopRef.current = () => {
           stopped = true;
           audio.pause();
@@ -288,14 +346,17 @@ export function StoryReader() {
           if (startAt > 0) audio.currentTime = startAt * audio.duration;
         });
         audio.addEventListener('timeupdate', () => {
-          if (!(audio.duration > 0)) return;
+          if (!(audio.duration > 0) || finished) return;
           const at = audio.currentTime / audio.duration;
           if (!toEnd && at >= endAt) {
             audio.pause();
-            setPlaying(null);
+            finish();
           } else setPlaying(sentenceAt(story, at));
         });
-        audio.addEventListener('ended', () => setPlaying(null));
+        audio.addEventListener('ended', () => {
+          if (toEnd) setPlaying(null);
+          else finish();
+        });
         const fail = () => {
           if (!stopped) setPlaying(null);
         };
@@ -304,7 +365,7 @@ export function StoryReader() {
       };
       go(from);
     },
-    [story],
+    [story, withEnglish],
   );
 
   // Audio made on the first Play: start it as soon as the story has it.
@@ -321,6 +382,13 @@ export function StoryReader() {
       play(0, true);
       return;
     }
+    if (
+      getDebugMode() &&
+      !window.confirm(
+        `Making this story's audio sends one request to Pindo. Cost: about ${dollars(PINDO_REQUEST_USD)}. Make it?`,
+      )
+    )
+      return;
     setVoicing(true);
     setNotice('');
     const got = await requestStoryAudio(story.id);
@@ -418,6 +486,23 @@ export function StoryReader() {
         </button>
         <SpeedButton className="btn btn-missed story-tool story-tool-speed" short />
       </div>
+      <label className="story-english-toggle body-small" htmlFor="story-english">
+        <input
+          id="story-english"
+          type="checkbox"
+          checked={withEnglish}
+          onChange={(e) => {
+            setWithEnglish(e.target.checked);
+            try {
+              if (e.target.checked) localStorage.setItem(ENGLISH_KEY, '1');
+              else localStorage.removeItem(ENGLISH_KEY);
+            } catch {
+              // Storage can be blocked; the choice holds until the story is closed.
+            }
+          }}
+        />
+        Play the story with each line in English after it
+      </label>
 
       <ol className="story-text panel">
         {story.sentences.map((s, i) => (
