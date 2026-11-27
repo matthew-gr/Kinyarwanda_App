@@ -94,7 +94,7 @@ test('Learn comes in batches of 20 answers, each a block on the wall, blue when 
   await expect(wall.getByRole('button')).toHaveCount(1);
   await expect(wall.getByRole('button')).toHaveAccessibleName('Learn batch 1: 20 of 20 right');
   // All right: blue (decision 213).
-  await expect(wall.getByRole('button')).toHaveCSS('background-color', 'rgb(56, 172, 255)');
+  await expect(wall.getByRole('button')).toHaveCSS('background-color', 'oklch(0.68 0.16 250)');
   await page.getByRole('button', { name: 'Another batch' }).click();
   await expect(page.getByRole('button', { name: /Tap to reveal meaning|^Next$/ })).toBeVisible();
 });

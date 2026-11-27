@@ -2075,3 +2075,14 @@ textarea.field-input {
   cursor: pointer;
   align-self: flex-start;
 }
+
+/* History: the day weeks start on (decision 218). */
+.time-week-start {
+  display: flex;
+  align-items: center;
+  gap: var(--space-9);
+}
+
+.time-week-start .field-input {
+  width: auto;
+}

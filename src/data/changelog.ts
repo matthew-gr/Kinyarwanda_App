@@ -11,6 +11,15 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '0.21.0',
+    date: '2026-11-27',
+    changes: [
+      'Every block on the wall is now equally bright, whatever its colour.',
+      'History: choose whether weeks start on Monday or Sunday for your weekly time.',
+      'Many more word families, like kwiga, kwigisha and inyigisho, or kwandika and umwanditsi.',
+    ],
+  },
+  {
     version: '0.20.0',
     date: '2026-11-27',
     changes: [

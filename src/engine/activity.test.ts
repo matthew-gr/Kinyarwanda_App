@@ -66,6 +66,11 @@ describe('time spent learning', () => {
     expect(periodStart('2026-11-16', 'week')).toBe('2026-11-16');
     expect(periodStart('2026-11-22', 'week')).toBe('2026-11-16');
     expect(periodStart('2026-11-18', 'month')).toBe('2026-11-01');
+    // Weeks from Sunday (decision 218): Wednesday 18 November is in the week of Sunday 15.
+    expect(periodStart('2026-11-18', 'week', 0)).toBe('2026-11-15');
+    expect(periodStart('2026-11-15', 'week', 0)).toBe('2026-11-15');
+    expect(periodStart('2026-11-21', 'week', 0)).toBe('2026-11-15');
+    expect(periodStart('2026-11-22', 'week', 0)).toBe('2026-11-22');
     const byDay = new Map([
       ['2026-11-18', 60_000],
       ['2026-11-16', 120_000],

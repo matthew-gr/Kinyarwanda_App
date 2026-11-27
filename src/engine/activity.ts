@@ -65,10 +65,13 @@ const parseDay = (day: string) => {
   return new Date(y, m - 1, d, 12);
 };
 
-/** The first day of the period that holds `day`. Weeks start on Monday. */
-export function periodStart(day: string, period: Period): string {
+/** The day a week starts on: 1 Monday (the default), 0 Sunday (decision 218). */
+export type WeekStart = 0 | 1;
+
+/** The first day of the period that holds `day`. Weeks start on `weekStart`. */
+export function periodStart(day: string, period: Period, weekStart: WeekStart = 1): string {
   const d = parseDay(day);
-  if (period === 'week') d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  if (period === 'week') d.setDate(d.getDate() - ((d.getDay() - weekStart + 7) % 7));
   if (period === 'month') d.setDate(1);
   return dayOf(d.getTime());
 }
@@ -82,9 +85,10 @@ export function totals(
   period: Period,
   now: number,
   count: number,
+  weekStart: WeekStart = 1,
 ): PeriodTotal[] {
   const starts: string[] = [];
-  const d = parseDay(periodStart(dayOf(now), period));
+  const d = parseDay(periodStart(dayOf(now), period, weekStart));
   for (let i = 0; i < count; i++) {
     starts.unshift(dayOf(d.getTime()));
     if (period === 'day') d.setDate(d.getDate() - 1);
@@ -94,7 +98,7 @@ export function totals(
   const index = new Map(starts.map((s, i) => [s, i]));
   const out = starts.map((start) => ({ start, ms: 0 }));
   for (const [day, ms] of byDay) {
-    const i = index.get(periodStart(day, period));
+    const i = index.get(periodStart(day, period, weekStart));
     if (i !== undefined) out[i]!.ms += ms;
   }
   return out;

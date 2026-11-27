@@ -8,17 +8,24 @@ import { useState, type PointerEvent } from 'react';
 import type { WallBlock } from '../data/wall';
 import type { Forecast } from '../engine/rounds';
 
-/** Red at 0%, yellow at 50%, green at 100%, in between for the rest. */
-const accuracyColour = (share: number) => `hsl(${Math.round(120 * share)} 62% 46%)`;
+/**
+ * Every block is equally bright, whatever its hue (decision 218; feedback of 27 November): the
+ * colours are OKLCH, whose first number is the lightness the eye sees, held at one value, so a
+ * yellow block is no brighter than a red or blue one.
+ */
+const LIGHTNESS = 0.68;
+const CHROMA = 0.16;
+const oklch = (hue: number) =>
+  `oklch(${LIGHTNESS} ${CHROMA} ${Math.round((((hue % 360) + 360) % 360) * 10) / 10})`;
+
+/** A Review round: red at 0%, yellow at 50%, green at 100% (hues 29, 87 and 145). */
+const accuracyColour = (share: number) => oklch(29 + 116 * share);
 
 /**
- * A Learn batch: blue when every answer was right, red when none was, through purple in
- * between, so Learn blocks never look like Review ones (learner feedback, 27 November). The
- * blue is as bright as Review's green at 100%, and the red as Review's red at 0%: their
- * luminance matches (decision 214).
+ * A Learn batch: red at 0%, through purple, to blue at 100% (hues 29, 320 and 250), so Learn
+ * blocks never look like Review ones (decisions 213 and 214).
  */
-const learnColour = (share: number) =>
-  `hsl(${Math.round(360 - 155 * share)} ${Math.round(66 + 34 * share)}% ${Math.round(47 + 14 * share)}%)`;
+const learnColour = (share: number) => oklch(29 - 139 * share);
 
 /** A cell of the wall: a finished block, or a predicted round still to come. */
 type Cell = { block: number } | { predicted: 'soon' | 'later' };

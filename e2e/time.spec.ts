@@ -36,7 +36,18 @@ test('Time learning counts taps a minute or less apart, and History shows it by 
   await expect(page.getByRole('figure', { name: /Weekly time/ })).toContainText(
     /4[01] s in 8 weeks/,
   );
+  // Weeks start on Monday, or Sunday if chosen; the choice is kept (decision 218).
+  const weekStart = page.getByLabel('Weeks start on');
+  await expect(weekStart).toHaveValue('1');
+  await weekStart.selectOption('0');
+  await expect(page.getByRole('figure', { name: /Weekly time/ })).toContainText(
+    /4[01] s in 8 weeks/,
+  );
+  await page.reload();
+  await page.getByRole('button', { name: 'Weekly' }).click();
+  await expect(page.getByLabel('Weeks start on')).toHaveValue('0');
   await page.getByRole('button', { name: 'Monthly' }).click();
+  await expect(page.getByLabel('Weeks start on')).toHaveCount(0);
   await expect(page.getByRole('figure', { name: /Monthly time/ })).toContainText(
     /4[01] s in 6 months/,
   );

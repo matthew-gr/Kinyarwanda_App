@@ -412,6 +412,11 @@ Prompt 2 was written from the product spec's Module 2 section; the build plan na
     - **Cost.** This adds a paid action, at Jonathan's request. A translation is one Claude request, about $0.02 to $0.05 on Sonnet 5.5 for the longest text; its audio, on the first Play, is one Pindo request ($0.12), as for a story. It counts towards the same 10 stories a day, failed ones included, and only one can be under way at a time. Debug mode asks first with both estimates.
     - **Checks.** The translation is an AI draft. Nothing checks it against the original except the learner.
 
+218. **Wall colours of one brightness, weeks from Sunday or Monday, and many more word families** (Jonathan, 27 November 2026). Version 0.21.0.
+    - **One brightness for every block.** The wall's colours are OKLCH, whose lightness is the brightness the eye sees, held at 0.68 with chroma 0.16: Review rounds run through hues 29 (red), 87 (yellow) and 145 (green), Learn batches through 29, about 320 (purple) and 250 (blue). Yellow is no longer brighter than red, nor blue darker than green; the yellow is a mustard as a result.
+    - **Weeks start on Monday or Sunday** in History's weekly time, chosen beside it ("Weeks start on", kept on this device). Streak freezes keep their Monday weeks (decision 208), since every device must agree on those.
+    - **Word families: 164, from 95.** A search of the course for words built on each verb's root, allowing for the sound changes before -i (r, d, g to z; -andik- to -andits-) and the y- that prefixes take before a vowel (in-y-igisho), found candidates for 280 verbs, picked by meaning. New: kwiga, kwigisha, inyigisho, umwigishwa; kubwira, kubwiriza, amabwiriza; kurasa and uburasirazuba (the east, where the sun rises); kuyoba and ikiyobyabwenge; gukingira, urukingo, agakingirizo; and about 60 more. Extended: kwandika with umwanditsi, kwandikira and icyanditswe; gukora with gukorera, gukoresha, igikoresho, umukoresha, igikorwa and umukorerabushake; kugura merged with kuguza (kugurisha, kugurana, kuguriza, inguzanyo); kwemeza with kwemera and the two words for a receipt. Left out when unsure (gukomera, itorero, gutera and iterambere). AI drafts, like the rest.
+
 ## Planned later
 
 - **Words 1,501 to 2,000** (Matt, 5 November 2026): the rest of Common 2000, next after decisions 185 to 187.

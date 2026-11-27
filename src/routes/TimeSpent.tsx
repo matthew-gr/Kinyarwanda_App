@@ -1,9 +1,16 @@
 // Time spent learning (decision 190), on the History tab: today, this week and this month, and
 // bars for the last 14 days, 8 weeks or 6 months. Time counts while the app is open and in use.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { loadActivity } from '../data/activity';
-import { totals, timeInWords, type Period, type PeriodTotal } from '../engine/activity';
+import {
+  totals,
+  timeInWords,
+  type Period,
+  type PeriodTotal,
+  type WeekStart,
+} from '../engine/activity';
+import { getWeekStart, onWeekStart, setWeekStart } from '../data/weekStart';
 
 const PERIODS: { period: Period; label: string; count: number }[] = [
   { period: 'day', label: 'Daily', count: 14 },
@@ -37,6 +44,7 @@ export function TimeSpent({ version }: { version: number }) {
   const [byDay, setByDay] = useState<Map<string, number> | null>(null);
   const [period, setPeriod] = useState<Period>('day');
   const [now, setNow] = useState(() => Date.now());
+  const weekStart = useSyncExternalStore(onWeekStart, getWeekStart, getWeekStart);
 
   useEffect(() => {
     let alive = true;
@@ -56,8 +64,8 @@ export function TimeSpent({ version }: { version: number }) {
 
   if (!byDay) return null;
   const spec = PERIODS.find((p) => p.period === period)!;
-  const bars = totals(byDay, period, now, spec.count);
-  const current = (p: Period) => totals(byDay, p, now, 1)[0]!.ms;
+  const bars = totals(byDay, period, now, spec.count, weekStart);
+  const current = (p: Period) => totals(byDay, p, now, 1, weekStart)[0]!.ms;
   const max = Math.max(60_000, ...bars.map((b) => b.ms));
   const all = bars.reduce((a, b) => a + b.ms, 0);
 
@@ -92,6 +100,20 @@ export function TimeSpent({ version }: { version: number }) {
           </button>
         ))}
       </nav>
+      {period === 'week' ? (
+        <label className="field time-week-start" htmlFor="week-start">
+          <span className="body-small">Weeks start on</span>
+          <select
+            id="week-start"
+            className="field-input field-select body-small"
+            value={weekStart}
+            onChange={(e) => setWeekStart(Number(e.target.value) as WeekStart)}
+          >
+            <option value={1}>Monday</option>
+            <option value={0}>Sunday</option>
+          </select>
+        </label>
+      ) : null}
       <figure className="daybars" aria-labelledby="time-bars">
         <figcaption id="time-bars" className="daybars-head">
           <span className="h3-bold">{spec.label} time</span>
