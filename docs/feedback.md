@@ -27,8 +27,11 @@ and asks them to leave out anything private. Message text is escaped so it shows
 ## Keeping commits quiet
 
 - Feedback commits end in `[skip ci]`, so GitHub Actions doesn't run the tests for them.
-- `vercel.json` has an `ignoreCommand`: Vercel skips a build when the latest commit changes
-  nothing outside `feedback/`, so feedback doesn't redeploy the app.
+- `vercel.json` has an `ignoreCommand`: Vercel skips a build when nothing outside `feedback/`
+  changed since the last deployment (`VERCEL_GIT_PREVIOUS_SHA`), so feedback doesn't redeploy
+  the app. It used to compare only with the commit before, so a merge whose first parent
+  already held the release, as with 0.9.0, looked like a feedback-only change and wasn't
+  deployed. When the last deployment isn't in Vercel's clone, it builds.
 
 ## Setting it up (once)
 

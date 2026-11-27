@@ -5,11 +5,6 @@ adds each message here, newest at the bottom. This repository is public, so entr
 name, email or account: only the date, the part of the app it is about, the app version and the
 message. Every message is also kept in the `feedback` table in Supabase.
 
-### 2026-11-20 12:22 UTC · General · 0.1.0+698069f
-<!-- feedback:8027e7d8-f497-49ba-9ba7-3f082b029de4 -->
-
-> I would love it if the app prompted me to translate English to Kinyarwanda.
-
 ### 2026-11-20 14:04 UTC · General · 0.1.0+698069f
 <!-- feedback:02e782cf-3022-4dfa-af9b-794f1ca016f9 -->
 
@@ -143,8 +138,6 @@ message. Every message is also kept in the `feedback` table in Supabase.
 <!-- feedback:8dccf2b0-d199-44ef-83a0-1f39a11b7e8c -->
 
 > When reviewing cards, add a button to go back so the user can change his answer. Because sometimes, I click too fast that I got the card right or wrong.
->
-> Sometimes, a review for a correct card gets rescheduled after only 5 minutes. Is that intended?
 
 ### 2026-11-27 09:44 UTC · General · 0.5.0+0ec655f
 <!-- feedback:98f8d81b-15db-48f7-b1bb-316168887138 -->

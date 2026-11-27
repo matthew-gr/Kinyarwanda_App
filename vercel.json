@@ -3,7 +3,7 @@
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "ignoreCommand": "if git rev-parse -q --verify HEAD^ >/dev/null && git diff --quiet HEAD^ HEAD -- . ':(exclude)feedback'; then exit 0; else exit 1; fi",
+  "ignoreCommand": "if [ -n \"$VERCEL_GIT_PREVIOUS_SHA\" ] && git cat-file -e \"$VERCEL_GIT_PREVIOUS_SHA^{commit}\" 2>/dev/null && git diff --quiet \"$VERCEL_GIT_PREVIOUS_SHA\" HEAD -- . ':(exclude)feedback'; then exit 0; else exit 1; fi",
   "rewrites": [
     {
       "source": "/(.*)",
