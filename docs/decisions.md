@@ -354,6 +354,12 @@ Prompt 2 was written from the product spec's Module 2 section; the build plan na
     - **Where it shows.** Review's finish screen: "You have 2 streak freezes. Perfect rounds of 20 in a row: 1 of 3 for the next one.", or "Perfect round! You earned a streak freeze." Profile: the freezes in hand under the day streak, with how the next is earned.
     - **Cost.** None.
 
+209. **75 more phrases, 25 of them proverbs** (Jonathan, 27 November 2026; learner feedback: more phrases and proverbs). Version 0.12.0.
+    - **Phrases 51 to 125.** 50 everyday phrases (time and plans, food and drink, health and help, shopping, getting around, learning the language, getting to know people, feelings, wishes and blessings), with word-by-word breakdowns where the words split cleanly, then 25 proverbs (imigani migufi) whose English gives the meaning as the proverb is used ("Inkingi imwe ntigera inzu: one pillar can't hold up a house: we need each other"). Proverbs carry the tag `proverb`, show PROVERB on their card, and make the fifth batch of 25, so they open once the everyday phrases are learned.
+    - **AI drafts, like the first 50.** Written by Claude (`scripts/draft-phrases.ts`), status `ai_draft`, not yet checked by a native speaker; proverbs especially should be checked, for wording and for the meaning given. Admins can edit or retire any of them in Admin.
+    - **No audio yet, so no cost.** Their cards have no play button until an admin runs Make missing audio (batches of 15, decision 198), ideally after the text is checked. Nothing records them automatically.
+    - **Shipping.** In production by migration `20261127150000_phrases_51_125`, stamped now so every device downloads them; existing learners' phrase decks take them in after the phrases they've started. In the bundled course they carry the first drafts' date, so a new device's download start doesn't move (decision 204). The app's script went past the 4 MiB offline-cache limit with them, so the limit is now 6 MiB.
+
 ## Planned later
 
 - **Words 1,501 to 2,000** (Matt, 5 November 2026): the rest of Common 2000, next after decisions 185 to 187.

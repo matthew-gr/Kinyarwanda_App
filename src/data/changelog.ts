@@ -11,6 +11,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '0.12.0',
+    date: '2026-11-27',
+    changes: [
+      '75 more phrases: 50 for everyday life, from asking the time to wishing a happy birthday, then 25 Kinyarwanda proverbs with what they mean.',
+      'The new phrases have no audio yet; it comes once they’ve been checked.',
+    ],
+  },
+  {
     version: '0.11.0',
     date: '2026-11-27',
     changes: [

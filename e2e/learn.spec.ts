@@ -59,7 +59,7 @@ test('Learn walkthrough: words, then phrases without touching words', async ({ p
 
   // Words progress is untouched by Phrases.
   await page.getByRole('button', { name: 'Back to Home' }).click();
-  await expect(rowSubtitle(page, 'Phrases')).toHaveText(/^[1-9]\d* of 50 learned$/);
+  await expect(rowSubtitle(page, 'Phrases')).toHaveText(/^[1-9]\d* of 125 learned$/);
   await expect(rowSubtitle(page, 'Words')).toHaveText(wordsBefore);
 });
 

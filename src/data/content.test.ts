@@ -8,11 +8,15 @@ describe('the drafted course', () => {
     expect(checkContent(items, forms)).toEqual([]);
   });
 
-  it('has the first 2,000 words (Common 100 to Common 2000) and 50 phrases, all marked as AI drafts', () => {
+  it('has the first 2,000 words (Common 100 to Common 2000) and 125 phrases, all marked as AI drafts', () => {
     const words = items.filter((i) => i.kind === 'word');
     const phrases = items.filter((i) => i.kind === 'phrase');
     expect(words).toHaveLength(2000);
-    expect(phrases).toHaveLength(50);
+    expect(phrases).toHaveLength(125);
+    // The last 25 are proverbs (decision 209).
+    expect(phrases.filter((p) => p.tags?.includes('proverb')).map((p) => p.rank)).toEqual(
+      Array.from({ length: 25 }, (_, i) => 101 + i),
+    );
     expect(words.map((w) => w.rank).sort((a, b) => a - b)).toEqual(
       Array.from({ length: 2000 }, (_, i) => i + 1),
     );
