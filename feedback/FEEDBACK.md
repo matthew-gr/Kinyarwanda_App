@@ -221,3 +221,8 @@ message. Every message is also kept in the `feedback` table in Supabase.
 <!-- feedback:a4c387d6-2c6c-47fd-9485-ab768b01bf6b -->
 
 > The color of the "Start Learning today" box does not yet adjust to the dark theme.
+
+### 2026-11-27 15:20 UTC · General · 0.18.0
+<!-- feedback:added-by-request-2026-11-27-phrase-audio -->
+
+> Add sound to new proverbs and phrases.
