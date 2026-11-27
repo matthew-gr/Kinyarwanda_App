@@ -126,3 +126,8 @@ message. Every message is also kept in the `feedback` table in Supabase.
 > Horizontally center the wall of 5 times x blocks on the screen.
 >
 > For each block, show the missed words in the exact same form as they have been missed.
+
+### 2026-11-27 09:23 UTC · General · 0.5.0+0ec655f
+<!-- feedback:b7de6c74-1f3c-41e1-8d2d-a37d368296e9 -->
+
+> In debug mode, ask the user for confirmation before he does something that incurs cost. Show him the estimated cost.
