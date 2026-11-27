@@ -133,11 +133,20 @@ test('Rounds: a big pile is reviewed 20 at a time, and Learn suggests a round fi
   await expect(page.getByText('20 reviewed, 16 known. 20 reviewed today.')).toBeVisible();
   await expect(page.getByText(/Next round: 20 cards, about \d+ min\./)).toBeVisible();
   await expect(page.getByText('100 waiting in all')).toBeVisible();
-  // The wall: one block for this round, open, with its accuracy and missed words.
+  // The wall: one block for this round, then gray ones for the rounds to come. Its accuracy and
+  // missed words show once it is tapped.
   const wall = page.getByRole('group', { name: 'Today’s rounds' });
-  await expect(wall.getByRole('button')).toHaveCount(1);
+  await expect(wall.getByRole('button', { name: /^Round/ })).toHaveCount(1);
+  await expect(page.locator('.round-wall-detail')).toHaveCount(0);
+  await wall.getByRole('button', { name: 'Round 1: 80% known' }).click();
   await expect(page.getByText('Round 1: 80% known (16 of 20)')).toBeVisible();
   await expect(page.locator('.round-wall-detail li')).toHaveCount(4);
+  await wall
+    .getByRole('button', { name: /for what is due now/ })
+    .first()
+    .click();
+  await expect(page.getByText(/^About \d+ more rounds for what is due now\.$/)).toBeVisible();
+  await expect(page.locator('.round-wall-detail li')).toHaveCount(0);
 
   // A reload keeps the finished round's place: coming back starts the next one.
   await page.getByRole('button', { name: 'Another round' }).click();
@@ -226,16 +235,14 @@ test('Undo takes back the last answer, and the wall predicts the rounds still to
   }
   await expect(page.getByRole('heading', { name: 'Round done' })).toBeVisible();
   await expect(page.getByText('20 reviewed, 20 known. 20 reviewed today.')).toBeVisible();
-  // Five are left: one more round, drawn in grey after today's block.
+  // Five are left: one more round, drawn in gray after today's block.
   await expect(page.locator('.round-block-soon')).toHaveCount(1);
-  await expect(page.getByText(/Dark grey: about 1 more round for what is due now/)).toBeVisible();
+  await page.getByRole('button', { name: 'About 1 more round for what is due now' }).click();
+  await expect(page.getByText('About 1 more round for what is due now.')).toBeVisible();
 });
 
-test('A recording confirmed as right turns the play button green', async ({ page }) => {
-  await page.goto('/');
-  await expect(reviewRow(page)).toContainText('Opens when you learn your first word');
-  await seedDue(page, 1);
-  // Give every form a recording, so the test needn't wait for audio to download.
+/** Gives every form a recording, so a test needn't wait for audio to download. */
+async function giveAudio(page: Page): Promise<void> {
   await page.evaluate(
     () =>
       new Promise<void>((resolve, reject) => {
@@ -249,11 +256,27 @@ test('A recording confirmed as right turns the play button green', async ({ page
           tx.onerror = () => reject(tx.error);
           all.onsuccess = () => {
             for (const f of all.result as { audio_path: string | null }[])
-              if (!f.audio_path) store.put({ ...f, audio_path: 'test/missing.mp3' });
+              store.put({ ...f, audio_path: 'test/missing.mp3' });
           };
         };
       }),
   );
+}
+
+test('A recording confirmed as right turns the play button green', async ({ page }) => {
+  // Counts clips played, to see what plays by itself.
+  await page.addInitScript(() => {
+    const w = window as unknown as { plays: number };
+    w.plays = 0;
+    HTMLMediaElement.prototype.play = function () {
+      if (this.src.includes('missing.mp3')) w.plays++;
+      return Promise.resolve();
+    };
+  });
+  await page.goto('/');
+  await expect(reviewRow(page)).toContainText('Opens when you learn your first word');
+  await seedDue(page, 1);
+  await giveAudio(page);
   await page.reload();
   await reviewRow(page).click();
   await expect(page.locator('.kn-flash-speak-unchecked').first()).toBeVisible();
@@ -265,4 +288,36 @@ test('A recording confirmed as right turns the play button green', async ({ page
   await expect(page.getByText('✓ You confirmed this recording.')).toBeVisible();
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Sounds right' })).toBeVisible();
+
+  // On the back too: marked wrong, the button turns red, and the clip stops playing by itself.
+  await page.getByRole('button', { name: /Tap to reveal meaning/ }).click();
+  await page.getByRole('button', { name: 'Sounds wrong' }).click();
+  await expect(page.getByText('✗ You marked this recording wrong.')).toBeVisible();
+  await expect(page.locator('.kn-flash-speak-wrong').first()).toBeVisible();
+  await page.reload();
+  await expect(page.locator('.kn-flash-speak-wrong').first()).toBeVisible();
+  expect(await page.evaluate(() => (window as unknown as { plays: number }).plays)).toBe(0);
+  // Tapping it still plays it.
+  await page.getByRole('button', { name: 'Play pronunciation' }).first().click();
+  await expect
+    .poll(() => page.evaluate(() => (window as unknown as { plays: number }).plays))
+    .toBe(1);
+});
+
+test('A re-record request is still shown at the next review', async ({ page }) => {
+  // The request itself is stood in for: a learner's request waits for an admin.
+  await page.route('**/rest/v1/audio_requests**', (route) =>
+    route.fulfill({ status: 201, body: '' }),
+  );
+  await page.goto('/');
+  await expect(reviewRow(page)).toContainText('Opens when you learn your first word');
+  await seedDue(page, 1);
+  await giveAudio(page);
+  await page.reload();
+  await reviewRow(page).click();
+  await page.getByRole('button', { name: 'Re-record audio' }).click();
+  const sent = page.getByRole('button', { name: 'Re-record requested; an admin will check it' });
+  await expect(sent).toBeDisabled();
+  await page.reload();
+  await expect(sent).toBeVisible();
 });

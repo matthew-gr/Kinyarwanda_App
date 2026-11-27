@@ -2,7 +2,13 @@
 // breakdown, the Report a mistake form, and asking for the audio to be re-recorded.
 
 import { useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { isAudioOk, onAudioChecks, setAudioOk } from '../data/audioChecks';
+import {
+  audioCheckOf,
+  onAudioChecks,
+  rerecordRequest,
+  setAudioCheck,
+  setRerecordRequest,
+} from '../data/audioChecks';
 import { errorText, requestRerecord } from '../data/admin';
 import { requestSync } from '../data/sync';
 import { saveReport, type NewReport } from '../data/reports';
@@ -65,24 +71,33 @@ export function ReportMistake({
 }
 
 /**
- * Under the front of a card with audio (decision 205): confirm the recording sounds right,
- * which turns its play button green, or ask for it to be made again.
+ * Under a card with audio, front and back (decisions 205 and 207): say whether the recording
+ * sounds right, which turns its play button green, or wrong, which turns it red and stops the
+ * clip playing by itself; or ask for it to be made again.
  */
 export function AudioCheck({ form }: { form: ItemForm }) {
-  const ok = useSyncExternalStore(onAudioChecks, () => isAudioOk(form.id));
+  const check = useSyncExternalStore(onAudioChecks, () => audioCheckOf(form.id));
   if (!form.audio_path) return null;
+  const undo = (
+    <button
+      type="button"
+      className="report-link body-small"
+      onClick={() => setAudioCheck(form.id, null)}
+    >
+      Undo
+    </button>
+  );
   return (
     <div className="audio-check body-small">
-      {ok ? (
+      {check === 'ok' ? (
         <>
           <span>✓ You confirmed this recording.</span>
-          <button
-            type="button"
-            className="report-link body-small"
-            onClick={() => setAudioOk(form.id, false)}
-          >
-            Undo
-          </button>
+          {undo}
+        </>
+      ) : check === 'wrong' ? (
+        <>
+          <span>✗ You marked this recording wrong. It plays only when you tap it.</span>
+          {undo}
         </>
       ) : (
         <>
@@ -90,9 +105,16 @@ export function AudioCheck({ form }: { form: ItemForm }) {
           <button
             type="button"
             className="report-link body-small"
-            onClick={() => setAudioOk(form.id, true)}
+            onClick={() => setAudioCheck(form.id, 'ok')}
           >
             Sounds right
+          </button>
+          <button
+            type="button"
+            className="report-link body-small"
+            onClick={() => setAudioCheck(form.id, 'wrong')}
+          >
+            Sounds wrong
           </button>
         </>
       )}
@@ -106,13 +128,17 @@ export function AudioCheck({ form }: { form: ItemForm }) {
  * re-record queue, recorded once 15 wait; anyone else's waits for an admin to approve it.
  */
 function RerecordLink({ form }: { form: ItemForm }) {
-  const [state, setState] = useState<string | null>(null);
+  // A request sent earlier stays shown at the card's next review (learner feedback, 27 November).
+  const sent = useSyncExternalStore(onAudioChecks, () => rerecordRequest(form.id));
+  const [failed, setFailed] = useState<string | null>(null);
+  const state = sent ?? failed;
   const [busy, setBusy] = useState(false);
   const ask = async () => {
     setBusy(true);
     try {
       const r = await requestRerecord(form.id);
-      setState(
+      setRerecordRequest(
+        form.id,
         !r.queued
           ? 'Re-record requested; an admin will check it'
           : r.waiting === undefined
@@ -120,7 +146,7 @@ function RerecordLink({ form }: { form: ItemForm }) {
             : `Queued for re-recording (${r.waiting} of ${r.batch ?? 15})`,
       );
     } catch (e) {
-      setState(`Couldn’t send: ${errorText(e)}`);
+      setFailed(`Couldn’t send: ${errorText(e)}`);
     } finally {
       setBusy(false);
     }
@@ -129,7 +155,7 @@ function RerecordLink({ form }: { form: ItemForm }) {
     <button
       type="button"
       className="report-link body-small"
-      disabled={busy || state !== null}
+      disabled={busy || sent !== null}
       onClick={() => void ask()}
     >
       {busy ? 'Sending…' : (state ?? 'Re-record audio')}

@@ -65,7 +65,7 @@ export interface ReviewView {
   pace: ReviewPace;
   /** Today's wall on this device: Review rounds and Learn batches, oldest first. */
   today: WallBlock[];
-  /** Rounds still to come today, for the wall's grey blocks. */
+  /** Rounds still to come today, for the wall's gray blocks. */
   forecast: Forecast;
   /** Whether the next round can start now, or when it will (20 due, or the day's last few). */
   gate: RoundGate;

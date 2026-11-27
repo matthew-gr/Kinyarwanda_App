@@ -11,6 +11,15 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '0.10.0',
+    date: '2026-11-27',
+    changes: [
+      'A cleaner finish screen: tap a block on the wall to see how that round went, or a gray one to see the rounds still to come. The gray blocks now fade out softly, in dark mode too.',
+      'Recording sounds wrong? Say so under the card, front or back. Its play button turns red and it only plays when you tap it.',
+      'A re-record request stays shown the next time you meet the card.',
+    ],
+  },
+  {
     version: '0.9.0',
     date: '2026-11-27',
     changes: [
@@ -25,7 +34,7 @@ export const CHANGELOG: readonly Release[] = [
     changes: [
       'Review: tapped the wrong button? “Undo last answer” takes it back for a few seconds after you answer.',
       'Cards with audio ask whether the recording sounds right. Once you confirm it, the play button turns green.',
-      'Today’s wall shows the rounds still to come as grey blocks: dark grey for what is due now, light grey for later today.',
+      'Today’s wall shows the rounds still to come as gray blocks: dark gray for what is due now, light gray for later today.',
       'Fewer reviews: a card you still know after a long gap moves up further, to match how long you remembered it.',
       'Dark mode. It follows your phone, or choose Light or Dark in Profile, Settings.',
     ],

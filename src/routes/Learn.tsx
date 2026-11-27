@@ -22,7 +22,7 @@ import type { AnswerResult, Deck } from '../engine/learn';
 import type { Item, ItemForm } from '../engine/types';
 import { placeLabel } from '../engine/vocabulary';
 import { AudioCheck, CardNotes, CardPicture, ReportMistake } from './CardExtras';
-import { audioChecksVersion, isAudioOk, onAudioChecks } from '../data/audioChecks';
+import { audioCheckOf, audioChecksVersion, isAudioWrong, onAudioChecks } from '../data/audioChecks';
 import {
   dictionaryLine,
   hasNotes,
@@ -161,10 +161,11 @@ function LearnDeck({ deck }: { deck: Deck }) {
     if (flipped) gotRef.current?.focus();
   }, [flipped]);
 
-  // Play the introduction's audio, when it has any.
+  // Play the introduction's audio, when it has any, unless the learner marked it wrong.
+  const introAudio = step?.type === 'intro' ? view?.form : undefined;
   useEffect(() => {
-    if (step?.type === 'intro' && view?.form?.audio_path) playAudio(view.form.audio_path);
-  }, [view?.key, step?.type, view?.form?.audio_path]);
+    if (introAudio?.audio_path && !isAudioWrong(introAudio.id)) playAudio(introAudio.audio_path);
+  }, [view?.key, introAudio?.audio_path, introAudio?.id]);
 
   // The next cards' audio downloads in the background, so it plays at once.
   useEffect(() => {
@@ -374,7 +375,7 @@ function CardArea({
   const isSamePlural = form === samePlural;
   const isIntro = step.type === 'intro';
   const audio = form.audio_path;
-  const audioOk = isAudioOk(form.id);
+  const audioCheck = audioCheckOf(form.id);
   const toggle = switchFor(item, form, cardChoices, (next) => {
     setSwitched({ key: view.key, formId: next.id });
     if (next.audio_path) playAudio(next.audio_path);
@@ -421,7 +422,7 @@ function CardArea({
             hint="Tap to reveal meaning"
             onFlip={onFlip}
             onSpeak={audio ? () => playAudio(audio) : undefined}
-            speakChecked={audio && !isMyWord(item) ? audioOk : undefined}
+            speakChecked={audio && !isMyWord(item) ? (audioCheck ?? 'unchecked') : undefined}
             toggle={toggle}
             flipRef={flipRef}
           />
@@ -469,7 +470,7 @@ function CardArea({
             </button>
           </div>
         )}
-        {!flipped && !isMyWord(item) ? <AudioCheck form={form} /> : null}
+        {!isMyWord(item) ? <AudioCheck form={form} /> : null}
         {(isIntro || flipped) && !isMyWord(item) ? (
           <ReportMistake item={item} form={form} module="learn" />
         ) : null}

@@ -30,10 +30,10 @@ export interface FlashcardProps {
   /** The play button shows only when this is set. */
   onSpeak?: () => void;
   /**
-   * Whether the recording has been confirmed as right (green) or not yet (grey); the play
-   * button keeps its usual colour when this isn't set.
+   * What the learner said about the recording: right (green), wrong (red) or nothing yet
+   * (gray); the play button keeps its usual colour when this isn't set.
    */
-  speakChecked?: boolean;
+  speakChecked?: 'ok' | 'wrong' | 'unchecked';
   /** A switch to another form of the word, such as its plural; shown when set. */
   toggle?: { label: string; onToggle: () => void };
   /** The front's flip button, for moving focus to a new card. */
@@ -71,7 +71,7 @@ function SpeakButton({
 }: {
   onSpeak?: () => void;
   hidden?: boolean;
-  checked?: boolean;
+  checked?: 'ok' | 'wrong' | 'unchecked';
 }) {
   if (!onSpeak) return null;
   return (
@@ -79,8 +79,9 @@ function SpeakButton({
       type="button"
       className={cx(
         'kn-reset-btn kn-flash-speak',
-        checked === true && 'kn-flash-speak-ok',
-        checked === false && 'kn-flash-speak-unchecked',
+        checked === 'ok' && 'kn-flash-speak-ok',
+        checked === 'wrong' && 'kn-flash-speak-wrong',
+        checked === 'unchecked' && 'kn-flash-speak-unchecked',
       )}
       onClick={onSpeak}
       aria-label="Play pronunciation"

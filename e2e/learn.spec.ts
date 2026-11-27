@@ -92,5 +92,5 @@ test('Learn comes in batches of 20 answers, each a blue block on the wall', asyn
   await expect(wall.getByRole('button')).toHaveCount(1);
   await expect(wall.getByRole('button')).toHaveAccessibleName('Learn batch 1: 20 of 20 right');
   await page.getByRole('button', { name: 'Another batch' }).click();
-  await expect(page.getByRole('button', { name: /Tap to reveal meaning|Next/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Tap to reveal meaning|^Next$/ })).toBeVisible();
 });

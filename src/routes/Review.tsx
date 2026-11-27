@@ -14,7 +14,7 @@ import type { AnswerResult } from '../engine/learn';
 import { TOP_STAGE, type ReviewSchedule } from '../engine/review';
 import { nextRoundSize, ROUND_SIZE, roundTime } from '../engine/rounds';
 import { AudioCheck, CardNotes, CardPicture, ReportMistake } from './CardExtras';
-import { isAudioOk, onAudioChecks } from '../data/audioChecks';
+import { audioCheckOf, isAudioWrong, onAudioChecks } from '../data/audioChecks';
 import {
   dictionaryLine,
   hasNotes,
@@ -89,9 +89,9 @@ export function Review() {
     if (flipped) gotRef.current?.focus();
   }, [flipped]);
 
-  // The front plays its audio, when it has any.
+  // The front plays its audio, when it has any, unless the learner marked it wrong.
   useEffect(() => {
-    if (card?.form.audio_path) playAudio(card.form.audio_path);
+    if (card?.form.audio_path && !isAudioWrong(card.form.id)) playAudio(card.form.audio_path);
   }, [card?.cardViewId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -386,7 +386,7 @@ function ReviewCardArea({
 }: ReviewCardAreaProps) {
   const { item, form } = card;
   const audio = form.audio_path;
-  const audioOk = useSyncExternalStore(onAudioChecks, () => isAudioOk(form.id));
+  const audioCheck = useSyncExternalStore(onAudioChecks, () => audioCheckOf(form.id));
   const round = view.round;
   // Cards still to come in this round after the one on screen, for the stack behind it.
   const after = round ? round.total - round.done - 1 : view.dueNow - 1;
@@ -428,7 +428,9 @@ function ReviewCardArea({
             hint="Tap to reveal meaning"
             onFlip={onFlip}
             onSpeak={audio ? () => playAudio(audio) : undefined}
-            speakChecked={audio && item.source !== 'learner' ? audioOk : undefined}
+            speakChecked={
+              audio && item.source !== 'learner' ? (audioCheck ?? 'unchecked') : undefined
+            }
             flipRef={flipRef}
           />
         </FlashcardDeck>
@@ -469,7 +471,7 @@ function ReviewCardArea({
             </button>
           </div>
         )}
-        {!flipped && item.source !== 'learner' ? <AudioCheck form={form} /> : null}
+        {item.source !== 'learner' ? <AudioCheck form={form} /> : null}
         {flipped && item.source !== 'learner' ? (
           <ReportMistake item={item} form={form} module="review" />
         ) : null}

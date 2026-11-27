@@ -1,9 +1,10 @@
 // Today's wall (decisions 202 and 204, learner feedback of 27 November): one block per Review
 // round and per batch of 20 Learn answers, five to a row, built up from the bottom left. A Review
 // block's colour is its share known, from red (0%) through yellow (50%) to green (100%); Learn
-// blocks are blue. Tapping a block shows how it went and the words missed.
+// blocks are blue. Tapping a block shows how it went and the words missed; tapping a gray one, the
+// rounds still to come.
 
-import { useState } from 'react';
+import { useState, type PointerEvent } from 'react';
 import type { WallBlock } from '../data/wall';
 import type { Forecast } from '../engine/rounds';
 
@@ -15,8 +16,22 @@ const LEARN_COLOUR = 'hsl(212 70% 52%)';
 /** A cell of the wall: a finished block, or a predicted round still to come. */
 type Cell = { block: number } | { predicted: 'soon' | 'later' };
 
+/** What a tapped or hovered cell describes: a finished block, or the predicted rounds of a kind. */
+type Shown = { block: number } | { predicted: 'soon' | 'later' };
+
+const same = (a: Shown | null, b: Shown) =>
+  a !== null &&
+  ('block' in a && 'block' in b
+    ? a.block === b.block
+    : 'predicted' in a && 'predicted' in b && a.predicted === b.predicted);
+
+const rounds = (n: number) => `${n} more ${n === 1 ? 'round' : 'rounds'}`;
+
 export function RoundWall({ blocks, forecast }: { blocks: WallBlock[]; forecast?: Forecast }) {
-  const [open, setOpen] = useState<number | null>(blocks.length - 1);
+  // Descriptions show only for the cell tapped, or the one under the pointer (learner feedback,
+  // 27 November: a cleaner finish screen).
+  const [open, setOpen] = useState<Shown | null>(null);
+  const [hover, setHover] = useState<Shown | null>(null);
   // Numbered within their kind: Round 3, Learn batch 2.
   const names = (() => {
     const seen = { review: 0, learn: 0 };
@@ -29,8 +44,12 @@ export function RoundWall({ blocks, forecast }: { blocks: WallBlock[]; forecast?
     b.kind === 'learn'
       ? `${names[i]}: ${b.known} of ${b.done} right`
       : `${names[i]}: ${pct(b)}% known`;
-  // Finished blocks first, then predicted rounds: dark grey for what is due now, light grey
-  // for later today, so finished blocks fill the grey ones up as the day goes on.
+  const sayPredicted = (kind: 'soon' | 'later') =>
+    kind === 'soon'
+      ? `About ${rounds(forecast?.soon ?? 0)} for what is due now`
+      : `About ${rounds(forecast?.later ?? 0)} for what comes due later today`;
+  // Finished blocks first, then predicted rounds: the darker gray for what is due now, the
+  // lighter for later today, so the wall fades out and finished blocks fill it as the day goes.
   const cells: Cell[] = [
     ...blocks.map((_, i) => ({ block: i })),
     ...Array.from({ length: forecast?.soon ?? 0 }, () => ({ predicted: 'soon' as const })),
@@ -38,7 +57,19 @@ export function RoundWall({ blocks, forecast }: { blocks: WallBlock[]; forecast?
   ];
   const rows: Cell[][] = [];
   for (let i = 0; i < cells.length; i += 5) rows.push(cells.slice(i, i + 5));
-  const shown = open === null ? null : blocks[open];
+  const current = hover ?? open;
+  const props = (cell: Shown, label: string) => ({
+    type: 'button' as const,
+    'aria-pressed': same(open, cell),
+    'aria-label': label,
+    onClick: () => setOpen(same(open, cell) ? null : cell),
+    // Only a mouse hovers: on a phone a tap would leave a hover behind.
+    onPointerEnter: (e: PointerEvent) => {
+      if (e.pointerType === 'mouse') setHover(cell);
+    },
+    onPointerLeave: () => setHover(null),
+  });
+  const shownBlock = current && 'block' in current ? blocks[current.block] : undefined;
   return (
     <div className="round-wall-wrap">
       <div className="round-wall" role="group" aria-label="Today’s rounds">
@@ -47,10 +78,10 @@ export function RoundWall({ blocks, forecast }: { blocks: WallBlock[]; forecast?
             {row.map((cell, k) => {
               if ('predicted' in cell)
                 return (
-                  <span
+                  <button
                     key={`p${k}`}
                     className={`round-block round-block-${cell.predicted}`}
-                    aria-hidden="true"
+                    {...props(cell, sayPredicted(cell.predicted))}
                   />
                 );
               const i = cell.block;
@@ -58,7 +89,6 @@ export function RoundWall({ blocks, forecast }: { blocks: WallBlock[]; forecast?
               return (
                 <button
                   key={i}
-                  type="button"
                   className="round-block"
                   style={{
                     background:
@@ -66,38 +96,28 @@ export function RoundWall({ blocks, forecast }: { blocks: WallBlock[]; forecast?
                         ? LEARN_COLOUR
                         : accuracyColour(b.done ? b.known / b.done : 0),
                   }}
-                  aria-pressed={open === i}
-                  aria-label={say(b, i)}
-                  title={say(b, i)}
-                  onClick={() => setOpen(open === i ? null : i)}
+                  {...props(cell, say(b, i))}
                 />
               );
             })}
           </div>
         ))}
       </div>
-      {forecast && forecast.soon + forecast.later > 0 ? (
-        <p className="body-small round-wall-legend">
-          {forecast.soon > 0
-            ? `Dark grey: about ${forecast.soon} more ${forecast.soon === 1 ? 'round' : 'rounds'} for what is due now`
-            : ''}
-          {forecast.soon > 0 && forecast.later > 0 ? '. ' : ''}
-          {forecast.later > 0
-            ? `Light grey: about ${forecast.later} more ${forecast.later === 1 ? 'round' : 'rounds'} due later today`
-            : ''}
-          .
-        </p>
+      {current && 'predicted' in current ? (
+        <div className="round-wall-detail body-small" aria-live="polite">
+          <p className="body-small-bold">{sayPredicted(current.predicted)}.</p>
+        </div>
       ) : null}
-      {shown ? (
+      {shownBlock && current && 'block' in current ? (
         <div className="round-wall-detail body-small" aria-live="polite">
           <p className="body-small-bold">
-            {shown.kind === 'learn'
-              ? say(shown, open!)
-              : `${names[open!]}: ${pct(shown)}% known (${shown.known} of ${shown.done})`}
+            {shownBlock.kind === 'learn'
+              ? say(shownBlock, current.block)
+              : `${names[current.block]}: ${pct(shownBlock)}% known (${shownBlock.known} of ${shownBlock.done})`}
           </p>
-          {shown.missed.length > 0 ? (
+          {shownBlock.missed.length > 0 ? (
             <ul>
-              {shown.missed.map((m, i) => (
+              {shownBlock.missed.map((m, i) => (
                 <li key={i}>
                   <span lang="rw">{m.text}</span>: {m.en}
                 </li>

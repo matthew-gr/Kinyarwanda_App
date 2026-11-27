@@ -387,7 +387,8 @@
   color: var(--green-on-card);
   background: color-mix(in srgb, var(--green-on-card) 18%, transparent);
 }
-/* Not yet confirmed as right: grey; confirmed: green (decision 205). After the deck colours. */
+/* Not checked yet: gray; sounds right: green; sounds wrong: red (decisions 205 and 207). After
+   the deck colours. */
 .kn-flash-speak.kn-flash-speak-unchecked {
   --speak-unchecked: #8a9099;
   color: var(--speak-unchecked);
@@ -404,6 +405,15 @@
 .kn-flash-green .kn-flash-speak.kn-flash-speak-ok {
   --speak-ok: #52c47e;
   color: #0b2a17;
+}
+.kn-flash-speak.kn-flash-speak-wrong {
+  --speak-wrong: #c0392b;
+  color: #ffffff;
+  background: var(--speak-wrong);
+}
+.kn-flash-green .kn-flash-speak.kn-flash-speak-wrong {
+  --speak-wrong: #e8664f;
+  color: #2a0b07;
 }
 .kn-flash-phonetic {
   margin: 12px 0 0;

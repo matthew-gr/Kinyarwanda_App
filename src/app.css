@@ -1845,28 +1845,15 @@ textarea.field-input {
   height: 20px;
 }
 
-/* The wall's predicted rounds (decision 205): dark grey for now, light grey for later today. */
-.round-block-soon,
-.round-block-later {
-  cursor: default;
-  border-style: dashed;
-}
-
+/* The wall's predicted rounds (decisions 205 and 207): gray, fading from the finished blocks to
+   what is due now, then lighter for what comes due later today. Mixed from the page's own ink
+   and surface, so they suit light and dark mode alike. */
 .round-block-soon {
-  --wall-soon: #6b7280;
-  background: var(--wall-soon);
-  border-color: var(--wall-soon);
+  background: color-mix(in srgb, var(--ink) 30%, var(--surface));
 }
 
 .round-block-later {
-  --wall-later: #d1d5db;
-  background: var(--wall-later);
-  border-color: #9ca3af;
-}
-
-.round-wall-legend {
-  margin: 0;
-  text-align: center;
+  background: color-mix(in srgb, var(--ink) 13%, var(--surface));
 }
 
 /* Review: take the last answer back (decision 205). */

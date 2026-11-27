@@ -17,7 +17,7 @@ export function AchievementCard({
   lines?: ReactNode[];
   icon?: IconName;
   tone?: 'orange' | 'green' | 'blue';
-  /** Greys the title, for a badge not earned yet. */
+  /** Grays the title, for a badge not earned yet. */
   muted?: boolean;
   className?: string;
 }) {
