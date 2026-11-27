@@ -211,3 +211,8 @@ message. Every message is also kept in the `feedback` table in Supabase.
 > On verb had this hint: "Stem -guruk-; The stem of the verb kuguruka, which its other forms are built on.; Words you’ve learned with it:; kugura: to buy; ukuguru: leg, foot" I replaced line breaks with semicolons. Are you sure that these words have the same stem? If not, fix this and other words' hints.
 >
 > Try to find memorization hints for each word's stem and add them to this description. For example, by finding similarities to English words and building a sentence that connects this similar word to the meaning of the Kinyarwanda word. Let the user in his profile toggle if he speaks Swahili and German. If so, add hints that do the same in these languages, if possible.
+
+### 2026-11-27 14:04 UTC · Learn · 0.13.0+87cc917
+<!-- feedback:d3b39fcb-07c4-4aea-a02e-4c6f565484b9 -->
+
+> Make the blue block only blue if 100 % answers were right. For 0 %, make it red. Interpolate.
