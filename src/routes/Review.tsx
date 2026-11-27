@@ -12,7 +12,7 @@ import {
 } from '../data/reviewSession';
 import type { AnswerResult } from '../engine/learn';
 import { TOP_STAGE, type ReviewSchedule } from '../engine/review';
-import { nextRoundSize, roundTime } from '../engine/rounds';
+import { nextRoundSize, ROUND_SIZE, roundTime } from '../engine/rounds';
 import { CardNotes, CardPicture, ReportMistake } from './CardExtras';
 import {
   dictionaryLine,
@@ -97,16 +97,20 @@ export function Review() {
   // With nothing due, check again when the next item comes due, and start a round with it. Due
   // times live in storage; this timer only wakes the screen. A finished round with more waiting
   // stays on its finish screen until the learner asks for the next.
+  // A round waiting for 20 cards to be due wakes the screen when they are: a finished round's
+  // screen then offers the next one, and an idle screen starts it.
   const idle = !card && (!view?.round || (view.round.finished && view.waiting === 0));
-  const nextDueAt = idle ? (view?.counts.nextDueAt ?? null) : null;
+  const gateAt = !card && view && !view.gate.open ? view.gate.opensAt : null;
+  const nextDueAt = gateAt ?? (idle ? (view?.counts.nextDueAt ?? null) : null);
   useEffect(() => {
     if (!session || nextDueAt === null) return;
     const wait = Math.min(Math.max(0, nextDueAt - Date.now()) + 250, MAX_WAIT_MS);
     const t = setTimeout(() => {
-      void session.newRound().then(() => setView(session.view()));
+      if (idle) void session.newRound().then(() => setView(session.view()));
+      else setView(session.view());
     }, wait);
     return () => clearTimeout(t);
-  }, [session, nextDueAt]);
+  }, [session, nextDueAt, idle]);
 
   const nextRound = useCallback(async () => {
     if (!session) return;
@@ -216,6 +220,26 @@ function Caught({
       </section>
     );
   }
+  const due = counts.overdue + counts.dueNow;
+  if (due > 0 && !view.gate.open && view.gate.opensAt !== null) {
+    return (
+      <section className="learn-done" aria-labelledby="review-soon">
+        <h2 id="review-soon" className="h2-bold">
+          Next round soon
+        </h2>
+        <p className="body">
+          {due} due now. A round starts when {ROUND_SIZE} are due, in{' '}
+          {waitInWords(view.gate.opensAt - Date.now())}.
+        </p>
+        {view.pace.reviewedToday > 0 ? (
+          <p className="body">{view.pace.reviewedToday} reviewed today.</p>
+        ) : null}
+        <button type="button" className="btn btn-primary" onClick={onHome}>
+          Back to Home
+        </button>
+      </section>
+    );
+  }
   return (
     <section className="learn-done" aria-labelledby="review-caught">
       <h2 id="review-caught" className="h2-bold">
@@ -319,7 +343,17 @@ function RoundDone({
         {round.done} reviewed, {round.known} known. {pace.reviewedToday} reviewed today.
       </p>
       {view.today.length > 0 ? <RoundWall rounds={view.today} /> : null}
-      {waiting > 0 ? (
+      {waiting > 0 && !view.gate.open && view.gate.opensAt !== null ? (
+        <>
+          <p className="body">
+            {waiting} due now. The next round starts when {ROUND_SIZE} are due, in{' '}
+            {waitInWords(view.gate.opensAt - Date.now())}.
+          </p>
+          <button ref={nextRef} type="button" className="btn btn-primary" onClick={onHome}>
+            Back to Home
+          </button>
+        </>
+      ) : waiting > 0 ? (
         <>
           <p className="body">
             Next round: {nextRoundSize(waiting)} cards,{' '}

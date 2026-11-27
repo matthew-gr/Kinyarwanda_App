@@ -4,6 +4,8 @@ import {
   DEFAULT_SECONDS_PER_CARD,
   ROUND_SIZE,
   nextRoundSize,
+  roundGate,
+  endOfDay,
   roundTime,
   secondsPerCard,
   startRound,
@@ -65,5 +67,34 @@ describe('review rounds', () => {
     expect(roundTime(2, 5)).toBe('about 1 min');
     expect(nextRoundSize(152)).toBe(20);
     expect(nextRoundSize(7)).toBe(7);
+  });
+});
+
+describe('when a round can start', () => {
+  const now = new Date(2026, 10, 27, 10).getTime();
+  const end = new Date(2026, 10, 27, 23, 59, 59, 999).getTime();
+  const at = (minutes: number) => now + minutes * 60_000;
+
+  it('opens with a full round due', () => {
+    const due = Array.from({ length: 20 }, (_, i) => at(-i));
+    expect(roundGate(due, now, end)).toEqual({ open: true, opensAt: null });
+  });
+
+  it('waits for 20 when more are coming today, and says when', () => {
+    const due = [
+      ...Array.from({ length: 5 }, () => at(-1)),
+      ...Array.from({ length: 30 }, (_, i) => at(10 + i)),
+    ];
+    expect(roundGate(due, now, end)).toEqual({ open: false, opensAt: at(24) });
+  });
+
+  it('opens with fewer when fewer than 20 are due by the end of today', () => {
+    const due = [at(-1), at(-2), at(60), at(24 * 60)];
+    expect(roundGate(due, now, end)).toEqual({ open: true, opensAt: null });
+  });
+
+  it('is closed with nothing due', () => {
+    expect(roundGate([at(5)], now, end)).toEqual({ open: false, opensAt: null });
+    expect(endOfDay(now)).toBe(end);
   });
 });

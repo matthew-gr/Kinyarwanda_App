@@ -11,6 +11,16 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '0.6.0',
+    date: '2026-11-27',
+    changes: [
+      'Review: a round starts when 20 cards are due. With fewer due, Review says when the round starts, unless fewer than 20 are due by the end of the day.',
+      'Review: the wall is centred, and it shows missed words in the form you saw them.',
+      'After 25 minutes of practice without a break, the app suggests a short break.',
+      'Home: how many you’ve reviewed today has its own line.',
+    ],
+  },
+  {
     version: '0.5.0',
     date: '2026-11-27',
     changes: [

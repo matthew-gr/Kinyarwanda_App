@@ -1,5 +1,6 @@
 // Repositories: the only code that reads and writes IndexedDB.
 
+import { endOfDay, roundGate, type RoundGate } from '../engine/rounds';
 import { loadReviewPace, type ReviewPace } from './reviewPace';
 import { createLearnState, learnConfigFor, reconcileOrder, type Deck } from '../engine/learn';
 import { dueCounts, type DueCounts } from '../engine/review';
@@ -140,6 +141,8 @@ export interface HomeStats {
   review: DueCounts;
   /** Reviews done today and seconds per card, for the round's time (decision 201). */
   pace: ReviewPace;
+  /** Whether a review round can start now, or when it will (20 due). */
+  gate: RoundGate;
   /** The topic chosen on the Topics screen, by its label, if any. */
   topic: string | null;
   /** The learner's own words (decision 185): on the list, and in Review. */
@@ -200,6 +203,11 @@ export async function loadHomeStats(now: number, d: KinyaDb = db): Promise<HomeS
       now,
     ),
     pace,
+    gate: roundGate(
+      reviews.map((r) => Date.parse(r.due_at)),
+      now,
+      endOfDay(now),
+    ),
   };
 }
 

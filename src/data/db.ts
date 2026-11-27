@@ -65,6 +65,8 @@ export interface FinishedRound {
   done: number;
   known: number;
   missed: string[];
+  /** The forms shown when missed, in the same order; absent on rounds saved before 0.6.0. */
+  missed_forms?: string[];
 }
 
 /** A round of Review: the items chosen when it started, and how it is going. */
@@ -74,6 +76,8 @@ export interface ReviewRound {
   known: number;
   /** Items answered I didn't; absent on rounds saved before decision 202. */
   missed?: string[];
+  /** The form each missed item was shown in, in the same order. */
+  missed_forms?: string[];
 }
 
 /** Where sync has got to. One row, id "main". */

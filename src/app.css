@@ -1787,6 +1787,9 @@ textarea.field-input {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  /* Centred as a block of five columns; a part-filled top row still starts at the left. */
+  width: max-content;
+  margin-inline: auto;
 }
 
 .round-wall-row {
@@ -1821,4 +1824,10 @@ textarea.field-input {
 
 .round-wall-detail p {
   margin: 0;
+}
+
+/* The break reminder sits at the top, clear of the answer buttons at the bottom. */
+.break-banner {
+  top: calc(var(--space-16) + env(safe-area-inset-top, 0px));
+  bottom: auto;
 }

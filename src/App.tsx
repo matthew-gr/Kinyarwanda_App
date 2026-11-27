@@ -27,6 +27,7 @@ import { Search } from './routes/Search';
 import { SpeedSpeaking } from './routes/SpeedSpeaking';
 import { Stories, StoryReader } from './routes/Stories';
 import { DebugDot } from './routes/DebugMode';
+import { BreakReminder } from './routes/BreakReminder';
 import { Changelog } from './routes/Changelog';
 import { Placement } from './routes/Placement';
 import { StreakFreezeNotice } from './routes/StreakFreezeNotice';
@@ -79,6 +80,7 @@ export function App() {
     <>
       <UpdateBanner />
       <DebugDot />
+      <BreakReminder />
       <AccessGate>
         <BrowserRouter>
           <Routes>

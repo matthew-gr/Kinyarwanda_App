@@ -40,8 +40,25 @@ export async function saveActivity(d: KinyaDb = db): Promise<void> {
   });
 }
 
+/** A gap this long without practice is a break; the break reminder counts from after it. */
+export const BREAK_GAP_MS = 5 * 60_000;
+/** When the current stretch of practice began, and when the learner last did anything. */
+let stretchStart: number | null = null;
+let lastActive: number | null = null;
+
+/**
+ * How long the learner has been practising without a break of BREAK_GAP_MS or more, for the
+ * break reminder (learner feedback, 27 November 2026). 0 once such a gap has passed.
+ */
+export function practisingFor(now: number): number {
+  if (lastActive === null || stretchStart === null || now - lastActive >= BREAK_GAP_MS) return 0;
+  return now - stretchStart;
+}
+
 /** Counts a tap or key press at `now`. Exposed for tests; the listeners call it. */
 export function recordInteraction(now: number): void {
+  if (lastActive === null || now - lastActive >= BREAK_GAP_MS) stretchStart = now;
+  lastActive = now;
   const out = interact(tracker, now);
   tracker = out.tracker;
   for (const { day, ms } of out.credit) pending.set(day, (pending.get(day) ?? 0) + ms);

@@ -70,3 +70,35 @@ export function roundTime(cards: number, perCard: number): string {
 
 /** The size of the next round when `due` cards are due. */
 export const nextRoundSize = (due: number, size = ROUND_SIZE) => Math.min(due, size);
+
+/** Whether a round can start now (learner feedback, 27 November 2026). */
+export interface RoundGate {
+  open: boolean;
+  /** When ROUND_SIZE cards will be due, if the round has to wait for them. */
+  opensAt: number | null;
+}
+
+/**
+ * A round starts when a full round is due, so reviewing a handful at a time isn't encouraged;
+ * or with fewer, when fewer than a full round are due by the end of today anyway.
+ */
+export function roundGate(
+  dueAt: readonly number[],
+  now: number,
+  endOfDay: number,
+  size = ROUND_SIZE,
+): RoundGate {
+  const due = dueAt.filter((t) => t <= now).length;
+  if (due === 0) return { open: false, opensAt: null };
+  if (due >= size) return { open: true, opensAt: null };
+  const today = [...dueAt].filter((t) => t <= endOfDay).sort((a, b) => a - b);
+  if (today.length < size) return { open: true, opensAt: null };
+  return { open: false, opensAt: today[size - 1]! };
+}
+
+/** The end of the local day of `now`. */
+export function endOfDay(now: number): number {
+  const d = new Date(now);
+  d.setHours(23, 59, 59, 999);
+  return d.getTime();
+}

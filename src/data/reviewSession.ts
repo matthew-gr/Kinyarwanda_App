@@ -14,7 +14,7 @@ import {
   type DueCounts,
   type ReviewSchedule,
 } from '../engine/review';
-import { startRound } from '../engine/rounds';
+import { endOfDay, roundGate, startRound, type RoundGate } from '../engine/rounds';
 import type { Item, ItemForm } from '../engine/types';
 import { db, type KinyaDb, type ReviewItem, type ReviewRound, type ReviewSessionRow } from './db';
 import { loadReviewPace, type ReviewPace } from './reviewPace';
@@ -65,6 +65,8 @@ export interface ReviewView {
   pace: ReviewPace;
   /** The rounds finished today on this device, oldest first. */
   today: WallRound[];
+  /** Whether the next round can start now, or when it will (20 due, or the day's last few). */
+  gate: RoundGate;
 }
 
 export interface ReviewOutcome {
@@ -140,6 +142,14 @@ export class ReviewSession {
     });
   }
 
+  /** Whether a new round can start at `now` (engine/rounds.ts, roundGate). */
+  private gate(now: number): RoundGate {
+    const times = [...this.reviews.values()]
+      .filter((r) => this.itemsById.has(r.item_id))
+      .map((r) => Date.parse(r.due_at));
+    return roundGate(times, now, endOfDay(now));
+  }
+
   /** Adds the round to today's wall once its last card is answered, and saves that. */
   private async recordIfFinished(now: number): Promise<void> {
     const round = this.session.round;
@@ -150,6 +160,7 @@ export class ReviewSession {
       done: round.answered.length,
       known: round.known,
       missed: round.missed ?? [],
+      missed_forms: round.missed_forms ?? [],
     };
     this.session = { ...this.session, today: { day, rounds: [...before, finished] } };
     await saveReviewCard(this.session, null, this.d);
@@ -216,12 +227,16 @@ export class ReviewSession {
         : null,
       waiting: Math.max(0, dueNow - leftWithCard),
       pace: this.pace,
+      gate: this.gate(now),
       today:
         this.session.today?.day === dayKey(now)
           ? this.session.today.rounds.map((r) => ({
               done: r.done,
               known: r.known,
-              missed: r.missed.flatMap((id) => {
+              // In the form shown when missed; older rounds only kept the item.
+              missed: r.missed.flatMap((id, k) => {
+                const form = this.forms.find((f) => f.id === r.missed_forms?.[k]);
+                if (form) return [{ text: form.text, en: form.en }];
                 const it = this.itemsById.get(id);
                 return it ? [{ text: it.base, en: it.en }] : [];
               }),
@@ -274,6 +289,10 @@ export class ReviewSession {
               result === 'missed'
                 ? [...(this.session.round.missed ?? []), card.item_id]
                 : (this.session.round.missed ?? []),
+            missed_forms:
+              result === 'missed'
+                ? [...(this.session.round.missed_forms ?? []), card.form_id]
+                : (this.session.round.missed_forms ?? []),
           }
         : null;
       const session: ReviewSessionRow = {
@@ -317,7 +336,7 @@ export class ReviewSession {
     const now = this.clock.now();
     // A new round when none is on, from everything due now. A finished round stays on screen
     // until the learner asks for the next one (newRound).
-    if (!this.session.round) {
+    if (!this.session.round && this.gate(now).open) {
       const due = [...this.reviews.values()].filter(
         (r) => this.itemsById.has(r.item_id) && Date.parse(r.due_at) <= now,
       );

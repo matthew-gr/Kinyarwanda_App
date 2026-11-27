@@ -12,7 +12,6 @@ import { OPEN_AT_IN_REVIEW } from '../engine/quickRecall';
 import { dueRepeats } from '../engine/stories';
 import type { DueCounts } from '../engine/review';
 import { nextRoundSize, roundTime } from '../engine/rounds';
-import type { ReviewPace } from '../data/reviewPace';
 import { waitInWords } from './cardText';
 import { ModuleCarousel, type ModuleCard } from './ModuleCarousel';
 import { useProgressVersion } from './useProgressVersion';
@@ -21,31 +20,29 @@ import { useProgressVersion } from './useProgressVersion';
  * The next review round and its time, with the whole pile only in small print (decision 201),
  * or, with nothing due, when the next card is and how many were reviewed today.
  */
-function reviewSubtitle(c: DueCounts, pace: ReviewPace, now: number): string {
+function reviewSubtitle(stats: HomeStats, now: number): string {
+  const c = stats.review;
   const due = c.overdue + c.dueNow;
+  if (due > 0 && !stats.gate.open && stats.gate.opensAt !== null)
+    return `${due} due · next round in ${waitInWords(stats.gate.opensAt - now)}`;
   if (due > 0) {
     const size = nextRoundSize(due);
-    const round = `Round of ${size} · ${roundTime(size, pace.secondsPerCard)}`;
+    const round = `Round of ${size} · ${roundTime(size, stats.pace.secondsPerCard)}`;
     return due > size ? `${round} · ${due} waiting` : round;
   }
   if (c.total === 0) return 'Opens when you learn your first word';
-  const today = pace.reviewedToday > 0 ? ` · ${pace.reviewedToday} reviewed today` : '';
-  if (c.nextDueAt !== null)
-    return `All caught up · next in ${waitInWords(c.nextDueAt - now)}${today}`;
-  return `All caught up${today}`;
+  if (c.nextDueAt !== null) return `All caught up · next in ${waitInWords(c.nextDueAt - now)}`;
+  return 'All caught up';
 }
 
-/** The banner's review line: the next round's time, and what was done today. */
-function reviewLine(stats: HomeStats): string {
+/** The banner's review line: the next round and its time, or when it opens. */
+function reviewLine(stats: HomeStats, now: number): string {
   const due = stats.review.overdue + stats.review.dueNow;
-  const today = stats.pace.reviewedToday;
-  if (due > 0) {
-    const time = roundTime(nextRoundSize(due), stats.pace.secondsPerCard);
-    return today > 0
-      ? `Next review round: ${time} · ${today} reviewed today`
-      : `Next review round: ${time}`;
-  }
-  return today > 0 ? `${today} reviewed today, all caught up` : 'No reviews due';
+  if (due > 0 && !stats.gate.open && stats.gate.opensAt !== null)
+    return `Next review round in ${waitInWords(stats.gate.opensAt - now)}`;
+  if (due > 0)
+    return `Next review round: ${roundTime(nextRoundSize(due), stats.pace.secondsPerCard)}`;
+  return 'No reviews due';
 }
 
 /** Overdue, due now, later today, tomorrow and the total, as the spec lists them. */
@@ -213,7 +210,10 @@ export function Home() {
         title="Start Learning today"
         subtitle={
           <>
-            <span className="hero-line">{stats ? reviewLine(stats) : ' '}</span>
+            <span className="hero-line">{stats ? reviewLine(stats, now) : ' '}</span>
+            {stats && stats.pace.reviewedToday > 0 ? (
+              <span className="hero-line">{stats.pace.reviewedToday} reviewed today</span>
+            ) : null}
             <span className="hero-line">
               {today >= goal
                 ? `Goal reached: ${today} learned today`
@@ -283,7 +283,7 @@ export function Home() {
         <PracticeRow
           title="Review"
           tone="yellow"
-          subtitle={stats ? reviewSubtitle(stats.review, stats.pace, now) : ' '}
+          subtitle={stats ? reviewSubtitle(stats, now) : ' '}
           onClick={() => navigate('/review')}
         />
       </div>

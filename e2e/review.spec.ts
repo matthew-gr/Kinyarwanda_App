@@ -147,7 +147,51 @@ test('Rounds: a big pile is reviewed 20 at a time, and Learn suggests a round fi
 
   await page.goto('/');
   await expect(reviewRow(page)).toContainText(/Round of 20 · about \d+ min · 100 waiting/);
+  await expect(page.getByText(/Next review round: about \d+ min/)).toBeVisible();
+  await expect(page.getByText('20 reviewed today', { exact: true })).toBeVisible();
+});
+
+test('A round waits until 20 are due when more are coming today', async ({ page }) => {
+  await page.goto('/');
+  await expect(reviewRow(page)).toContainText('Opens when you learn your first word');
+  // 5 due now, and 30 more due over the next hour.
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve, reject) => {
+        const open = indexedDB.open('kinyarwanda');
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+          const tx = open.result.transaction(['items', 'review_items'], 'readwrite');
+          const items = tx.objectStore('items').getAll();
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+          items.onsuccess = () => {
+            const words = (items.result as { id: string; kind: string; rank: number }[])
+              .filter((i) => i.kind === 'word')
+              .sort((a, b) => a.rank - b.rank)
+              .slice(0, 35);
+            words.forEach((w, k) => {
+              const due = new Date(Date.now() + (k < 5 ? -60_000 : (k - 4) * 2 * 60_000));
+              tx.objectStore('review_items').put({
+                item_id: w.id,
+                stage: 4,
+                recheck_step: 0,
+                due_at: due.toISOString(),
+                created_at: due.toISOString(),
+                updated_at: due.toISOString(),
+                last_form_id: null,
+              });
+            });
+          };
+        };
+      }),
+  );
+  await page.reload();
+  await expect(reviewRow(page)).toContainText(/5 due · next round in \d+ minutes/);
+  await reviewRow(page).click();
+  await expect(page.getByRole('heading', { name: 'Next round soon' })).toBeVisible();
   await expect(
-    page.getByText(/Next review round: about \d+ min · 20 reviewed today/),
+    page.getByText(/5 due now\. A round starts when 20 are due, in \d+ minutes\./),
   ).toBeVisible();
+  await expect(page.locator('[data-card]')).toHaveCount(0);
 });
