@@ -107,3 +107,8 @@ message. Every message is also kept in the `feedback` table in Supabase.
 <!-- feedback:17a657e5-99a6-459c-a5f1-27c02eaefabe -->
 
 > Add a debugging mode that can be toggled on and of in the profile. If debugging is on, show when the time in the app is counted and when it is not counted. For example, by a green/red dot at the corner of the screen.
+
+### 2026-11-27 07:47 UTC · Verb Builder · 0.4.0+1d8a852
+<!-- feedback:5f3f8f14-851b-4e47-b3fe-83774c4dd719 -->
+
+> I am stuck at 93/96 mastered words. When debugging is turned on and the user hovers over "93 of 96 mastered", show which words have not been mastered yet and what is missing until they will be mastered.
