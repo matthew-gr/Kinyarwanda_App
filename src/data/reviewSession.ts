@@ -103,6 +103,8 @@ export class ReviewSession {
     eventId: string;
     at: number;
     finishedRound: boolean;
+    /** The finished round's synced score, when this answer finished one (decision 208). */
+    roundScoreId: string | null;
     review: ReviewItem;
     session: ReviewSessionRow;
     pace: ReviewPace;
@@ -199,6 +201,27 @@ export class ReviewSession {
       now,
     );
     return true;
+  }
+
+  /**
+   * Keeps the finished round in the synced drill scores, so every device can count perfect
+   * rounds towards streak freezes (decision 208). Returns the score's ID.
+   */
+  private async saveRoundScore(now: number): Promise<string> {
+    const round = this.session.round!;
+    const id = this.rng.uuid();
+    await this.d.drill_scores.put({
+      id,
+      drill: 'review_round',
+      level: 1,
+      played_at: new Date(now).toISOString(),
+      answers: round.answered.length,
+      correct: round.known,
+      median_ms: null,
+      best_countdown_ms: null,
+      synced: 0,
+    });
+    return id;
   }
 
   /** Starts the next round from what is due now, when the last one is finished or none is on. */
@@ -348,7 +371,8 @@ export class ReviewSession {
       this.session = session;
       this.pace = { ...this.pace, reviewedToday: this.pace.reviewedToday + 1 };
       const finishedRound = this.recordIfFinished(now);
-      this.last = { eventId, at: now, finishedRound, ...before };
+      const roundScoreId = finishedRound ? await this.saveRoundScore(now) : null;
+      this.last = { eventId, at: now, finishedRound, roundScoreId, ...before };
       answerSaved.emit();
       await this.advance();
       return { counted: true, schedule };
@@ -379,12 +403,17 @@ export class ReviewSession {
     try {
       const undone = await this.d.transaction(
         'rw',
-        [this.d.answer_events, this.d.review_items, this.d.review_session],
+        [this.d.answer_events, this.d.review_items, this.d.review_session, this.d.drill_scores],
         async () => {
           const event = await this.d.answer_events.get(last.eventId);
           // Gone, uploaded or on its way up meanwhile: it stays.
           if (!event || event.synced || isUploading(event.id)) return false;
           await this.d.answer_events.delete(last.eventId);
+          // The round it finished is unfinished again. Its score goes too, unless uploaded.
+          if (last.roundScoreId) {
+            const score = await this.d.drill_scores.get(last.roundScoreId);
+            if (score && !score.synced) await this.d.drill_scores.delete(score.id);
+          }
           await this.d.review_items.put(last.review);
           await this.d.review_session.put(last.session);
           return true;

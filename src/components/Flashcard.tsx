@@ -34,6 +34,8 @@ export interface FlashcardProps {
    * (gray); the play button keeps its usual colour when this isn't set.
    */
   speakChecked?: 'ok' | 'wrong' | 'unchecked';
+  /** The word as the back shows it, such as in its coloured pieces; `word` when unset. */
+  backWord?: ReactNode;
   /** A switch to another form of the word, such as its plural; shown when set. */
   toggle?: { label: string; onToggle: () => void };
   /** The front's flip button, for moving focus to a new card. */
@@ -106,6 +108,7 @@ export function Flashcard({
   onFlip,
   onSpeak,
   speakChecked,
+  backWord,
   toggle,
   flipRef,
   className,
@@ -129,7 +132,7 @@ export function Flashcard({
           ) : null}
           <SpeakButton onSpeak={onSpeak} checked={speakChecked} />
           <div className="kn-flash-center">
-            <p className="kn-flash-word flash-word">{word}</p>
+            <p className="kn-flash-word flash-word">{backWord ?? word}</p>
             {phonetic ? <p className="kn-flash-phonetic phonetic">{phonetic}</p> : null}
             <SwitchButton toggle={toggle} />
             {picture ? <div className="kn-flash-picture">{picture}</div> : null}
@@ -182,7 +185,7 @@ export function Flashcard({
             </Badge>
           ) : null}
           <div className="kn-flash-center">
-            <p className="kn-flash-backword flash-word">{word}</p>
+            <p className="kn-flash-backword flash-word">{backWord ?? word}</p>
             <SwitchButton toggle={toggle} hidden={!isBack} />
             {picture ? <div className="kn-flash-picture">{picture}</div> : null}
             <span className="kn-flash-rule" />

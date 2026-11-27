@@ -4,7 +4,8 @@
 
 import { pickOne, type Rng } from './random';
 
-export type DrillKind = 'speed_speaking' | 'number_listening' | 'quick_recall';
+/** `review_round`: a finished Review round, kept for streak freezes (decision 208). */
+export type DrillKind = 'speed_speaking' | 'number_listening' | 'quick_recall' | 'review_round';
 
 /** Each session runs about 2 minutes. */
 export const SESSION_MS = 120_000;

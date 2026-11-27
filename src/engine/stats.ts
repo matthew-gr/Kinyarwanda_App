@@ -106,41 +106,90 @@ export interface Streak {
    * the learner has not been back since the freeze saved their streak. Otherwise null.
    */
   freshFreeze: string | null;
+  /** Streak freezes in hand now (decision 208). */
+  freezes: number;
+  /** Perfect rounds of FREEZE_ROUND in a row since the last freeze earned. */
+  perfectInARow: number;
+  /** Perfect rounds in a row the next freeze takes: one more than the freezes in hand. */
+  nextFreezeAfter: number;
+  /** When the round that earned the latest freeze finished, or null. */
+  lastEarnedAt: number | null;
 }
 
+/** A finished Review round, as the answer log's companion `drill_scores` keeps it. */
+export interface RoundScore {
+  /** When it finished, epoch milliseconds. */
+  at: number;
+  answers: number;
+  correct: number;
+}
+
+/** Only a full round of this many cards counts towards a streak freeze. */
+export const FREEZE_ROUND = 20;
+
 /**
- * Any answer, in Learn or Review, keeps the day. Once a week (Monday to Sunday), a single day
- * without practice is covered by a streak freeze: the streak carries on, but the frozen day
- * does not add to it. Two days in a row without practice, or a second such day in the same
- * week, break the streak.
- * Freezes are worked out from the practice days alone, so every device agrees on them.
+ * Any answer, in Learn or Review, keeps the day. A day without practice uses a streak freeze
+ * if there is one: the streak carries on, but the frozen day does not add to it. With none, the
+ * streak breaks.
+ *
+ * Freezes (decision 208; learner feedback of 27 November): one free each week, on its Monday
+ * (or the first day practised), unless one is still in hand. And one more for every run of
+ * perfect full rounds in a row, where the next freeze takes one more perfect round than the
+ * freezes in hand: 1 for the first, 2 in a row for the second, 7 in a row for the seventh. A
+ * full round with a miss starts the run again; a shorter round doesn't count either way.
+ * Worked out from the practice days and the synced rounds alone, so every device agrees.
  */
-export function dayStreak(activeDays: Iterable<string>, now: number): Streak {
+export function dayStreak(
+  activeDays: Iterable<string>,
+  now: number,
+  rounds: readonly RoundScore[] = [],
+): Streak {
   const active = new Set(activeDays);
   const today = dayKey(now);
   const practicedToday = active.has(today);
 
-  // Walk every day from the first practice up to yesterday; today is not over yet.
-  const first = [...active].filter((d) => d < today).sort()[0];
-  const frozenWeeks = new Set<string>();
+  const roundsByDay = new Map<string, RoundScore[]>();
+  for (const r of [...rounds].sort((a, b) => a.at - b.at)) {
+    if (r.answers < FREEZE_ROUND || r.at > now) continue;
+    const day = dayKey(r.at);
+    roundsByDay.set(day, [...(roundsByDay.get(day) ?? []), r]);
+  }
+
+  // Walk every day from the first practice up to today; today is not over yet, so it can't
+  // need a freeze, but its rounds can earn one.
+  const first = [...active, ...roundsByDay.keys()].filter((d) => d <= today).sort()[0];
   let run = 0;
   let best = 0;
   let frozenDays: string[] = [];
-  for (let day = first; day !== undefined && day < today; day = shiftDay(day, 1)) {
-    if (active.has(day)) {
-      run++;
-    } else if (
-      run > 0 &&
-      frozenDays.at(-1) !== shiftDay(day, -1) &&
-      !frozenWeeks.has(weekOf(day))
-    ) {
-      frozenWeeks.add(weekOf(day));
-      frozenDays.push(day);
-    } else {
-      run = 0;
-      frozenDays = [];
+  let bank = 0;
+  let chain = 0;
+  let lastEarnedAt: number | null = null;
+  for (let day = first; day !== undefined && day <= today; day = shiftDay(day, 1)) {
+    if ((day === first || weekOf(day) === day) && bank === 0) bank = 1;
+    if (day < today) {
+      if (active.has(day)) {
+        run++;
+      } else if (run > 0 && bank > 0) {
+        bank--;
+        frozenDays.push(day);
+      } else {
+        run = 0;
+        frozenDays = [];
+      }
+      best = Math.max(best, run);
     }
-    best = Math.max(best, run);
+    for (const r of roundsByDay.get(day) ?? []) {
+      if (r.correct < r.answers) {
+        chain = 0;
+        continue;
+      }
+      chain++;
+      if (chain >= bank + 1) {
+        bank++;
+        chain = 0;
+        lastEarnedAt = r.at;
+      }
+    }
   }
 
   const current = practicedToday ? run + 1 : run;
@@ -153,6 +202,10 @@ export function dayStreak(activeDays: Iterable<string>, now: number): Streak {
     practicedToday,
     frozenDays: current > 0 ? frozenDays : [],
     freshFreeze: lastFrozen !== undefined && !practicedSince ? lastFrozen : null,
+    freezes: bank,
+    perfectInARow: chain,
+    nextFreezeAfter: bank + 1,
+    lastEarnedAt,
   };
 }
 

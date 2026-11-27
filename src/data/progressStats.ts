@@ -12,6 +12,7 @@ import {
   reviewAccuracy,
   type BadgeState,
   type DayActivity,
+  type RoundScore,
   type Streak,
 } from '../engine/stats';
 import { db, type KinyaDb } from './db';
@@ -44,17 +45,29 @@ async function loadLog(d: KinyaDb): Promise<LogEvent[]> {
   }));
 }
 
+/** Finished Review rounds, for streak freezes (decision 208). */
+async function loadRounds(d: KinyaDb): Promise<RoundScore[]> {
+  const rows = await d.drill_scores.where('drill').equals('review_round').toArray();
+  return rows.map((r) => ({ at: Date.parse(r.played_at), answers: r.answers, correct: r.correct }));
+}
+
 /** Days with any practice, for the day streak. */
 const practiceDays = (days: ReadonlyMap<string, DayActivity>) =>
   [...days.values()].filter((a) => a.answers > 0).map((a) => a.day);
 
 /** Just the day streak, without the rest of the progress figures. */
 export async function loadStreak(now: number, d: KinyaDb = db): Promise<Streak> {
-  return dayStreak(practiceDays(activityByDay(await loadLog(d), new Map())), now);
+  const [log, rounds] = await Promise.all([loadLog(d), loadRounds(d)]);
+  return dayStreak(practiceDays(activityByDay(log, new Map())), now, rounds);
 }
 
 export async function loadProgressStats(now: number, d: KinyaDb = db): Promise<ProgressStats> {
-  const [log, items, profile] = await Promise.all([loadLog(d), d.items.toArray(), getProfile(d)]);
+  const [log, items, profile, rounds] = await Promise.all([
+    loadLog(d),
+    d.items.toArray(),
+    getProfile(d),
+    loadRounds(d),
+  ]);
   const progress = rebuildProgress(log, learnConfigFor('words').graduateStreak);
   const kindById = new Map(items.map((i) => [i.id, i.kind]));
 
@@ -69,7 +82,7 @@ export async function loadProgressStats(now: number, d: KinyaDb = db): Promise<P
   const days = activityByDay(log, progress);
   const month = lastDays(days, now, 30);
   return {
-    streak: dayStreak(practiceDays(days), now),
+    streak: dayStreak(practiceDays(days), now, rounds),
     wordsLearned: wordTimes.length,
     phrasesLearned,
     learnedToday: days.get(dayKey(now))?.learned ?? 0,

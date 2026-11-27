@@ -1,6 +1,7 @@
 // Text and audio for flashcards, shared by Learn and Review.
 
 import { applyAudioSpeed } from '../data/audioSpeed';
+import { wordShape, type WordShape } from '../engine/morphology';
 import { syllables } from '../engine/pronunciation';
 import type { Item, ItemForm } from '../engine/types';
 
@@ -110,4 +111,16 @@ export function waitInWords(ms: number): string {
   if (days < 28) return plural(Math.round(days / 7), 'week');
   if (days < 365) return plural(Math.max(1, Math.round(days / 30.44)), 'month');
   return plural(Math.round(days / 365), 'year');
+}
+
+/** The shape of a card's form, or null when it can't be split (or is the learner's own word). */
+export function shapeOf(item: Item, form: ItemForm): WordShape | null {
+  if (item.source === 'learner') return null;
+  return wordShape({
+    text: form.text,
+    base: item.base,
+    wordType: item.word_type,
+    nounClass: item.noun_class,
+    number: form.number,
+  });
 }

@@ -74,6 +74,12 @@ function Progress() {
         icon="fire"
         strong
       />
+      <StatRow label="Streak freezes" value={stats.streak.freezes} strong />
+      <p className="body-small profile-freeze-note">
+        A day without practice uses one. You get one free each week when you have none, and one for
+        perfect rounds of 20 in a row: {stats.streak.nextFreezeAfter} in a row for the next (you
+        have {stats.streak.perfectInARow}).
+      </p>
       <StatRow label="Words learned" value={stats.wordsLearned} strong />
       <StatRow label="Phrases learned" value={stats.phrasesLearned} strong />
       <StatRow label="Best streak" value={days(stats.streak.best)} strong />

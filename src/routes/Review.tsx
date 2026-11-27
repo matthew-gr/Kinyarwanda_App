@@ -22,10 +22,13 @@ import {
   playAudio,
   preloadAudio,
   pronunciationFor,
+  shapeOf,
   tagFor,
   preciseWait,
   waitInWords,
 } from './cardText';
+import { FreezeLine } from './FreezeLine';
+import { StemPanel, WordParts } from './WordParts';
 import { RoundWall } from './RoundWall';
 import { useProgressVersion } from './useProgressVersion';
 
@@ -322,6 +325,7 @@ function RoundDone({
         {round.done} reviewed, {round.known} known. {pace.reviewedToday} reviewed today.
       </p>
       {view.today.length > 0 ? <RoundWall blocks={view.today} forecast={view.forecast} /> : null}
+      <FreezeLine />
       {waiting > 0 && !view.gate.open && view.gate.opensAt !== null ? (
         <>
           <p className="body">
@@ -387,6 +391,10 @@ function ReviewCardArea({
   const { item, form } = card;
   const audio = form.audio_path;
   const audioCheck = useSyncExternalStore(onAudioChecks, () => audioCheckOf(form.id));
+  // The card whose stem was tapped, for its panel under the card (decision 208).
+  const [stemOf, setStemOf] = useState<string | null>(null);
+  const shape = shapeOf(item, form);
+  const stemOpen = flipped && stemOf === card.cardViewId;
   const round = view.round;
   // Cards still to come in this round after the one on screen, for the stack behind it.
   const after = round ? round.total - round.done - 1 : view.dueNow - 1;
@@ -431,10 +439,20 @@ function ReviewCardArea({
             speakChecked={
               audio && item.source !== 'learner' ? (audioCheck ?? 'unchecked') : undefined
             }
+            backWord={
+              shape ? (
+                <WordParts
+                  shape={shape}
+                  open={stemOpen}
+                  onStem={() => setStemOf(stemOpen ? null : card.cardViewId)}
+                />
+              ) : undefined
+            }
             flipRef={flipRef}
           />
         </FlashcardDeck>
       </div>
+      {stemOpen && shape ? <StemPanel item={item} shape={shape} /> : null}
 
       <p className="sr-only" aria-live="polite">
         {flipped ? `Meaning: ${form.en}` : ''}

@@ -1872,3 +1872,33 @@ textarea.field-input {
   gap: 2px var(--space-10);
   text-align: center;
 }
+
+/* Streak freezes (decision 208). */
+.freeze-line {
+  margin: 0;
+  text-align: center;
+}
+
+.profile-freeze-note {
+  margin: calc(-1 * var(--space-5)) var(--space-9) 0;
+  color: var(--text-secondary);
+}
+
+/* Under a card whose stem was tapped (decision 208). */
+.stem-panel {
+  display: grid;
+  gap: var(--space-5);
+  padding: var(--space-9) var(--space-12, 12px);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.stem-panel p {
+  margin: 0;
+}
+
+.stem-panel ul {
+  margin: 0;
+  padding-left: 1.25em;
+}

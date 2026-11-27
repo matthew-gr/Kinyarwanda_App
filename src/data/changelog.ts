@@ -11,6 +11,15 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '0.11.0',
+    date: '2026-11-27',
+    changes: [
+      'The back of a card shows a noun’s class prefix in its class’s colour (1/2 blue, 3/4 green, 7/8 orange, 9/10 red, and so on) and underlines the stem.',
+      'Tap the stem to see what the prefix means and which words you’ve learned share the stem.',
+      'Streak freezes: earn more with perfect rounds of 20, and keep as many as you earn. The next freeze takes one more perfect round in a row than the freezes you have. You still get one free each week when you have none.',
+    ],
+  },
+  {
     version: '0.10.0',
     date: '2026-11-27',
     changes: [

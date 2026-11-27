@@ -235,6 +235,11 @@ test('Undo takes back the last answer, and the wall predicts the rounds still to
   }
   await expect(page.getByRole('heading', { name: 'Round done' })).toBeVisible();
   await expect(page.getByText('20 reviewed, 20 known. 20 reviewed today.')).toBeVisible();
+  // A perfect round of 20 counts towards a streak freeze (decision 208): the week's free one is
+  // in hand, so the next takes 2 in a row.
+  await expect(page.locator('.freeze-line')).toContainText(
+    'You have 1 streak freeze. Perfect rounds of 20 in a row: 1 of 2 for the next one.',
+  );
   // Five are left: one more round, drawn in gray after today's block.
   await expect(page.locator('.round-block-soon')).toHaveCount(1);
   await page.getByRole('button', { name: 'About 1 more round for what is due now' }).click();

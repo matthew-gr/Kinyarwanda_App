@@ -22,6 +22,7 @@ import type { AnswerResult, Deck } from '../engine/learn';
 import type { Item, ItemForm } from '../engine/types';
 import { placeLabel } from '../engine/vocabulary';
 import { AudioCheck, CardNotes, CardPicture, ReportMistake } from './CardExtras';
+import { StemPanel, WordParts } from './WordParts';
 import { audioCheckOf, audioChecksVersion, isAudioWrong, onAudioChecks } from '../data/audioChecks';
 import {
   dictionaryLine,
@@ -30,6 +31,7 @@ import {
   playAudio,
   preloadAudio,
   pronunciationFor,
+  shapeOf,
   tagFor,
   waitInWords,
 } from './cardText';
@@ -360,6 +362,8 @@ function CardArea({
   const [switched, setSwitched] = useState<{ key: string; formId: string } | null>(null);
   // Re-renders when a recording is confirmed (decision 205).
   useSyncExternalStore(onAudioChecks, audioChecksVersion);
+  // The form whose stem was tapped, for its panel under the card (decision 208).
+  const [stemOf, setStemOf] = useState<string | null>(null);
   const { item, step, choices } = view;
   const dealt = view.form;
   if (!item || !dealt || step.type === 'done') return null;
@@ -381,6 +385,9 @@ function CardArea({
     if (next.audio_path) playAudio(next.audio_path);
   });
   const ghosts = Math.min(GHOSTS.length, Math.max(0, view.inPlay - 1));
+  const shape = shapeOf(item, form);
+  const stemKey = `${view.key}:${form.id}`;
+  const stemOpen = stemOf === stemKey && (isIntro || flipped);
 
   return (
     <>
@@ -423,11 +430,21 @@ function CardArea({
             onFlip={onFlip}
             onSpeak={audio ? () => playAudio(audio) : undefined}
             speakChecked={audio && !isMyWord(item) ? (audioCheck ?? 'unchecked') : undefined}
+            backWord={
+              shape ? (
+                <WordParts
+                  shape={shape}
+                  open={stemOpen}
+                  onStem={() => setStemOf(stemOpen ? null : stemKey)}
+                />
+              ) : undefined
+            }
             toggle={toggle}
             flipRef={flipRef}
           />
         </FlashcardDeck>
       </div>
+      {stemOpen && shape ? <StemPanel item={item} shape={shape} /> : null}
 
       <p className="sr-only" aria-live="polite">
         {flipped ? `Meaning: ${form.en}` : ''}

@@ -864,3 +864,51 @@
   color: var(--blue-tile-text);
   background: var(--blue-tile);
 }
+
+/* A word's pieces on the back of its card (decision 208): the class prefix on its class's
+   colour, the stem underlined to tap. White on strong colours reads on every card face. */
+.word-prefix {
+  border-radius: 0.18em;
+  padding: 0 0.08em;
+  color: #ffffff;
+  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.55);
+}
+.nc-c1 {
+  background: #2f6fd6;
+}
+.nc-c3 {
+  background: #2e8b57;
+}
+.nc-c5 {
+  background: #7b4fc9;
+}
+.nc-c7 {
+  background: #d9731a;
+}
+.nc-c9 {
+  background: #cf3b3b;
+}
+.nc-c11 {
+  background: #138a8a;
+}
+.nc-c12 {
+  background: #c2408f;
+}
+.nc-c14 {
+  background: #8a5a2b;
+}
+.nc-c15 {
+  background: #7a7f1d;
+}
+.nc-c16 {
+  background: #56657a;
+}
+.word-stem {
+  font: inherit;
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.15em;
+  cursor: pointer;
+}

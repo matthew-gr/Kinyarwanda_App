@@ -38,7 +38,7 @@ describe('dayStreak', () => {
   const now = at(2026, 3, 10, 18);
 
   it('counts days in a row ending today', () => {
-    expect(dayStreak(['2026-03-08', '2026-03-09', '2026-03-10'], now)).toEqual({
+    expect(dayStreak(['2026-03-08', '2026-03-09', '2026-03-10'], now)).toMatchObject({
       current: 3,
       best: 3,
       practicedToday: true,
@@ -56,17 +56,17 @@ describe('dayStreak', () => {
   });
 
   it('breaks after two days in a row without practice, and remembers the best run', () => {
-    // Saturday 7 March, then nothing on Sunday or Monday: the freeze covers one day only,
-    // even though the two days fall in different weeks.
+    // Thursday 5 March, then nothing on Friday or Saturday: the week's one freeze covers
+    // Friday only.
     const days = [
       '2026-02-01',
       '2026-02-02',
       '2026-02-03',
       '2026-02-04',
-      '2026-03-06',
-      '2026-03-07',
+      '2026-03-04',
+      '2026-03-05',
     ];
-    expect(dayStreak(days, now)).toEqual({
+    expect(dayStreak(days, now)).toMatchObject({
       current: 0,
       best: 4,
       practicedToday: false,
@@ -76,7 +76,7 @@ describe('dayStreak', () => {
   });
 
   it('is zero with no practice at all', () => {
-    expect(dayStreak([], now)).toEqual({
+    expect(dayStreak([], now)).toMatchObject({
       current: 0,
       best: 0,
       practicedToday: false,
@@ -87,7 +87,7 @@ describe('dayStreak', () => {
 
   it("covers one missed day with the week's freeze, without adding it to the streak", () => {
     // Friday to Sunday, then nothing on Monday 9 March.
-    expect(dayStreak(['2026-03-06', '2026-03-07', '2026-03-08'], now)).toEqual({
+    expect(dayStreak(['2026-03-06', '2026-03-07', '2026-03-08'], now)).toMatchObject({
       current: 3,
       best: 3,
       practicedToday: false,
@@ -116,7 +116,7 @@ describe('dayStreak', () => {
       '2026-03-09',
       '2026-03-10',
     ];
-    expect(dayStreak(days, now)).toEqual({
+    expect(dayStreak(days, now)).toMatchObject({
       current: 3,
       best: 4,
       practicedToday: true,
@@ -135,7 +135,7 @@ describe('dayStreak', () => {
       '2026-03-07',
       '2026-03-08',
     ];
-    expect(dayStreak(days, now)).toEqual({
+    expect(dayStreak(days, now)).toMatchObject({
       current: 6,
       best: 6,
       practicedToday: false,
@@ -145,13 +145,69 @@ describe('dayStreak', () => {
   });
 
   it('has nothing to freeze before the first day of practice', () => {
-    expect(dayStreak(['2026-03-10'], now)).toEqual({
+    expect(dayStreak(['2026-03-10'], now)).toMatchObject({
       current: 1,
       best: 1,
       practicedToday: true,
       frozenDays: [],
       freshFreeze: null,
     });
+  });
+});
+
+describe('streak freezes earned by perfect rounds (decision 208)', () => {
+  const now = at(2026, 3, 10, 18);
+  const round = (d: number, h: number, correct = 20) => ({
+    at: at(2026, 3, d, h),
+    answers: 20,
+    correct,
+  });
+
+  it('starts with the week’s free one, and the next takes one more perfect round in a row', () => {
+    expect(dayStreak(['2026-03-10'], now)).toMatchObject({
+      freezes: 1,
+      perfectInARow: 0,
+      nextFreezeAfter: 2,
+    });
+    const s = dayStreak(['2026-03-10'], now, [round(10, 9), round(10, 10)]);
+    expect(s).toMatchObject({ freezes: 2, perfectInARow: 0, nextFreezeAfter: 3 });
+    expect(s.lastEarnedAt).toBe(at(2026, 3, 10, 10));
+  });
+
+  it('restarts the run after a round with a miss; short rounds count neither way', () => {
+    const s = dayStreak(['2026-03-10'], now, [
+      round(10, 9),
+      round(10, 10, 19),
+      { at: at(2026, 3, 10, 11), answers: 5, correct: 4 },
+      round(10, 12),
+    ]);
+    expect(s).toMatchObject({ freezes: 1, perfectInARow: 1 });
+  });
+
+  it('covers several missed days in a row with freezes in hand', () => {
+    // Monday 2 March: the free freeze, then 5 perfect rounds earn the second (2 in a row) and
+    // the third (3 more). Nothing from Thursday 5 to Monday 9: three freezes cover Thursday to
+    // Saturday, none is left for Sunday, and the streak breaks.
+    const days = ['2026-03-02', '2026-03-03', '2026-03-04', '2026-03-10'];
+    const rounds = [1, 2, 3, 4, 5].map((h) => round(2, 9 + h));
+    const s = dayStreak(days, now, rounds);
+    expect(s).toMatchObject({ current: 1, frozenDays: [] });
+    // Four more perfect rounds in a row earn a fourth, which covers Sunday; Monday 9 March
+    // brings the new week's free one, which covers Monday.
+    const more = dayStreak(days, now, [...rounds, ...[6, 7, 8, 9].map((h) => round(2, 9 + h))]);
+    expect(more).toMatchObject({
+      current: 4,
+      frozenDays: ['2026-03-05', '2026-03-06', '2026-03-07', '2026-03-08', '2026-03-09'],
+      freezes: 0,
+    });
+  });
+
+  it('gives no free one in a week that starts with a freeze still in hand', () => {
+    // A perfect round on Tuesday 3 March earns a second freeze; none is used, so Monday 9
+    // March brings no new one.
+    const days = [2, 3, 4, 5, 6, 7, 8, 9, 10].map((d) => `2026-03-${String(d).padStart(2, '0')}`);
+    const s = dayStreak(days, now, [round(3, 9), round(3, 10)]);
+    expect(s.freezes).toBe(2);
   });
 });
 
