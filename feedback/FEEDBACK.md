@@ -194,3 +194,8 @@ message. Every message is also kept in the `feedback` table in Supabase.
 <!-- feedback:26d76884-f1a4-4985-b1f2-81445bd80ae4 -->
 
 > Highlight the word's stem on the card's back. Also highlight noun class prefixes in specific colors. Class 1/2: blue. Class 3/4: green. Class 7/8: orange. Class 9/10: red. For the remaining classes, choose other colors.
+
+### 2026-11-27 12:46 UTC · General · 0.8.0+15cd245
+<!-- feedback:8433ff05-88cd-44b8-8f34-9615ee9cfa6b -->
+
+> Does Pindo allow to use their free API if there is only one active user for this app who develops it? If so, and if debug mode is turned on, ask the user every time when he wants to query their API if he wants to make a paid or a free call. You can do this on the same screen that informs the user about the cost that is about to occur.
