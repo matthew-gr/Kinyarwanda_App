@@ -20,6 +20,7 @@ import {
   learnStoryWord,
   loadStories,
   loadStory,
+  MAX_TRANSLATE_CHARS,
   newStory,
   newStoryCost,
   requestStoryAudio,
@@ -29,6 +30,9 @@ import {
   storiesStatus,
   storyNewWords,
   STORY_TAG,
+  isTranslation,
+  translateCost,
+  translateText,
   type StoriesStatus,
   type StoryNewWord,
   type WordInCourse,
@@ -163,6 +167,8 @@ export function Stories() {
             ) : null}
           </section>
 
+          <TranslatePanel model={model} />
+
           {due.length > 0 ? (
             <section aria-labelledby="stories-due">
               <h2 id="stories-due" className="h3-bold story-list-title">
@@ -183,6 +189,100 @@ export function Stories() {
         </>
       )}
     </main>
+  );
+}
+
+/**
+ * Paste or open an English text (such as a Bible passage), have it translated, and read it
+ * line by line in Kinyarwanda and English like a story (decision 217).
+ */
+function TranslatePanel({ model }: { model: string }) {
+  const navigate = useNavigate();
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const tooLong = text.length > MAX_TRANSLATE_CHARS;
+
+  const open = async (file: File | undefined) => {
+    if (!file) return;
+    setProblem(null);
+    if (file.size > 200_000) {
+      setProblem('That file is too big. Paste a passage of up to about 250 words instead.');
+      return;
+    }
+    setText((await file.text()).trim());
+  };
+
+  const go = async () => {
+    const t = text.trim();
+    if (!t || tooLong) return;
+    // Debug mode asks first, with what it would cost (decision 204).
+    if (
+      getDebugMode() &&
+      !window.confirm(
+        `Translating this asks Claude (${storyModelLabel(`ai:${model}`) ?? model}). Estimated cost: about ${dollars(translateCost(model, t))}. Its audio, made on the first Play, is one more request to Pindo (about ${dollars(PINDO_REQUEST_USD)}). Translate it?`,
+      )
+    )
+      return;
+    setBusy(true);
+    setProblem(null);
+    const out = await translateText(t, model);
+    setBusy(false);
+    if (out.type === 'story') navigate(`/stories/${out.story.id}`);
+    else
+      setProblem(
+        out.type === 'signed-out'
+          ? 'Sign in on Profile to translate texts. They are translated on the server.'
+          : out.message,
+      );
+  };
+
+  return (
+    <section className="panel story-new" aria-labelledby="translate-title">
+      <h2 id="translate-title" className="h2-bold">
+        Translate a text
+      </h2>
+      <p className="body">
+        Paste an English text, such as a Bible passage, or open a .txt file. It is translated
+        sentence by sentence, and you read it like a story: each line in Kinyarwanda and English.
+      </p>
+      <label className="field">
+        <span className="body-bold">Your English text</span>
+        <textarea
+          className="field-input body translate-text"
+          rows={6}
+          value={text}
+          disabled={busy}
+          onChange={(e) => setText(e.target.value)}
+        />
+      </label>
+      <p className={cx('body-small', tooLong && 'translate-too-long')}>
+        {text.length} of {MAX_TRANSLATE_CHARS} characters
+        {tooLong ? ': shorten it to translate it.' : '.'}
+      </p>
+      <label className="report-link body-small translate-file">
+        Open a .txt file
+        <input
+          type="file"
+          accept=".txt,text/plain"
+          disabled={busy}
+          onChange={(e) => void open(e.target.files?.[0])}
+        />
+      </label>
+      <button
+        type="button"
+        className="btn btn-primary"
+        disabled={busy || !text.trim() || tooLong}
+        onClick={() => void go()}
+      >
+        {busy ? 'Translating…' : 'Translate it'}
+      </button>
+      <p className="body-small story-note" role="status">
+        {busy
+          ? 'This takes about half a minute.'
+          : (problem ?? 'Counts as one of your stories for today.')}
+      </p>
+    </section>
   );
 }
 
@@ -474,11 +574,17 @@ export function StoryReader() {
         <p className="body-small story-head-en">{story.title_en}</p>
         <p className="story-tags">
           <Badge>
-            {story.status === 'approved' ? '✓ Checked by a native speaker' : 'AI story'}
+            {story.status === 'approved'
+              ? '✓ Checked by a native speaker'
+              : isTranslation(story)
+                ? 'Your text, translated by AI'
+                : 'AI story'}
           </Badge>
           <span className="body-small">About {story.coverage}% words you know</span>
           {storyModelLabel(story.source) ? (
-            <span className="body-small">Written by {storyModelLabel(story.source)}</span>
+            <span className="body-small">
+              {isTranslation(story) ? 'Translated' : 'Written'} by {storyModelLabel(story.source)}
+            </span>
           ) : null}
         </p>
       </header>
@@ -863,7 +969,7 @@ function Finish({ story, onChange }: { story: StoryRow; onChange: (s: StoryRow) 
             ? `It comes back in ${waitInWords(Date.parse(story.next_due_at) - Date.now())}.`
             : ''}
       </p>
-      {saved ? (
+      {isTranslation(story) ? null : saved ? (
         <p className="body">Thanks. The next story will take that into account.</p>
       ) : (
         <>

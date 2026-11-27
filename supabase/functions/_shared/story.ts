@@ -219,3 +219,55 @@ export function estimateCoverage(sentences: readonly string[], known: Set<string
 export const COVERAGE_SLACK = 10;
 
 export const countWords = (sentences: readonly string[]) => sentences.flatMap(wordsOf).length;
+
+// ---------------------------------------------------------------------------------------------
+// Translating a learner's own text (decision 217; learner feedback: upload an English text, such
+// as a Bible passage, have it translated, and read it line by line in both languages).
+
+/** The longest text translated, in characters: about 250 words, like a story's 200. */
+export const MAX_TRANSLATE_CHARS = 1500;
+
+export interface TranslationText {
+  title: string;
+  title_en: string;
+  sentences: { rw: string; en: string }[];
+  glossary: { word: string; en: string }[];
+}
+
+export const TRANSLATE_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['title', 'title_en', 'sentences', 'glossary'],
+  properties: {
+    title: STORY_SCHEMA.properties.title,
+    title_en: STORY_SCHEMA.properties.title_en,
+    sentences: STORY_SCHEMA.properties.sentences,
+    glossary: STORY_SCHEMA.properties.glossary,
+  },
+} as const;
+
+/** The request to Claude for a translation. */
+export function buildTranslatePrompt(text: string): string {
+  return [
+    'Translate this English text into natural, standard Kinyarwanda for an adult learner.',
+    'Go sentence by sentence, in order. For each sentence give "en", the English sentence as',
+    'written (fix nothing but stray spaces), and "rw", its Kinyarwanda translation. Keep',
+    'names as they are. If the text is a well-known passage, such as a Bible verse, use the',
+    'wording of the standard Kinyarwanda version where you know it.',
+    'Give a short "title" in Kinyarwanda and "title_en" in English, and a "glossary" of up to',
+    '15 words from the Kinyarwanda that a learner may not know, each with its English.',
+    '',
+    'The text:',
+    '"""',
+    text,
+    '"""',
+  ].join('\n');
+}
+
+/** What is wrong with a translation that came back, or null. */
+export function translationProblem(t: TranslationText): string | null {
+  if (!t.title?.trim()) return 'no title';
+  if (!Array.isArray(t.sentences) || t.sentences.length === 0) return 'no sentences';
+  if (t.sentences.some((s) => !s.rw?.trim() || !s.en?.trim())) return 'an empty sentence';
+  return null;
+}

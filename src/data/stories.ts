@@ -10,6 +10,8 @@ import {
   estimateCoverage,
   knownShapes,
   STORY_MODELS,
+  buildTranslatePrompt,
+  MAX_TRANSLATE_CHARS,
 } from '../../supabase/functions/_shared/story';
 import { storyCost } from './costs';
 import { afterRead, buildRequest, STORIES_OPEN_AT, type StoryFeedback } from '../engine/stories';
@@ -104,10 +106,55 @@ export async function newStoryCost(
     known,
     wordsLearned: status.wordsLearned,
     verbLevel: profile.verb_level,
-    stories,
+    stories: stories.filter((x) => !isTranslation(x)),
     rng: createAppRng(),
   });
   return storyCost(model, buildStoryPrompt(request).length, request.limit);
+}
+
+/** A learner's own text, translated (decision 217), rather than a story written for them. */
+export const isTranslation = (s: Pick<StoryRow, 'settings'>) => s.settings?.kind === 'translation';
+
+export { MAX_TRANSLATE_CHARS };
+
+/** What translating a text would cost (debug mode): its English and Kinyarwanda come back. */
+export function translateCost(model: string, text: string): number {
+  const words = text.split(/\s+/).filter(Boolean).length;
+  return storyCost(model, buildTranslatePrompt(text).length, words * 2).once;
+}
+
+/**
+ * Has the server translate the learner's own English text into Kinyarwanda, sentence by
+ * sentence, and keeps it here as a story to read and play (decision 217).
+ */
+export async function translateText(
+  text: string,
+  model: string = DEFAULT_STORY_MODEL,
+  d: KinyaDb = db,
+): Promise<NewStoryResult> {
+  if (!supabase) return { type: 'error', message: 'Translating needs a connection to the server.' };
+  const { data } = await supabase.auth.getSession();
+  if (!data.session) return { type: 'signed-out' };
+  const known = await knownWords(d);
+  const { data: out, error } = await supabase.functions.invoke<{ story: Omit<StoryRow, 'dirty'> }>(
+    'generate-story',
+    { body: { action: 'translate', text, known, model } },
+  );
+  if (error || !out?.story) {
+    let message = 'The text could not be translated. Try again in a minute.';
+    const ctx = (error as { context?: Response } | null)?.context;
+    if (ctx && typeof ctx.json === 'function') {
+      const said = (await ctx.json().catch(() => null)) as { error?: string } | null;
+      if (said?.error) message = said.error;
+    }
+    return { type: 'error', message };
+  }
+  const { user_id, ...rest } = out.story as Omit<StoryRow, 'dirty'> & { user_id?: string };
+  void user_id;
+  const story: StoryRow = { ...rest, dirty: 0 };
+  await d.stories.put(story);
+  progressChanged.emit();
+  return { type: 'story', story };
 }
 
 /** Asks the server for a new story, made from what this learner knows, and keeps it here. */
@@ -129,7 +176,7 @@ export async function newStory(
       known,
       wordsLearned: status.wordsLearned,
       verbLevel: profile.verb_level,
-      stories,
+      stories: stories.filter((x) => !isTranslation(x)),
       rng: createAppRng(),
     }),
     model,

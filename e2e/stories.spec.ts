@@ -268,3 +268,77 @@ test('Stories open at 100 words; a story reads, explains words, asks questions a
   );
   expect(next).toBe(word.id);
 });
+
+test('Translate a text: limits, the cost question, and reading the translation', async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await page.route('**/rest/v1/reports**', (route) => route.abort());
+  let asked: unknown = null;
+  await page.route('**/functions/v1/generate-story', async (route) => {
+    asked = route.request().postDataJSON();
+    await route.abort();
+  });
+  await page.goto('/');
+  await expect(
+    page.getByRole('list', { name: 'Modules' }).getByRole('button', { name: /^Stories/ }),
+  ).toContainText('0 of 100 words learned');
+  await learnHundredWords(page);
+  await page.goto('/stories');
+
+  const text = page.getByLabel('Your English text');
+  const go = page.getByRole('button', { name: 'Translate it' });
+  await expect(go).toBeDisabled();
+  await text.fill('In the beginning was the Word.');
+  await expect(page.getByText('30 of 1500 characters.')).toBeVisible();
+  await expect(go).toBeEnabled();
+  await text.fill('x'.repeat(1501));
+  await expect(
+    page.getByText('1501 of 1500 characters: shorten it to translate it.'),
+  ).toBeVisible();
+  await expect(go).toBeDisabled();
+
+  // Debug mode asks first, with what it costs; No sends nothing.
+  await page.evaluate(() => localStorage.setItem('kinyarwanda.debug', '1'));
+  await page.reload();
+  await text.fill('In the beginning was the Word.');
+  let question = '';
+  page.once('dialog', (d) => {
+    question = d.message();
+    void d.dismiss();
+  });
+  await go.click();
+  await expect.poll(() => question).toMatch(/Translating this asks Claude .* about \$0\.\d\d/);
+  expect(asked).toBeNull();
+  await page.evaluate(() => localStorage.removeItem('kinyarwanda.debug'));
+  await page.reload();
+  await text.fill('In the beginning was the Word.');
+
+  // Signed out: it can't be translated, and the screen says why.
+  await go.click();
+  await expect(page.getByText(/Sign in on Profile to translate texts/)).toBeVisible();
+
+  // A translation reads like a story, marked as the learner's own text, without the
+  // too-hard or too-easy question that tunes the next story.
+  await putStory(page, { text: 'ijambo', en: 'word' });
+  await page.evaluate(
+    (id) =>
+      new Promise<void>((resolve) => {
+        const open = indexedDB.open('kinyarwanda');
+        open.onsuccess = () => {
+          const tx = open.result.transaction(['stories'], 'readwrite');
+          const store = tx.objectStore('stories');
+          const get = store.get(id);
+          get.onsuccess = () =>
+            store.put({ ...get.result, settings: { kind: 'translation' }, questions: [] });
+          tx.oncomplete = () => resolve();
+        };
+      }),
+    STORY_ID,
+  );
+  await page.goto(`/stories/${STORY_ID}`);
+  await expect(page.getByText('Your text, translated by AI')).toBeVisible();
+  await page.getByRole('button', { name: 'I’ve read it' }).click();
+  await expect(page.getByText('It comes back in 1 day.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Too hard' })).toHaveCount(0);
+});

@@ -11,6 +11,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '0.20.0',
+    date: '2026-11-27',
+    changes: [
+      'Translate a text, on Stories: paste an English text, like a Bible passage, or open a .txt file. It is translated sentence by sentence, and you read and hear it like a story, each line in Kinyarwanda and English.',
+    ],
+  },
+  {
     version: '0.19.0',
     date: '2026-11-27',
     changes: [

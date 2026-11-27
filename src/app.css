@@ -2052,3 +2052,26 @@ textarea.field-input {
 .hint-list-note {
   color: var(--text-secondary);
 }
+
+/* Stories: translate a text (decision 217). */
+.translate-text {
+  min-height: 8rem;
+  resize: vertical;
+}
+
+.translate-too-long {
+  color: var(--orange-tile-text, #c2410c);
+}
+
+.translate-file input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.translate-file {
+  position: relative;
+  cursor: pointer;
+  align-self: flex-start;
+}

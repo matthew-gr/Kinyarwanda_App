@@ -8,6 +8,12 @@
 //                                   one request to the voice (decision 197). A story is voiced
 //                                   at most once; a second call while it is being voiced
 //                                   answers { pending: true }.
+//   { action: "translate", text, known, model? }
+//                                   translates the learner's own English text (at most
+//                                   MAX_TRANSLATE_CHARS) into Kinyarwanda, sentence by
+//                                   sentence, and saves it as one of their stories, to read
+//                                   and play like one (decision 217). It counts towards the
+//                                   same daily limit.
 //
 // Every request for a new story counts towards the daily limit, failed ones included, and a
 // learner has at most one story being written at a time (story_attempts, decision 197).
@@ -28,10 +34,16 @@ import {
   estimateCoverage,
   knownShapes,
   requestProblem,
+  STORY_MODELS,
   STORY_SCHEMA,
   storyProblem,
+  buildTranslatePrompt,
+  MAX_TRANSLATE_CHARS,
+  TRANSLATE_SCHEMA,
+  translationProblem,
   type StoryRequest,
   type StoryText,
+  type TranslationText,
 } from '../_shared/story.ts';
 import { env, extension, speak, type Voice } from '../_shared/tts.ts';
 
@@ -97,6 +109,44 @@ async function askClaude(
 }
 
 type Service = ReturnType<typeof createClient>;
+
+/** One request to Claude for a translation, held to its JSON shape (decision 217). */
+async function askTranslation(
+  text: string,
+  model: string,
+): Promise<{ translation: TranslationText; model: string }> {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': env('ANTHROPIC_API_KEY'),
+      'anthropic-version': '2026-10-21',
+      'anthropic-beta': 'server-side-fallback-2026-07-01',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 16000,
+      fallbacks: 'default',
+      output_config: {
+        effort: 'medium',
+        format: { type: 'json_schema', schema: TRANSLATE_SCHEMA },
+      },
+      system:
+        'You translate English into natural Kinyarwanda for adult learners, using standard spelling.',
+      messages: [{ role: 'user', content: buildTranslatePrompt(text) }],
+    }),
+  });
+  if (!res.ok) throw new Error(`Claude said ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  const out = (await res.json()) as ClaudeResponse;
+  if (out.stop_reason === 'refusal') throw new Error('Claude declined to translate this text');
+  if (out.stop_reason === 'max_tokens') throw new Error('The translation ran too long');
+  const translation = JSON.parse(
+    out.content.find((b) => b.type === 'text')?.text ?? '',
+  ) as TranslationText;
+  const problem = translationProblem(translation);
+  if (problem) throw new Error(`The translation came back with ${problem}`);
+  return { translation, model: out.model };
+}
 
 /**
  * Reads one of the caller's stories aloud, in one take (decisions 148 and 197). The story is
@@ -234,6 +284,7 @@ Deno.serve(async (req) => {
   const body = (await req.json().catch(() => null)) as
     | (StoryRequest & { action?: undefined })
     | { action: 'voice'; story_id?: unknown; free?: unknown }
+    | { action: 'translate'; text?: unknown; known?: unknown; model?: unknown }
     | null;
   if (body?.action === 'voice') {
     if (typeof body.story_id !== 'string') return json({ error: 'Bad request: story_id' }, 400);
@@ -250,6 +301,7 @@ Deno.serve(async (req) => {
       return json({ error: e instanceof Error ? e.message : String(e) }, 502);
     }
   }
+  if (body?.action === 'translate') return translate(service, userId, body);
   const request = body as StoryRequest | null;
   const problem = request ? requestProblem(request) : 'body';
   if (!request || problem) return json({ error: `Bad request: ${problem}` }, 400);
@@ -319,3 +371,59 @@ Deno.serve(async (req) => {
     return json({ error: e instanceof Error ? e.message : String(e) }, 502);
   }
 });
+
+/** Translates the learner's own text and saves it as one of their stories (decision 217). */
+async function translate(
+  service: Service,
+  userId: string,
+  body: { text?: unknown; known?: unknown; model?: unknown },
+): Promise<Response> {
+  const text = typeof body.text === 'string' ? body.text.trim() : '';
+  if (!text) return json({ error: 'Bad request: text' }, 400);
+  if (text.length > MAX_TRANSLATE_CHARS)
+    return json({ error: `The text is longer than ${MAX_TRANSLATE_CHARS} characters.` }, 400);
+  const known = Array.isArray(body.known)
+    ? body.known.filter((k): k is string => typeof k === 'string').slice(0, 5000)
+    : [];
+  const model =
+    typeof body.model === 'string' && STORY_MODELS.some((m) => m.id === body.model)
+      ? body.model
+      : DEFAULT_STORY_MODEL;
+
+  let attempt: string | Response;
+  try {
+    attempt = await startAttempt(service, userId);
+  } catch (e) {
+    console.error('translation attempt', e);
+    return json({ error: 'Translations are not available right now. Try again later.' }, 503);
+  }
+  if (attempt instanceof Response) return attempt;
+
+  try {
+    const got = await askTranslation(text, model);
+    const t = got.translation;
+    const row = {
+      id: crypto.randomUUID(),
+      user_id: userId,
+      title: t.title,
+      title_en: t.title_en,
+      sentences: t.sentences.map((s) => ({ rw: s.rw, en: s.en, audio_path: null })),
+      glossary: t.glossary.slice(0, 15),
+      questions: [],
+      settings: { kind: 'translation', model, chars: text.length, known_count: known.length },
+      coverage: estimateCoverage(
+        t.sentences.map((s) => s.rw),
+        knownShapes(known),
+      ),
+      source: `ai:${got.model}`,
+    };
+    const { data, error } = await service.from('stories').insert(row).select('*').single();
+    if (error) throw error;
+    await finishAttempt(service, attempt, true);
+    return json({ story: data });
+  } catch (e) {
+    await finishAttempt(service, attempt, false);
+    console.error('translate', e);
+    return json({ error: e instanceof Error ? e.message : String(e) }, 502);
+  }
+}

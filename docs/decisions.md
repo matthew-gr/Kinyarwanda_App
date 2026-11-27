@@ -407,6 +407,11 @@ Prompt 2 was written from the product spec's Module 2 section; the build plan na
     - **Home banner, dark theme:** a darker gradient still (#0c3d5a, #0d4c50, #1b4f3a), with the light text of decision 214.
     - **Memory hints and word families**, a link under the debug switch in Profile once debug mode is on (`/hints`): every word with a hint, with its meaning and its English, Swahili, German and French hints, then every word family with its meanings and note, and a search over all of it. It is the place to check them, word by word.
 
+217. **Translate a text: the learner's own English, read line by line in both languages** (Jonathan, 27 November 2026; learner feedback: upload an English text, such as a Bible passage, translate it, and read it line by line in both languages). Version 0.20.0.
+    - **On Stories**, under A new story: paste an English text or open a .txt file, up to 1,500 characters (about 250 words, like a story's 200), and Translate it. The server (`generate-story`, action `translate`, version 24) asks Claude, with the story model chosen on the screen, to translate it sentence by sentence, keeping each English sentence as written, using the standard Kinyarwanda version of a well-known passage where it knows it, with a title and a glossary of up to 15 words. It is saved as one of the learner's stories (`settings.kind` "translation"), so the reader shows it line by line with English, plays it, offers each line's English after it (decision 204), and brings it back like a story; it is marked "Your text, translated by AI", has no questions, and doesn't ask whether it was too hard, and translations don't steer the next story's difficulty.
+    - **Cost.** This adds a paid action, at Jonathan's request. A translation is one Claude request, about $0.02 to $0.05 on Sonnet 5.5 for the longest text; its audio, on the first Play, is one Pindo request ($0.12), as for a story. It counts towards the same 10 stories a day, failed ones included, and only one can be under way at a time. Debug mode asks first with both estimates.
+    - **Checks.** The translation is an AI draft. Nothing checks it against the original except the learner.
+
 ## Planned later
 
 - **Words 1,501 to 2,000** (Matt, 5 November 2026): the rest of Common 2000, next after decisions 185 to 187.
