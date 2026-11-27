@@ -181,3 +181,8 @@ message. Every message is also kept in the `feedback` table in Supabase.
 <!-- feedback:6e395d87-dc5f-42e2-9b8d-f642340a83ad -->
 
 > Most of the time, the verb builder prompts me to build words that I have already mastered. This makes it slow to get from 93 to 96 mastered words. Prompt the words that have not been mastered yet more often.
+
+### 2026-11-27 11:20 UTC · General · 0.8.0+15cd245
+<!-- feedback:82006e2b-a8d6-4614-8b2a-ac0eea0d829a -->
+
+> Also allow the user to give audio feedback on the card's back. If the user marks it as incorrect, change it to a different color and stop automatically playing the audio for this card. Only play it when the user clicks it.
