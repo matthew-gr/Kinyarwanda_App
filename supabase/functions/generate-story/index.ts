@@ -103,10 +103,20 @@ type Service = ReturnType<typeof createClient>;
  * claimed first, by marking its audio_source "voicing:<time>", so two taps on Play never pay
  * twice; a claim older than STALE_MS is taken as failed and may be claimed again.
  */
-async function voiceStory(service: Service, userId: string, storyId: string): Promise<Response> {
+async function voiceStory(
+  service: Service,
+  userId: string,
+  storyId: string,
+  free: boolean,
+): Promise<Response> {
   const raw = env('STORY_VOICE') || env('TTS_VOICE');
   if (!raw) return json({ error: 'Story audio is not set up yet' }, 503);
-  const voice = JSON.parse(raw) as Voice;
+  const configured = JSON.parse(raw) as Voice;
+  // A free call (decision 211) goes to Pindo's public endpoint; other voices have none.
+  if (free && configured.provider !== 'pindo')
+    return json({ error: 'Free calls are only for Pindo' }, 400);
+  const voice: Voice =
+    free && configured.provider === 'pindo' ? { ...configured, free: true } : configured;
 
   const { data: story, error } = await service
     .from('stories')
@@ -222,11 +232,19 @@ Deno.serve(async (req) => {
   if (!member) return json({ error: 'Stories are for invited members' }, 403);
 
   const body = (await req.json().catch(() => null)) as
-    (StoryRequest & { action?: undefined }) | { action: 'voice'; story_id?: unknown } | null;
+    | (StoryRequest & { action?: undefined })
+    | { action: 'voice'; story_id?: unknown; free?: unknown }
+    | null;
   if (body?.action === 'voice') {
     if (typeof body.story_id !== 'string') return json({ error: 'Bad request: story_id' }, 400);
+    const free = body.free === true;
+    if (free) {
+      // Free calls are for admins only, checked with the caller's own token (decision 211).
+      const { data: isAdmin } = await asCaller.rpc('is_admin');
+      if (isAdmin !== true) return json({ error: 'Free calls are for admins' }, 403);
+    }
     try {
-      return await voiceStory(service, userId, body.story_id);
+      return await voiceStory(service, userId, body.story_id, free);
     } catch (e) {
       console.error('story audio', e);
       return json({ error: e instanceof Error ? e.message : String(e) }, 502);

@@ -1917,3 +1917,26 @@ textarea.field-input {
   align-items: center;
   gap: var(--space-9);
 }
+
+/* Profile: memory hint languages (decision 211). */
+.hint-langs {
+  display: grid;
+  gap: var(--space-5);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.hint-langs .story-english-toggle {
+  margin-top: 0;
+}
+
+.hint-langs p,
+.hint-langs legend {
+  margin: 0;
+  padding: 0;
+}
+
+.family-learned {
+  color: var(--green-600);
+}

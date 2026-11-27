@@ -23,7 +23,7 @@ import { EmailSignIn } from './EmailSignIn';
 import { FeedbackPanel } from './FeedbackPanel';
 import { APP_VERSION } from '../data/feedback';
 import { PhonePanel } from './PhonePanel';
-import { SchedulerSelect, SpeedSelect, ThemeSelect } from './SpeedButton';
+import { HintLanguageChecks, SchedulerSelect, SpeedSelect, ThemeSelect } from './SpeedButton';
 import { DebugSwitch } from './DebugMode';
 import { downloadProgress } from '../data/backup';
 import { waitInWords } from './cardText';
@@ -152,6 +152,7 @@ function Progress() {
           Slows down every word, phrase and story you hear, without changing the voice. Stories also
           have a Speed button. Kept on this device.
         </p>
+        <HintLanguageChecks />
         <BackupButton />
         <DebugSwitch />
       </section>

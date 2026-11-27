@@ -50,17 +50,27 @@ describe('word shapes (decision 208)', () => {
     ).toBe('prefix:kw stem:ig ending:a');
   });
 
-  it('finds words with the same stem, or one that starts with it', () => {
+  it('finds words with the same stem, or a noun made from a verb’s stem', () => {
     const items = [
-      { id: 'umuntu', stem: 'ntu' },
-      { id: 'ikintu', stem: 'ntu' },
-      { id: 'gukina', stem: 'kin' },
-      { id: 'umukinnyi', stem: 'kinnyi' },
-      { id: 'inka', stem: 'ka' },
+      { id: 'umuntu', stem: 'ntu', isVerb: false },
+      { id: 'ahantu', stem: 'ntu', isVerb: false },
+      { id: 'gukina', stem: 'kin', isVerb: true },
+      { id: 'umukinnyi', stem: 'kinnyi', isVerb: false },
+      { id: 'umukino', stem: 'kino', isVerb: false },
+      { id: 'inka', stem: 'ka', isVerb: false },
+      { id: 'kuguruka', stem: 'guruk', isVerb: true },
+      { id: 'kugura', stem: 'gur', isVerb: true },
+      { id: 'ukuguru', stem: 'guru', isVerb: false },
     ];
-    expect(relatedByStem('ntu', 'umuntu', items).map((i) => i.id)).toEqual(['ikintu']);
-    expect(relatedByStem('kin', 'gukina', items).map((i) => i.id)).toEqual(['umukinnyi']);
-    expect(relatedByStem('kinnyi', 'umukinnyi', items).map((i) => i.id)).toEqual(['gukina']);
-    expect(relatedByStem('ka', 'inka', items)).toEqual([]);
+    const ids = (stem: string, id: string, isVerb = false) =>
+      relatedByStem(stem, { id, isVerb }, items).map((i) => i.id);
+    expect(ids('ntu', 'umuntu')).toEqual(['ahantu']);
+    expect(ids('kin', 'gukina', true)).toEqual(['umukinnyi', 'umukino']);
+    expect(ids('kinnyi', 'umukinnyi')).toEqual(['gukina']);
+    expect(ids('ka', 'inka')).toEqual([]);
+    // Learner feedback, 27 November: none of these are one family.
+    expect(ids('guruk', 'kuguruka', true)).toEqual([]);
+    expect(ids('gur', 'kugura', true)).toEqual([]);
+    expect(ids('guru', 'ukuguru')).toEqual([]);
   });
 });

@@ -70,14 +70,42 @@ export function ReportMistake({
   );
 }
 
+/** Sends a re-record request for a form; the outcome is kept (audioChecks.ts). */
+async function sendRerecord(formId: string): Promise<void> {
+  const r = await requestRerecord(formId);
+  setRerecordRequest(
+    formId,
+    !r.queued
+      ? 'Re-record requested; an admin will check it'
+      : r.waiting === undefined
+        ? 'Re-recorded with the queue'
+        : `Queued for re-recording (${r.waiting} of ${r.batch ?? 15})`,
+  );
+}
+
 /**
- * Under a card with audio, front and back (decisions 205 and 207): say whether the recording
- * sounds right, which turns its play button green, or wrong, which turns it red and stops the
- * clip playing by itself; or ask for it to be made again.
+ * Under a card with audio, front and back (decisions 205, 207 and 211): say whether the
+ * recording sounds right, which turns its play button green, or wrong, which turns it red,
+ * stops the clip playing by itself and asks for it to be made again, in the same tap; or just
+ * ask for it to be made again.
  */
 export function AudioCheck({ form }: { form: ItemForm }) {
   const check = useSyncExternalStore(onAudioChecks, () => audioCheckOf(form.id));
+  const sent = useSyncExternalStore(onAudioChecks, () => rerecordRequest(form.id));
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
   if (!form.audio_path) return null;
+  const rerecord = async () => {
+    setBusy(true);
+    setFailed(null);
+    try {
+      await sendRerecord(form.id);
+    } catch (e) {
+      setFailed(`Couldn’t send the re-record request: ${errorText(e)}`);
+    } finally {
+      setBusy(false);
+    }
+  };
   const undo = (
     <button
       type="button"
@@ -112,54 +140,28 @@ export function AudioCheck({ form }: { form: ItemForm }) {
           <button
             type="button"
             className="report-link body-small"
-            onClick={() => setAudioCheck(form.id, 'wrong')}
+            onClick={() => {
+              setAudioCheck(form.id, 'wrong');
+              if (!sent && !busy) void rerecord();
+            }}
           >
             Sounds wrong
           </button>
         </>
       )}
-      <RerecordLink form={form} />
+      {/* A request sent earlier stays shown at the card's next review (learner feedback). */}
+      <button
+        type="button"
+        className="report-link body-small"
+        disabled={busy || sent !== null}
+        onClick={() => void rerecord()}
+      >
+        {busy
+          ? 'Sending…'
+          : (sent ?? (failed ? 'Try the re-record request again' : 'Re-record audio'))}
+      </button>
+      {failed && !sent ? <span role="alert">{failed}</span> : null}
     </div>
-  );
-}
-
-/**
- * Asks for the card's audio to be made again (decision 175). An admin's request joins the
- * re-record queue, recorded once 15 wait; anyone else's waits for an admin to approve it.
- */
-function RerecordLink({ form }: { form: ItemForm }) {
-  // A request sent earlier stays shown at the card's next review (learner feedback, 27 November).
-  const sent = useSyncExternalStore(onAudioChecks, () => rerecordRequest(form.id));
-  const [failed, setFailed] = useState<string | null>(null);
-  const state = sent ?? failed;
-  const [busy, setBusy] = useState(false);
-  const ask = async () => {
-    setBusy(true);
-    try {
-      const r = await requestRerecord(form.id);
-      setRerecordRequest(
-        form.id,
-        !r.queued
-          ? 'Re-record requested; an admin will check it'
-          : r.waiting === undefined
-            ? 'Re-recorded with the queue'
-            : `Queued for re-recording (${r.waiting} of ${r.batch ?? 15})`,
-      );
-    } catch (e) {
-      setFailed(`Couldn’t send: ${errorText(e)}`);
-    } finally {
-      setBusy(false);
-    }
-  };
-  return (
-    <button
-      type="button"
-      className="report-link body-small"
-      disabled={busy || sent !== null}
-      onClick={() => void ask()}
-    >
-      {busy ? 'Sending…' : (state ?? 'Re-record audio')}
-    </button>
   );
 }
 

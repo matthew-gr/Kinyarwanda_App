@@ -34,15 +34,18 @@ async function seedDue(page: Page, bases: string[], dueIds?: string[]): Promise<
   );
 }
 
-test('A noun’s back shows its class prefix in colour, and its stem lists words that share it', async ({
+test('A noun’s back shows its class prefix in colour, its family, and memory hints', async ({
   page,
 }) => {
   await page.goto('/');
   await expect(page.locator('button.kn-practice', { hasText: 'Review' })).toContainText(
     'Opens when you learn your first word',
   );
-  // umuntu is due; ahantu is learned and shares the stem -ntu-, as ubuntu does.
-  await seedDue(page, ['umuntu', 'ahantu'], ['umuntu']);
+  // Swahili hints on (decision 211).
+  await page.goto('/profile');
+  await page.getByRole('checkbox', { name: 'Swahili' }).check();
+  // umuntu is due; ubuntu, of its family, is learned. ahantu shares the stem by chance only.
+  await seedDue(page, ['umuntu', 'ubuntu', 'ahantu'], ['umuntu']);
   await page.goto('/review');
   await page.getByRole('button', { name: /Tap to reveal meaning/ }).click();
 
@@ -53,6 +56,12 @@ test('A noun’s back shows its class prefix in colour, and its stem lists words
   const panel = page.locator('.stem-panel');
   await expect(panel).toContainText('Stem -ntu-');
   await expect(panel).toContainText(/is the prefix of noun class [12]: people/);
-  await expect(panel.getByRole('listitem')).toContainText(['ahantu: place']);
-  await expect(panel).toContainText('And 1 more in the course to learn.');
+  await expect(panel.getByRole('listitem').first()).toContainText(/^ubuntu: .* ✓ learned$/);
+  await expect(panel).not.toContainText('ahantu');
+  await expect(panel).toContainText('Swahili mtu');
+  // The same panel opens from About this word, and closes again.
+  await page.getByRole('button', { name: '💡 About this word' }).click();
+  await expect(panel).toHaveCount(0);
+  await page.getByRole('button', { name: '💡 About this word' }).click();
+  await expect(panel).toContainText('Same family');
 });

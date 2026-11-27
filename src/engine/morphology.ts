@@ -198,21 +198,37 @@ export function itemStem(base: string, wordType: ShapeInput['wordType'], nounCla
 }
 
 /**
- * Other items that share a stem: the same stem, or, for a stem of 3 letters or more, one that
- * starts with it (gukina and umukinnyi, -kin- and -kinnyi). Stems of 1 letter match nothing.
+ * Endings that make a noun from a verb's stem: -o (gukina, umukino; gusoma, isomo), -nyi
+ * (umukinnyi), -ero and -iro (gusenga, urusengero), -zi. One letter changed is not enough: -u
+ * would make kugura (to buy) and ukuguru (leg) one family (learner feedback, 27 November).
  */
-export function relatedByStem<T extends { id: string; stem: string | null }>(
+const NOUN_FROM_VERB = ['o', 'nyi', 'ero', 'iro', 'zi'];
+
+export interface StemRef {
+  id: string;
+  stem: string | null;
+  isVerb: boolean;
+}
+
+/**
+ * Other items that share a stem (decision 211): the same stem of 3 letters or more, or a verb's
+ * stem and a noun made from it with one of NOUN_FROM_VERB's endings. Shorter stems (-ka of inka,
+ * -zi of amazi) match too much by chance to say anything.
+ */
+export function relatedByStem<T extends StemRef>(
   stem: string,
-  selfId: string,
+  self: { id: string; isVerb: boolean },
   items: readonly T[],
 ): T[] {
-  if (stem.length < 2) return [];
+  if (stem.length < 3) return [];
+  const derived = (verbStem: string, nounStem: string) =>
+    NOUN_FROM_VERB.some((end) => nounStem === verbStem + end);
   return items.filter(
     (i) =>
-      i.id !== selfId &&
+      i.id !== self.id &&
       i.stem !== null &&
       (i.stem === stem ||
-        (stem.length >= 3 && i.stem.startsWith(stem)) ||
-        (i.stem.length >= 3 && stem.startsWith(i.stem))),
+        (self.isVerb && !i.isVerb && derived(stem, i.stem)) ||
+        (!self.isVerb && i.isVerb && derived(i.stem, stem))),
   );
 }

@@ -39,6 +39,7 @@ import { WordForm } from './MyWords';
 import { waitInWords } from './cardText';
 import { playThen } from './drillTime';
 import { useProgressVersion } from './useProgressVersion';
+import { useAdmin } from './admin/useAdmin';
 
 /** Hold a word this long to add it to Learn without opening its meaning. */
 const LONG_PRESS_MS = 550;
@@ -238,6 +239,16 @@ function sentenceAt(s: StoryRow, fraction: number): number {
 export function StoryReader() {
   const navigate = useNavigate();
   const { id = '' } = useParams();
+  const admin = useAdmin();
+  // In debug mode an admin chooses a free or a paid call to Pindo (decision 211).
+  const [pindoChoice, setPindoChoice] = useState<((c: PindoCall | null) => void) | null>(null);
+  const askPindo = () =>
+    new Promise<PindoCall | null>((resolve) =>
+      setPindoChoice(() => (c: PindoCall | null) => {
+        setPindoChoice(null);
+        resolve(c);
+      }),
+    );
   const [story, setStory] = useState<StoryRow | null | undefined>(undefined);
   const [english, setEnglish] = useState(false);
   const [playing, setPlaying] = useState<number | null>(null);
@@ -382,16 +393,22 @@ export function StoryReader() {
       play(0, true);
       return;
     }
-    if (
-      getDebugMode() &&
-      !window.confirm(
-        `Making this story's audio sends one request to Pindo. Cost: about ${dollars(PINDO_REQUEST_USD)}. Make it?`,
+    let free = false;
+    if (getDebugMode()) {
+      if (admin) {
+        const call = await askPindo();
+        if (!call) return;
+        free = call === 'free';
+      } else if (
+        !window.confirm(
+          `Making this story's audio sends one request to Pindo. Cost: about ${dollars(PINDO_REQUEST_USD)}. Make it?`,
+        )
       )
-    )
-      return;
+        return;
+    }
     setVoicing(true);
     setNotice('');
-    const got = await requestStoryAudio(story.id);
+    const got = await requestStoryAudio(story.id, { free });
     setVoicing(false);
     if ('message' in got) {
       setNotice(got.message);
@@ -448,6 +465,7 @@ export function StoryReader() {
 
   return (
     <main className="screen screen-learn screen-stories">
+      {pindoChoice ? <PindoChoice onChoose={pindoChoice} /> : null}
       <AppBar title="Stories" onBack={() => navigate('/stories')} backLabel="Back to Stories" />
       <header className="story-head">
         <h2 className="h2-bold" lang="rw">
@@ -884,5 +902,48 @@ function Finish({ story, onChange }: { story: StoryRow; onChange: (s: StoryRow) 
         </>
       )}
     </section>
+  );
+}
+
+type PindoCall = 'free' | 'paid';
+
+/**
+ * Debug mode, for an admin: the cost of a Pindo request, and whether to make it as a free call
+ * to Pindo's public endpoint (capped per day, meant for trying things out) or a paid one
+ * (decision 211; learner feedback of 27 November).
+ */
+function PindoChoice({ onChoose }: { onChoose: (c: PindoCall | null) => void }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const d = dialog.current;
+    if (d && !d.open) d.showModal();
+  }, []);
+  return (
+    <dialog
+      ref={dialog}
+      className="freeze-dialog"
+      aria-labelledby="pindo-choice"
+      onCancel={() => onChoose(null)}
+    >
+      <div className="form">
+        <h2 id="pindo-choice" className="h3-bold">
+          Make the story’s audio?
+        </h2>
+        <p className="body">
+          This sends one request to Pindo. A paid call costs about {dollars(PINDO_REQUEST_USD)}. A
+          free call uses Pindo’s public endpoint instead: it costs nothing, but it is limited each
+          day and meant for trying things out.
+        </p>
+        <button type="button" className="btn btn-primary" onClick={() => onChoose('free')}>
+          Free call
+        </button>
+        <button type="button" className="btn btn-missed" onClick={() => onChoose('paid')}>
+          Paid call ({dollars(PINDO_REQUEST_USD)})
+        </button>
+        <button type="button" className="report-link body-small" onClick={() => onChoose(null)}>
+          Cancel
+        </button>
+      </div>
+    </dialog>
   );
 }

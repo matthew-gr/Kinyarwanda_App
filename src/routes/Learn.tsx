@@ -22,7 +22,8 @@ import type { AnswerResult, Deck } from '../engine/learn';
 import type { Item, ItemForm } from '../engine/types';
 import { placeLabel } from '../engine/vocabulary';
 import { AudioCheck, CardNotes, CardPicture, ReportMistake } from './CardExtras';
-import { StemPanel, WordParts } from './WordParts';
+import { hasWordNotes } from '../data/stems';
+import { WordNotesPanel, WordParts } from './WordParts';
 import { audioCheckOf, audioChecksVersion, isAudioWrong, onAudioChecks } from '../data/audioChecks';
 import {
   dictionaryLine,
@@ -444,7 +445,7 @@ function CardArea({
           />
         </FlashcardDeck>
       </div>
-      {stemOpen && shape ? <StemPanel item={item} shape={shape} /> : null}
+      {stemOpen ? <WordNotesPanel item={item} shape={shape} /> : null}
 
       <p className="sr-only" aria-live="polite">
         {flipped ? `Meaning: ${form.en}` : ''}
@@ -487,6 +488,16 @@ function CardArea({
             </button>
           </div>
         )}
+        {(isIntro || flipped) && (shape || hasWordNotes(item)) ? (
+          <button
+            type="button"
+            className="report-link body-small"
+            aria-expanded={stemOpen}
+            onClick={() => setStemOf(stemOpen ? null : stemKey)}
+          >
+            💡 About this word
+          </button>
+        ) : null}
         {!isMyWord(item) ? <AudioCheck form={form} /> : null}
         {(isIntro || flipped) && !isMyWord(item) ? (
           <ReportMistake item={item} form={form} module="learn" />

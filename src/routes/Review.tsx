@@ -28,7 +28,8 @@ import {
   waitInWords,
 } from './cardText';
 import { FreezeLine } from './FreezeLine';
-import { StemPanel, WordParts } from './WordParts';
+import { hasWordNotes } from '../data/stems';
+import { WordNotesPanel, WordParts } from './WordParts';
 import { RoundWall } from './RoundWall';
 import { useProgressVersion } from './useProgressVersion';
 
@@ -452,7 +453,7 @@ function ReviewCardArea({
           />
         </FlashcardDeck>
       </div>
-      {stemOpen && shape ? <StemPanel item={item} shape={shape} /> : null}
+      {stemOpen ? <WordNotesPanel item={item} shape={shape} /> : null}
 
       <p className="sr-only" aria-live="polite">
         {flipped ? `Meaning: ${form.en}` : ''}
@@ -489,6 +490,16 @@ function ReviewCardArea({
             </button>
           </div>
         )}
+        {flipped && (shape || hasWordNotes(item)) ? (
+          <button
+            type="button"
+            className="report-link body-small"
+            aria-expanded={stemOpen}
+            onClick={() => setStemOf(stemOpen ? null : card.cardViewId)}
+          >
+            💡 About this word
+          </button>
+        ) : null}
         {item.source !== 'learner' ? <AudioCheck form={form} /> : null}
         {flipped && item.source !== 'learner' ? (
           <ReportMistake item={item} form={form} module="review" />

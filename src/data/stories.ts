@@ -162,6 +162,8 @@ export async function newStory(
  */
 export async function requestStoryAudio(
   id: string,
+  /** `free`: Pindo's public endpoint, for an admin in debug mode (decision 211). */
+  opts: { free?: boolean } = {},
   d: KinyaDb = db,
 ): Promise<{ story: StoryRow } | { message: string }> {
   if (!supabase) return { message: 'Audio needs a connection to the server.' };
@@ -169,7 +171,9 @@ export async function requestStoryAudio(
     const { data, error } = await supabase.functions.invoke<{
       story?: Omit<StoryRow, 'dirty'>;
       pending?: boolean;
-    }>('generate-story', { body: { action: 'voice', story_id: id } });
+    }>('generate-story', {
+      body: { action: 'voice', story_id: id, ...(opts.free ? { free: true } : {}) },
+    });
     if (error) {
       const ctx = (error as { context?: Response } | null)?.context;
       const said =

@@ -3,6 +3,7 @@ import { switchScheduler } from '../data/applyProgress';
 import { getScheduler, onScheduler } from '../data/scheduler';
 import type { SchedulerKind } from '../engine/schedule';
 import { getTheme, onTheme, setTheme, type Theme } from '../data/theme';
+import { getHintLanguages, onHintLanguages, setHintLanguage } from '../data/hintLanguages';
 import {
   AUDIO_SPEEDS,
   getAudioSpeed,
@@ -92,5 +93,35 @@ export function SchedulerSelect({ className }: { className?: string }) {
       <option value="ladder">Stages (5 minutes up to a year)</option>
       <option value="fsrs">FSRS, as in Anki</option>
     </select>
+  );
+}
+
+/** Memory hints in Swahili and German too, for Profile's settings (decision 211). */
+export function HintLanguageChecks() {
+  const langs = useSyncExternalStore(onHintLanguages, getHintLanguages, getHintLanguages);
+  return (
+    <fieldset className="hint-langs">
+      <legend className="body-bold">Memory hints</legend>
+      <p className="body-small">
+        Under a card, About this word links it to English words. It can also link to words you know
+        in:
+      </p>
+      <label className="story-english-toggle body">
+        <input
+          type="checkbox"
+          checked={langs.sw}
+          onChange={(e) => setHintLanguage('sw', e.target.checked)}
+        />
+        Swahili
+      </label>
+      <label className="story-english-toggle body">
+        <input
+          type="checkbox"
+          checked={langs.de}
+          onChange={(e) => setHintLanguage('de', e.target.checked)}
+        />
+        German
+      </label>
+    </fieldset>
   );
 }

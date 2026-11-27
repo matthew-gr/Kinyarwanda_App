@@ -17,7 +17,16 @@ export type Voice =
       stress?: boolean;
     }
   /** Pindo's Kinyarwanda voice. Without the PINDO_TOKEN secret it uses the public endpoint. */
-  | { provider: 'pindo'; speech_rate?: number; label: string };
+  | {
+      provider: 'pindo';
+      speech_rate?: number;
+      label: string;
+      /**
+       * Use Pindo's free public endpoint, without the token (decision 211): only for an admin
+       * who chose a free call in debug mode. It is capped per day and meant for trying things.
+       */
+      free?: boolean;
+    };
 
 /** Voices that read Kinyarwanda as written. */
 export const readsKinyarwanda = (v: Pick<Voice, 'provider'>) => v.provider === 'pindo';
@@ -117,7 +126,7 @@ async function speakPindo(
   text: string,
   count: Count,
 ): Promise<{ bytes: Uint8Array; type: string }> {
-  const token = env('PINDO_TOKEN');
+  const token = voice.free ? '' : env('PINDO_TOKEN');
   // Only an answered request is billed; Pindo doesn't charge for its server errors.
   const ask = async (t: string) => {
     const res = await fetch(`https://api.pindo.io/ai/tts/rw${token ? '' : '/public'}`, {

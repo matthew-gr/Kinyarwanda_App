@@ -11,6 +11,15 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '0.14.0',
+    date: '2026-11-27',
+    changes: [
+      'Fixed: a word’s stem listed unrelated words that only looked alike. It now shows its real family, like gukina, umukino and umukinnyi.',
+      'About this word, under a card: its family, and memory hints in English, and in Swahili or German if you choose them in Profile.',
+      'Sounds wrong now asks for the recording to be made again, in the same tap.',
+    ],
+  },
+  {
     version: '0.13.0',
     date: '2026-11-27',
     changes: [
