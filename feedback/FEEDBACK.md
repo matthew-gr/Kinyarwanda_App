@@ -204,3 +204,10 @@ message. Every message is also kept in the `feedback` table in Supabase.
 <!-- feedback:18d99bb9-e073-4e55-9da0-18baa750e734 -->
 
 > Marking the recording as wrong and reporting it for re-recording should happen with the same click. It is two clicks now.
+
+### 2026-11-27 13:35 UTC · General · 0.11.0+c065618
+<!-- feedback:e1b3cf0e-4241-44a7-a20f-1f22beeb55f0 -->
+
+> On verb had this hint: "Stem -guruk-; The stem of the verb kuguruka, which its other forms are built on.; Words you’ve learned with it:; kugura: to buy; ukuguru: leg, foot" I replaced line breaks with semicolons. Are you sure that these words have the same stem? If not, fix this and other words' hints.
+>
+> Try to find memorization hints for each word's stem and add them to this description. For example, by finding similarities to English words and building a sentence that connects this similar word to the meaning of the Kinyarwanda word. Let the user in his profile toggle if he speaks Swahili and German. If so, add hints that do the same in these languages, if possible.
