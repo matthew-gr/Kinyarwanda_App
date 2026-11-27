@@ -176,3 +176,8 @@ message. Every message is also kept in the `feedback` table in Supabase.
 > Generate images for words without emojies.
 >
 > Implement a reminder to take a break after a reasonable amount of time to maximize learning speed.
+
+### 2026-11-27 11:07 UTC · Verb Builder · 0.8.0+15cd245
+<!-- feedback:6e395d87-dc5f-42e2-9b8d-f642340a83ad -->
+
+> Most of the time, the verb builder prompts me to build words that I have already mastered. This makes it slow to get from 93 to 96 mastered words. Prompt the words that have not been mastered yet more often.
