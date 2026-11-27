@@ -97,3 +97,8 @@ message. Every message is also kept in the `feedback` table in Supabase.
 <!-- feedback:b284c792-568d-4d86-b6cf-83ac25c9fcec -->
 
 > Vizualize the progress on the finish screen as a wall that builds up. Each round is a square block. They build up from bottom to top, left to right. 5 blocks per row. Their color shows the accuracy. Green = 100 %, Yellow = 50 %, Red = 0 %. Interpolate colors. On top of the colored blocks, dark grey blocks show predicted upcoming review rounds until no more reviews are due, taking into account scheduled reviews, current review speed, and current accuracy. On top of the dark grey blocks, light grey blocks show reviews that are scheduled for later today but will probably not be reached in this session. Therefore, the colored blocks first "fill up" the dark grey blocks, then the light grey blocks. Hovering over a colored block reveals the accuracy, missed words, and their translations.
+
+### 2026-11-27 07:43 UTC · Learn · 0.4.0+1d8a852
+<!-- feedback:5aa066c1-0d77-4c28-8f49-0af8b7932714 -->
+
+> Add emojies at the back of cards. Preferably only one that relates to the stem.
