@@ -199,3 +199,8 @@ message. Every message is also kept in the `feedback` table in Supabase.
 <!-- feedback:8433ff05-88cd-44b8-8f34-9615ee9cfa6b -->
 
 > Does Pindo allow to use their free API if there is only one active user for this app who develops it? If so, and if debug mode is turned on, ask the user every time when he wants to query their API if he wants to make a paid or a free call. You can do this on the same screen that informs the user about the cost that is about to occur.
+
+### 2026-11-27 12:59 UTC · General · 0.10.0+1f4eba2
+<!-- feedback:18d99bb9-e073-4e55-9da0-18baa750e734 -->
+
+> Marking the recording as wrong and reporting it for re-recording should happen with the same click. It is two clicks now.
