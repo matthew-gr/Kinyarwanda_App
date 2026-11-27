@@ -117,3 +117,12 @@ message. Every message is also kept in the `feedback` table in Supabase.
 <!-- feedback:782711ba-4fba-4c24-9e03-2d95daab5689 -->
 
 > On the back side of cards, add an explanation that pops up on hover/click that tells the user how to memorize the word faster. For example, by mentioning words that have the same or similar stem and a similar or different meaning. For example, I wonder why the word for hospital "ibitaro" is plural and which other words have "taro".
+
+### 2026-11-27 09:23 UTC · Review · 0.5.0+0ec655f
+<!-- feedback:46ddf8c1-af92-46ab-94f5-908684ad1b89 -->
+
+> Only allow review if at least 20 cards need to be reviewed unless less than 20 cards are scheduled for the rest of the day.
+>
+> Horizontally center the wall of 5 times x blocks on the screen.
+>
+> For each block, show the missed words in the exact same form as they have been missed.
