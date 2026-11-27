@@ -201,6 +201,12 @@ export function Home() {
       meta: 'igitabo, ibitabo',
       onClick: () => navigate('/drills/classes'),
     },
+    {
+      title: 'Word Families',
+      description: 'Words that grow from one stem, among look-alikes.',
+      meta: 'gukina, umukino',
+      onClick: () => navigate('/drills/families'),
+    },
   ];
 
   return (
@@ -233,7 +239,7 @@ export function Home() {
           label="Today's goal"
         />
       </HeroBanner>
-      <SectionHeader title="Modules" subtitle="Nine ways to practise" />
+      <SectionHeader title="Modules" subtitle="Ten ways to practise" />
       <ModuleCarousel cards={modules} />
       <SectionHeader title="Practice" subtitle="Start where you left off" />
       <div className="rows">

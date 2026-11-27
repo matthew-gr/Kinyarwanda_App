@@ -382,6 +382,12 @@ Prompt 2 was written from the product spec's Module 2 section; the build plan na
     - **Opens** once 8 nouns are learned; about 1,060 of the course's 1,214 nouns can be asked about. On Home it is the ninth module.
     - **Not logged**, like Sound Pairs: practice only, no cost.
 
+213. **Learn blocks shaded by accuracy, and Word Families** (Jonathan, 27 November 2026; learner feedback of 27 November). Version 0.16.0.
+    - **Learn blocks on the wall** are blue only when all 20 answers were right and red when none were, through purple in between (hue 360 − 148 × share), so they never look like Review's red-yellow-green blocks.
+    - **Word Families**, the tenth module: a learned word and four words; one is from its family (decision 211's hand-picked families), the others only look alike. Ten questions about different families; after each, the whole family with its meanings and its note. Opens once 5 families have a learned word (`src/engine/families.ts`).
+    - **Wrong options** have a stem starting with the same two letters as the family's (gusobanura and gusokoza for gusoma), then the same first letter. Never one whose stem shares the family stem's first three letters, or is the start of one: a first try offered umukoresha (employer) and igikorwa (deed) for gukora, which are from gukora too though not in its listed family, making three right answers. Families are AI drafts, so a wrong option could still be a relative the lists miss.
+    - **Not logged**: practice only, no cost.
+
 ## Planned later
 
 - **Words 1,501 to 2,000** (Matt, 5 November 2026): the rest of Common 2000, next after decisions 185 to 187.

@@ -206,7 +206,7 @@ function LearnDeck({ deck }: { deck: Deck }) {
           text: `Learned. Back for review in ${waitInWords(out.graduated.reviewDueAt - Date.now())}.`,
           id: Date.now(),
         });
-      // Every 20 answers make a batch, a blue block on today's wall (decision 204).
+      // Every 20 answers make a batch, a block on today's wall (decisions 204 and 213).
       if (shown && recordLearnAnswer(result, shown, Date.now())) setBatchDone(true);
       setView(session.view());
     },
@@ -251,7 +251,8 @@ function LearnDeck({ deck }: { deck: Deck }) {
             Batch done
           </h2>
           <p className="body">
-            {LEARN_BATCH} answers. Each batch adds a blue block to today&rsquo;s wall.
+            {LEARN_BATCH} answers. Each batch adds a block to today&rsquo;s wall: blue when every
+            answer was right, red when none was.
           </p>
           <RoundWall blocks={wallToday(Date.now())} />
           <div className="round-actions">

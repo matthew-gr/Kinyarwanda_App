@@ -11,6 +11,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '0.16.0',
+    date: '2026-11-27',
+    changes: [
+      'Learn blocks on the wall show how a batch went: blue when every answer was right, red when none was, purple in between.',
+      'Word Families: pick the word that grows from the same stem as one you know, like gukina and umukino, among words that only look alike.',
+    ],
+  },
+  {
     version: '0.15.0',
     date: '2026-11-27',
     changes: [

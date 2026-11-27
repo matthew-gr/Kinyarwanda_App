@@ -1,8 +1,8 @@
 // Today's wall (decisions 202 and 204, learner feedback of 27 November): one block per Review
 // round and per batch of 20 Learn answers, five to a row, built up from the bottom left. A Review
-// block's colour is its share known, from red (0%) through yellow (50%) to green (100%); Learn
-// blocks are blue. Tapping a block shows how it went and the words missed; tapping a gray one, the
-// rounds still to come.
+// block's colour is its share known, from red (0%) through yellow (50%) to green (100%); a Learn
+// block's goes from red (0%) through purple to blue (100%). Tapping a block shows how it went
+// and the words missed; tapping a gray one, the rounds still to come.
 
 import { useState, type PointerEvent } from 'react';
 import type { WallBlock } from '../data/wall';
@@ -11,7 +11,11 @@ import type { Forecast } from '../engine/rounds';
 /** Red at 0%, yellow at 50%, green at 100%, in between for the rest. */
 const accuracyColour = (share: number) => `hsl(${Math.round(120 * share)} 62% 46%)`;
 
-const LEARN_COLOUR = 'hsl(212 70% 52%)';
+/**
+ * A Learn batch: blue when every answer was right, red when none was, through purple in
+ * between, so Learn blocks never look like Review ones (learner feedback, 27 November).
+ */
+const learnColour = (share: number) => `hsl(${Math.round(360 - 148 * share)} 66% 50%)`;
 
 /** A cell of the wall: a finished block, or a predicted round still to come. */
 type Cell = { block: number } | { predicted: 'soon' | 'later' };
@@ -93,7 +97,7 @@ export function RoundWall({ blocks, forecast }: { blocks: WallBlock[]; forecast?
                   style={{
                     background:
                       b.kind === 'learn'
-                        ? LEARN_COLOUR
+                        ? learnColour(b.done ? b.known / b.done : 0)
                         : accuracyColour(b.done ? b.known / b.done : 0),
                   }}
                   {...props(cell, say(b, i))}

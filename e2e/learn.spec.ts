@@ -81,7 +81,9 @@ test('Keyboard: Space flips, arrows grade', async ({ page }) => {
   await expect(page.getByText('4 of 8 in play')).toBeVisible();
 });
 
-test('Learn comes in batches of 20 answers, each a blue block on the wall', async ({ page }) => {
+test('Learn comes in batches of 20 answers, each a block on the wall, blue when all were right', async ({
+  page,
+}) => {
   test.setTimeout(120_000);
   await page.goto('/');
   await page.getByRole('button', { name: /^Words/ }).click();
@@ -91,6 +93,8 @@ test('Learn comes in batches of 20 answers, each a blue block on the wall', asyn
   const wall = page.getByRole('group', { name: 'Today’s rounds' });
   await expect(wall.getByRole('button')).toHaveCount(1);
   await expect(wall.getByRole('button')).toHaveAccessibleName('Learn batch 1: 20 of 20 right');
+  // All right: blue (decision 213).
+  await expect(wall.getByRole('button')).toHaveCSS('background-color', 'rgb(43, 122, 212)');
   await page.getByRole('button', { name: 'Another batch' }).click();
   await expect(page.getByRole('button', { name: /Tap to reveal meaning|^Next$/ })).toBeVisible();
 });
